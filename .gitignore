@@ -3,3 +3,10 @@
 
 # Ignore Gradle build output directory
 build
+.idea
+.bloop
+.metals
+.settings
+bin
+.project
+.classpath
