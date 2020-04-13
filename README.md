@@ -1,2 +1,2 @@
 # scalag
-Run GPU computations with Scala, seamlessly 🚀
+Run GPGPU computations with Scala, seamlessly 🚀
