@@ -1,7 +1,9 @@
 package com.unihogsoft.scalag.vulkan;
 
 import com.unihogsoft.scalag.vulkan.core.DebugCallback;
+import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.core.Instance;
+import com.unihogsoft.scalag.vulkan.memory.Allocator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,9 +19,13 @@ public class Context {
 
     private Instance instance;
     private DebugCallback debugCallback;
+    private Device device;
+    private Allocator allocator;
 
     public Context() {
         instance = new Instance();
         debugCallback = new DebugCallback(instance);
+        device = new Device(instance);
+        allocator = new Allocator(instance, device);
     }
 }

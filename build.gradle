@@ -43,7 +43,10 @@ dependencies {
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
     implementation "org.lwjgl:lwjgl"
     implementation "org.lwjgl:lwjgl-vulkan"
+    implementation  "org.lwjgl:lwjgl-vma:${lwjglVersion}"
+    
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-vma:${lwjglVersion}:${lwjglNatives}"
     if (lwjglNatives == "natives-macos") runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
 
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'

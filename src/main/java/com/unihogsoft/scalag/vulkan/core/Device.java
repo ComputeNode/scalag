@@ -25,6 +25,7 @@ public class Device extends VulkanObject {
     private static final String[] DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME};
 
     private VkDevice device;
+
     private VkPhysicalDevice physicalDevice;
 
     private Instance instance;
@@ -134,7 +135,11 @@ public class Device extends VulkanObject {
         throw new AssertionError("No suitable queue family found for computing");
     }
 
-    public VkDevice get(){
+    public VkDevice get() {
         return device;
+    }
+
+    public VkPhysicalDevice getPhysicalDevice() {
+        return physicalDevice;
     }
 }
