@@ -2,20 +2,19 @@ package com.unihogsoft.scalag.vulkan.core;
 
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObject;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
-import org.lwjgl.vulkan.VkPhysicalDevice;
-import org.lwjgl.vulkan.VkPhysicalDeviceFeatures;
-import org.lwjgl.vulkan.VkPhysicalDeviceProperties;
-import org.lwjgl.vulkan.VkQueueFamilyProperties;
+import org.lwjgl.vulkan.*;
 
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
+import static com.unihogsoft.scalag.vulkan.Context.VALIDATION_LAYERS;
+import static com.unihogsoft.scalag.vulkan.Context.enableValidationLayers;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.memAllocInt;
-import static org.lwjgl.system.MemoryUtil.memFree;
+import static org.lwjgl.system.MemoryUtil.*;
+import static org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME;
+import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
 
 /**
@@ -23,7 +22,10 @@ import static org.lwjgl.vulkan.VK10.*;
  * Created 13.04.2020
  */
 public class Device extends VulkanObject {
+    private static final String[] DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME};
 
+    private VkDevice device;
+    private VkPhysicalDevice physicalDevice;
 
     private Instance instance;
 
@@ -51,13 +53,55 @@ public class Device extends VulkanObject {
                 throw new VulkanAssertionError("Failed to get physical devices", err);
             }
 
-            int queue = getBestCompute(new VkPhysicalDevice(pPhysicalDevices.get(), instance.get()));
+            physicalDevice = new VkPhysicalDevice(pPhysicalDevices.get(), instance.get());
+            int computeFamily = getBestCompute(physicalDevice);
+
+            FloatBuffer pQueuePriorities = stack.callocFloat(1).put(1.0f);
+            pQueuePriorities.flip();
+
+            VkDeviceQueueCreateInfo.Buffer pQueueCreateInfo = VkDeviceQueueCreateInfo.callocStack(1).put(
+                    VkDeviceQueueCreateInfo.callocStack()
+                            .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
+                            .pNext(0)
+                            .flags(0)
+                            .queueFamilyIndex(computeFamily)
+                            .pQueuePriorities(pQueuePriorities)
+            );
+
+            PointerBuffer ppExtensionNames = stack.callocPointer(DEVICE_EXTENSIONS.length);
+            for (String extension : DEVICE_EXTENSIONS) {
+                ppExtensionNames.put(stack.ASCII(extension));
+            }
+            ppExtensionNames.flip();
+
+            VkPhysicalDeviceFeatures deviceFeatures = VkPhysicalDeviceFeatures.callocStack();
+            VkDeviceCreateInfo pCreateInfo = VkDeviceCreateInfo.create()
+                    .sType(VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO)
+                    .pNext(NULL)
+                    .pQueueCreateInfos(pQueueCreateInfo)
+                    .pEnabledFeatures(deviceFeatures)
+                    .ppEnabledExtensionNames(ppExtensionNames);
+
+            if (enableValidationLayers) {
+                PointerBuffer ppValidationLayers = stack.callocPointer(VALIDATION_LAYERS.length);
+                for (String layer : VALIDATION_LAYERS) {
+                    ppValidationLayers.put(stack.ASCII(layer));
+                }
+                pCreateInfo.ppEnabledLayerNames(ppValidationLayers.flip());
+            }
+
+            PointerBuffer pDevice = stack.callocPointer(1);
+            err = vkCreateDevice(physicalDevice, pCreateInfo, null, pDevice);
+            if (err != VK_SUCCESS) {
+                throw new VulkanAssertionError("Failed to create device", err);
+            }
+            device = new VkDevice(pDevice.get(0), physicalDevice, pCreateInfo);
         }
     }
 
     @Override
     protected void close() {
-
+        vkDestroyDevice(device, null);
     }
 
     private int getBestCompute(VkPhysicalDevice physicalDevice) {
@@ -88,5 +132,9 @@ public class Device extends VulkanObject {
             }
         }
         throw new AssertionError("No suitable queue family found for computing");
+    }
+
+    public VkDevice get(){
+        return device;
     }
 }

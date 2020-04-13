@@ -12,6 +12,9 @@ import java.util.List;
  * Created 13.04.2020
  */
 public class Context {
+    public static final String[] VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
+    public static final boolean enableValidationLayers = true;
+
     private Instance instance;
     private DebugCallback debugCallback;
 
