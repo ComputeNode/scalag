@@ -17,7 +17,7 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 /**
  * @author MarconZet
  * Created 13.04.2020
- * Copied from wrap
+ * Copied from Wrap
  */
 public class Allocator extends VulkanObjectHandle {
 
