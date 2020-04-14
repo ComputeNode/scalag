@@ -1,6 +1,6 @@
-##Concept
+## Concept
 
-####Basic API
+#### Basic API
 ```scala
 object BasicApp extends App {
   
