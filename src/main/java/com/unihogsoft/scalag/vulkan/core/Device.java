@@ -29,6 +29,7 @@ public class Device extends VulkanObject {
     private VkPhysicalDevice physicalDevice;
 
     private Instance instance;
+    private int computeQueueFamily;
 
     public Device(Instance instance) {
         this.instance = instance;
@@ -55,7 +56,7 @@ public class Device extends VulkanObject {
             }
 
             physicalDevice = new VkPhysicalDevice(pPhysicalDevices.get(), instance.get());
-            int computeFamily = getBestCompute(physicalDevice);
+            computeQueueFamily = getBestCompute(physicalDevice);
 
             FloatBuffer pQueuePriorities = stack.callocFloat(1).put(1.0f);
             pQueuePriorities.flip();
@@ -65,7 +66,7 @@ public class Device extends VulkanObject {
                             .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
                             .pNext(0)
                             .flags(0)
-                            .queueFamilyIndex(computeFamily)
+                            .queueFamilyIndex(computeQueueFamily)
                             .pQueuePriorities(pQueuePriorities)
             );
 
@@ -141,5 +142,9 @@ public class Device extends VulkanObject {
 
     public VkPhysicalDevice getPhysicalDevice() {
         return physicalDevice;
+    }
+
+    public int getComputeQueueFamily() {
+        return computeQueueFamily;
     }
 }

@@ -1,5 +1,6 @@
 package com.unihogsoft.scalag.vulkan;
 
+import com.unihogsoft.scalag.vulkan.command.Queue;
 import com.unihogsoft.scalag.vulkan.core.DebugCallback;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.core.Instance;
@@ -21,11 +22,13 @@ public class Context {
     private DebugCallback debugCallback;
     private Device device;
     private Allocator allocator;
+    private Queue computeQueue;
 
     public Context() {
         instance = new Instance();
         debugCallback = new DebugCallback(instance);
         device = new Device(instance);
+        computeQueue = new Queue(device.getComputeQueueFamily(), 0, device);
         allocator = new Allocator(instance, device);
     }
 }
