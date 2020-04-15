@@ -40,6 +40,37 @@ public class Buffer extends VulkanObjectHandle {
         create();
     }
 
+    @Override
+    protected void init() {
+        try (MemoryStack stack = stackPush()) {
+            VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.callocStack()
+                    .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
+                    .pNext(NULL)
+                    .size(size)
+                    .usage(usage)
+                    .flags(0)
+                    .sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+
+            VmaAllocationCreateInfo allocInfo = VmaAllocationCreateInfo.callocStack()
+                    .usage(memUsage)
+                    .requiredFlags(flags);
+
+            LongBuffer pBuffer = stack.callocLong(1);
+            PointerBuffer pAllocation = stack.callocPointer(1);
+            int err = vmaCreateBuffer(allocator.get(), bufferInfo, allocInfo, pBuffer, pAllocation, null);
+            if (err != VK_SUCCESS) {
+                throw new VulkanAssertionError("Failed to create buffer", err);
+            }
+            handle = pBuffer.get();
+            allocation = pAllocation.get();
+        }
+    }
+
+    @Override
+    protected void close() {
+        vmaDestroyBuffer(allocator.get(), handle, allocation);
+    }
+
     public static void copyBuffer(ByteBuffer src, Buffer dst, long bytes) {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pData = stack.callocPointer(1);
@@ -64,37 +95,6 @@ public class Buffer extends VulkanObjectHandle {
             vkCmdCopyBuffer(commandBuffer, src.get(), dst.get(), copyRegion);
 
             return commandPool.endSingleTimeCommands(commandBuffer);
-        }
-    }
-
-    @Override
-    protected void close() {
-        vmaDestroyBuffer(allocator.get(), handle, allocation);
-    }
-
-    @Override
-    protected void init() {
-        try (MemoryStack stack = stackPush()) {
-            VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.callocStack()
-                    .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
-                    .pNext(NULL)
-                    .size(size)
-                    .usage(usage)
-                    .flags(0)
-                    .sharingMode(VK_SHARING_MODE_EXCLUSIVE);
-
-            VmaAllocationCreateInfo allocInfo = VmaAllocationCreateInfo.callocStack()
-                    .usage(memUsage)
-                    .requiredFlags(flags);
-
-            LongBuffer pBuffer = stack.callocLong(1);
-            PointerBuffer pAllocation = stack.callocPointer(1);
-            int err = vmaCreateBuffer(allocator.get(), bufferInfo, allocInfo, pBuffer, pAllocation, null);
-            if (err != VK_SUCCESS) {
-                throw new VulkanAssertionError("Failed to create buffer", err);
-            }
-            handle = pBuffer.get();
-            allocation = pAllocation.get();
         }
     }
 

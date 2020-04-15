@@ -58,7 +58,7 @@ public class MapPipeline extends VulkanObjectHandle {
                     .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
                     .pImmutableSamplers(null);
             descriptorSetLayoutBindings.get(1)
-                    .binding(1)
+                    .binding(0)
                     .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                     .descriptorCount(1)
                     .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
@@ -128,5 +128,9 @@ public class MapPipeline extends VulkanObjectHandle {
 
     public long getDescriptorSetLayout() {
         return descriptorSetLayout;
+    }
+
+    public long getPipelineLayout() {
+        return pipelineLayout;
     }
 }

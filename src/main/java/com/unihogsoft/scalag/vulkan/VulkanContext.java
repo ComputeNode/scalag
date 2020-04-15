@@ -1,6 +1,9 @@
 package com.unihogsoft.scalag.vulkan;
 
+import com.unihogsoft.scalag.vulkan.command.CommandPool;
+import com.unihogsoft.scalag.vulkan.command.OneTimeCommandPool;
 import com.unihogsoft.scalag.vulkan.command.Queue;
+import com.unihogsoft.scalag.vulkan.command.StandardCommandPool;
 import com.unihogsoft.scalag.vulkan.core.DebugCallback;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.core.Instance;
@@ -21,6 +24,7 @@ public class VulkanContext {
     private Allocator allocator;
     private Queue computeQueue;
     private DescriptorPool descriptorPool;
+    private CommandPool commandPool;
 
     public VulkanContext() {
         instance = new Instance();
@@ -29,5 +33,6 @@ public class VulkanContext {
         computeQueue = new Queue(device.getComputeQueueFamily(), 0, device);
         allocator = new Allocator(instance, device);
         descriptorPool = new DescriptorPool(device);
+        commandPool = new StandardCommandPool(device, computeQueue);
     }
 }

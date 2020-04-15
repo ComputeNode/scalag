@@ -16,12 +16,12 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 15.04.2020
  */
-public class MapDescriptorSet extends VulkanObjectHandle {
+public class DescriptorSet extends VulkanObjectHandle {
     private Device device;
     private MapPipeline pipeline;
     private DescriptorPool descriptorPool;
 
-    public MapDescriptorSet(Device device, MapPipeline pipeline, DescriptorPool descriptorPool) {
+    public DescriptorSet(Device device, MapPipeline pipeline, DescriptorPool descriptorPool) {
         this.device = device;
         this.pipeline = pipeline;
         this.descriptorPool = descriptorPool;
