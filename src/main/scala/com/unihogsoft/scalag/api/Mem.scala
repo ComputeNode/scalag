@@ -12,4 +12,4 @@ case class DirectMem(data: Array[Byte]) extends Mem {
   override def getBytes(): Array[Byte] = data
 }
 
-case class FloatMem(data: Array[Float]) extends DirectMem(BufferUtils)
+// case class FloatMem(data: Array[Float]) extends DirectMem(BufferUtils)
