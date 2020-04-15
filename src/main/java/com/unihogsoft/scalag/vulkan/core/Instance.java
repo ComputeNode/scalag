@@ -4,17 +4,15 @@ import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObject;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkApplicationInfo;
 import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkInstanceCreateInfo;
 
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
-import static com.unihogsoft.scalag.vulkan.Context.VALIDATION_LAYERS;
-import static com.unihogsoft.scalag.vulkan.Context.enableValidationLayers;
+import static com.unihogsoft.scalag.vulkan.VulkanContext.VALIDATION_LAYERS;
+import static com.unihogsoft.scalag.vulkan.VulkanContext.enableValidationLayers;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.system.MemoryUtil.memFree;

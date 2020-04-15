@@ -51,13 +51,13 @@ public class MapPipeline extends VulkanObjectHandle {
             shaderModule = pShaderModule.get();
 
             VkDescriptorSetLayoutBinding.Buffer descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.callocStack(2);
-            descriptorSetLayoutBindings.get(1)
+            descriptorSetLayoutBindings.get(0)
                     .binding(0)
                     .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                     .descriptorCount(1)
                     .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
                     .pImmutableSamplers(null);
-            descriptorSetLayoutBindings.get(2)
+            descriptorSetLayoutBindings.get(1)
                     .binding(1)
                     .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                     .descriptorCount(1)
@@ -124,5 +124,9 @@ public class MapPipeline extends VulkanObjectHandle {
         vkDestroyPipelineLayout(device.get(), pipelineLayout, null);
         vkDestroyShaderModule(device.get(), shaderModule, null);
         vkDestroyDescriptorSetLayout(device.get(), descriptorSetLayout, null);
+    }
+
+    public long getDescriptorSetLayout() {
+        return descriptorSetLayout;
     }
 }

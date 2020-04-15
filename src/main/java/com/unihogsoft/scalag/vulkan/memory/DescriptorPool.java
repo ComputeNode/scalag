@@ -4,7 +4,6 @@ import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDescriptorPoolCreateInfo;
 import org.lwjgl.vulkan.VkDescriptorPoolSize;
@@ -25,13 +24,18 @@ public class DescriptorPool extends VulkanObjectHandle {
 
     private Device device;
 
+    public DescriptorPool(Device device) {
+        this.device = device;
+        create();
+    }
+
     @Override
     protected void init() {
-        try(MemoryStack stack = stackPush()){
+        try (MemoryStack stack = stackPush()) {
             VkDescriptorPoolSize.Buffer descriptorPoolSize = VkDescriptorPoolSize.callocStack(1);
             descriptorPoolSize.get(0)
                     .type(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                    .descriptorCount(MAX_SETS);
+                    .descriptorCount(2*MAX_SETS);
 
             VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo.callocStack()
                     .maxSets(MAX_SETS)
@@ -39,7 +43,7 @@ public class DescriptorPool extends VulkanObjectHandle {
 
             LongBuffer pDescriptorPool = stack.callocLong(1);
             int err = vkCreateDescriptorPool(device.get(), descriptorPoolCreateInfo, null, pDescriptorPool);
-            if(err != VK_SUCCESS){
+            if (err != VK_SUCCESS) {
                 throw new VulkanAssertionError("Failed to create descriptor pool", err);
             }
             handle = pDescriptorPool.get();

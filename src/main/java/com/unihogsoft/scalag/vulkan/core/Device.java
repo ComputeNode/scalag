@@ -9,8 +9,8 @@ import org.lwjgl.vulkan.*;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
-import static com.unihogsoft.scalag.vulkan.Context.VALIDATION_LAYERS;
-import static com.unihogsoft.scalag.vulkan.Context.enableValidationLayers;
+import static com.unihogsoft.scalag.vulkan.VulkanContext.VALIDATION_LAYERS;
+import static com.unihogsoft.scalag.vulkan.VulkanContext.enableValidationLayers;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME;
