@@ -9,7 +9,6 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.vulkan.VkBufferCopy;
 import org.lwjgl.vulkan.VkBufferCreateInfo;
-import org.lwjgl.vulkan.VkBufferImageCopy;
 import org.lwjgl.vulkan.VkCommandBuffer;
 
 import java.nio.ByteBuffer;
@@ -81,6 +80,19 @@ public class Buffer extends VulkanObjectHandle {
             long data = pData.get();
             memCopy(memAddress(src), data, bytes);
             vmaUnmapMemory(dst.getAllocator().get(), dst.getAllocation());
+        }
+    }
+
+    public static void copyBuffer(Buffer src, ByteBuffer dst, long bytes) {
+        try (MemoryStack stack = stackPush()) {
+            PointerBuffer pData = stack.callocPointer(1);
+            int err = vmaMapMemory(src.getAllocator().get(), src.getAllocation(), pData);
+            if (err != VK_SUCCESS) {
+                throw new VulkanAssertionError("Failed to map destination buffer memory", err);
+            }
+            long data = pData.get();
+            memCopy(data, memAddress(dst), bytes);
+            vmaUnmapMemory(src.getAllocator().get(), src.getAllocation());
         }
     }
 

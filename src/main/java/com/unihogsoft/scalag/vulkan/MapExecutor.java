@@ -1,6 +1,8 @@
 package com.unihogsoft.scalag.vulkan;
 
 import com.unihogsoft.scalag.vulkan.command.CommandPool;
+import com.unihogsoft.scalag.vulkan.command.Fence;
+import com.unihogsoft.scalag.vulkan.command.Queue;
 import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.memory.Allocator;
@@ -8,9 +10,12 @@ import com.unihogsoft.scalag.vulkan.memory.Buffer;
 import com.unihogsoft.scalag.vulkan.memory.DescriptorPool;
 import com.unihogsoft.scalag.vulkan.memory.DescriptorSet;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -28,18 +33,20 @@ public class MapExecutor {
     private Buffer outputBuffer;
     private VkCommandBuffer commandBuffer;
     private DescriptorSet descriptorSet;
+    private Fence fence;
 
     private MapPipeline mapPipeline;
-    private long inputSize;
-    private long outputSize;
+    private int inputSize;
+    private int outputSize;
     private int groupCount;
 
     private Device device;
+    private Queue queue;
     private Allocator allocator;
     private DescriptorPool descriptorPool;
     private CommandPool commandPool;
 
-    public MapExecutor(long inputSize, long outputSize, int groupCount, MapPipeline mapPipeline, Device device, Allocator allocator, DescriptorPool descriptorPool, CommandPool commandPool) {
+    public MapExecutor(int inputSize, int outputSize, int groupCount, MapPipeline mapPipeline, Device device, Allocator allocator, DescriptorPool descriptorPool, CommandPool commandPool) {
         this.mapPipeline = mapPipeline;
         this.inputSize = inputSize;
         this.outputSize = outputSize;
@@ -49,6 +56,24 @@ public class MapExecutor {
         this.descriptorPool = descriptorPool;
         this.commandPool = commandPool;
         setup();
+    }
+
+    public ByteBuffer execute(ByteBuffer input){
+        Buffer.copyBuffer(input, inputBuffer, inputSize);
+        try(MemoryStack stack = stackPush()){
+            PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
+            VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
+                    .pCommandBuffers(pCommandBuffer);
+
+            int err = vkQueueSubmit(queue.get(), submitInfo, fence.get());
+            if(err != VK_SUCCESS){
+                throw new VulkanAssertionError("Failed to submit command buffer to queue", err);
+            }
+            fence.block().reset();
+        }
+        ByteBuffer output = BufferUtils.createByteBuffer(outputSize);
+        Buffer.copyBuffer(outputBuffer, output, outputSize);
+        return output;
     }
 
     private void setup() {
@@ -105,6 +130,8 @@ public class MapExecutor {
                 throw new VulkanAssertionError("Failed to finish recording command buffer", err);
             }
             this.commandBuffer = commandBuffer;
+
+            this.fence = new Fence(device);
         }
     }
 

@@ -53,4 +53,8 @@ public class Queue extends VulkanObject {
         return familyIndex;
     }
 
+    public VkQueue get() {
+        return queue;
+    }
+
 }
