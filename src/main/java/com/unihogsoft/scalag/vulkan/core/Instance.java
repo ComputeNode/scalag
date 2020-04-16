@@ -12,13 +12,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.unihogsoft.scalag.vulkan.VulkanContext.VALIDATION_LAYERS;
-import static com.unihogsoft.scalag.vulkan.VulkanContext.enableValidationLayers;
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.*;
-import static org.lwjgl.system.MemoryUtil.memFree;
+import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
-import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 
 /**
  * @author MarconZet
@@ -27,11 +24,13 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 public class Instance extends VulkanObject {
     private static final String[] VALIDATION_LAYERS_INSTANCE_EXTENSIONS = {VK_EXT_DEBUG_REPORT_EXTENSION_NAME};
     private static final String[] INSTANCE_EXTENSIONS = {};
+    private final boolean enableValidationLayers;
 
 
     private VkInstance instance;
 
-    public Instance() {
+    public Instance(boolean enableValidationLayers) {
+        this.enableValidationLayers = enableValidationLayers;
         create();
     }
 

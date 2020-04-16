@@ -7,6 +7,8 @@ plugins {
     id 'java-library'
 
     id 'org.hidetake.ssh' version '2.10.1'
+
+    id 'idea'
 }
 import org.gradle.internal.os.OperatingSystem
 
@@ -47,7 +49,7 @@ dependencies {
     
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-vma:${lwjglVersion}:${lwjglNatives}"
-    if (lwjglNatives == "natives-macos") runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
+    if (lwjglNatives.equals("natives-macos")) runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
 
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
 
@@ -60,4 +62,6 @@ dependencies {
 
     // Need scala-xml at test runtime
     testRuntimeOnly 'org.scala-lang.modules:scala-xml_2.13:1.2.0'
+
+    testImplementation('org.junit.jupiter:junit-jupiter:5.6.2')
 }

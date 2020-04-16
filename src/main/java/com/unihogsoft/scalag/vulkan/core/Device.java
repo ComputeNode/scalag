@@ -10,7 +10,6 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
 import static com.unihogsoft.scalag.vulkan.VulkanContext.VALIDATION_LAYERS;
-import static com.unihogsoft.scalag.vulkan.VulkanContext.enableValidationLayers;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME;
@@ -23,6 +22,7 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class Device extends VulkanObject {
     private static final String[] DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME};
+    private final boolean enableValidationLayers;
 
     private VkDevice device;
 
@@ -31,7 +31,8 @@ public class Device extends VulkanObject {
     private Instance instance;
     private int computeQueueFamily;
 
-    public Device(Instance instance) {
+    public Device(boolean enableValidationLayers, Instance instance) {
+        this.enableValidationLayers = enableValidationLayers;
         this.instance = instance;
         create();
     }
