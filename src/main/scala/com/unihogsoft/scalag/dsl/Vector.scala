@@ -6,11 +6,24 @@ import scala.reflect.ClassTag
 
 trait Vector {
 
-  case class MulVecScalar[T <: ScalarType: ClassTag, R <: VectorType[T]](vec: E[R], scalar: E[T])
-  // trait MulVecScalarable[R <: ScalarType] {
-  //   self: VectorType[R] =>
-  //   def *(other: self.Self)(implicit ct: ClassTag[self.Self]): Self = 
-  // }
+  case class MulVecScalar[T <: ScalarType, R <: VectorType[T] : ClassTag](vec: E[R], scalar: E[T]) extends Expression[R]
+  trait MulVecScalarOp {
+    self: VectorType[_ <: ScalarType] =>
+    type Arb <: ScalarType
+    def *(other: self.ElemType)(implicit ct: ClassTag[self.Self], ev: other.Self =:= self.ElemType): Self = {
+      self.init(
+        MulVecScalar(self.tree.asInstanceOf[E[VectorType[Arb]]], 
+        other.tree.asInstanceOf[E[Arb]]
+      ).asInstanceOf[E[Self]]) // we don't lose type safety here, as it's guaranteed by the evidence - just going around the type system - may find a better way later
+    }
+  }
+
+  case class DivVecScalar[T <: ScalarType, R <: VectorType[_] : ClassTag](vec: E[R], scalar: E[T]) extends Expression[R]
+  trait DivVecScalarOp {
+    self: VectorType[_ <: ScalarType] =>
+    def /(other: self.ElemType)(implicit ct: ClassTag[self.Self], ev: other.Self =:= self.ElemType): Self = 
+      self.init(DivVecScalar(self.tree, other.tree.asInstanceOf[E[ScalarType]]))
+  }
 
   case class DotProd[T <: ValType : ClassTag](a: E[T], b:  E[T]) extends E[T]
   trait DotProdable {
@@ -24,7 +37,10 @@ trait Vector {
     def cross(other: self.Self)(implicit ct: ClassTag[self.Self]): Self = biCombine(CrossProd(_, _), other)
   }
 
-  trait VectorType[T <: ScalarType] extends ValType with Summable with Diffable with DotProdable
+  trait VectorType[T <: ScalarType] extends ValType with Summable with Diffable with DotProdable with MulVecScalarOp {
+    type ElemType = T
+    override type Self >: this.type <: VectorType[T]
+  }
 
   case class Vector2[T <: ScalarType](tree: E[Vector2[T]]) extends VectorType[T] {
     override type Self = Vector2[T]
