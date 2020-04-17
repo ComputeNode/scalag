@@ -21,7 +21,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * Created 13.04.2020
  */
 public class Device extends VulkanObject {
-    private static final String[] DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME};
+    private static final String[] DEVICE_EXTENSIONS = {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME};
     private final boolean enableValidationLayers;
 
     private VkDevice device;
@@ -62,14 +62,13 @@ public class Device extends VulkanObject {
             FloatBuffer pQueuePriorities = stack.callocFloat(1).put(1.0f);
             pQueuePriorities.flip();
 
-            VkDeviceQueueCreateInfo.Buffer pQueueCreateInfo = VkDeviceQueueCreateInfo.callocStack(1).put(
-                    VkDeviceQueueCreateInfo.callocStack()
+            VkDeviceQueueCreateInfo.Buffer pQueueCreateInfo = VkDeviceQueueCreateInfo.callocStack(1);
+            pQueueCreateInfo.get(0)
                             .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
                             .pNext(0)
                             .flags(0)
                             .queueFamilyIndex(computeQueueFamily)
-                            .pQueuePriorities(pQueuePriorities)
-            );
+                            .pQueuePriorities(pQueuePriorities);
 
             PointerBuffer ppExtensionNames = stack.callocPointer(DEVICE_EXTENSIONS.length);
             for (String extension : DEVICE_EXTENSIONS) {

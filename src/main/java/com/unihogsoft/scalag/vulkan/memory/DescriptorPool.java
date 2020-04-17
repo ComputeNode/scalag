@@ -38,6 +38,7 @@ public class DescriptorPool extends VulkanObjectHandle {
                     .descriptorCount(2*MAX_SETS);
 
             VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo.callocStack()
+                    .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO)
                     .maxSets(MAX_SETS)
                     .pPoolSizes(descriptorPoolSize);
 

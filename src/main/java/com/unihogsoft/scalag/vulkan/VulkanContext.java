@@ -32,7 +32,8 @@ public class VulkanContext {
     public VulkanContext(boolean enableValidationLayers) {
         this.enableValidationLayers = enableValidationLayers;
         instance = new Instance(enableValidationLayers);
-        debugCallback = new DebugCallback(instance);
+        if(enableValidationLayers)
+            debugCallback = new DebugCallback(instance);
         device = new Device(enableValidationLayers, instance);
         computeQueue = new Queue(device.getComputeQueueFamily(), 0, device);
         allocator = new Allocator(instance, device);
@@ -46,7 +47,8 @@ public class VulkanContext {
         allocator.destroy();
         computeQueue.destroy();
         device.destroy();
-        debugCallback.destroy();
+        if(enableValidationLayers)
+            debugCallback.destroy();
         instance.destroy();
     }
 

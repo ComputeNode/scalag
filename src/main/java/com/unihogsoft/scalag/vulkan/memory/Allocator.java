@@ -27,6 +27,7 @@ public class Allocator extends VulkanObjectHandle {
     public Allocator(Instance instance, Device device) {
         this.instance = instance;
         this.device = device;
+        create();
     }
 
     @Override

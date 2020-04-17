@@ -46,7 +46,20 @@ public class MapExecutor {
     private DescriptorPool descriptorPool;
     private CommandPool commandPool;
 
-    public MapExecutor(int inputSize, int outputSize, int groupCount, MapPipeline mapPipeline, Device device, Allocator allocator, DescriptorPool descriptorPool, CommandPool commandPool) {
+    public MapExecutor(int inputSize, int outputSize, int groupCount, MapPipeline mapPipeline, VulkanContext context) {
+        this.mapPipeline = mapPipeline;
+        this.inputSize = inputSize;
+        this.outputSize = outputSize;
+        this.groupCount = groupCount;
+        this.device = context.getDevice();
+        this.allocator = context.getAllocator();
+        this.descriptorPool = context.getDescriptorPool();
+        this.commandPool = context.getCommandPool();
+        this.queue = context.getComputeQueue();
+        setup();
+    }
+
+    public MapExecutor(int inputSize, int outputSize, int groupCount, MapPipeline mapPipeline, Device device, Queue queue ,Allocator allocator, DescriptorPool descriptorPool, CommandPool commandPool) {
         this.mapPipeline = mapPipeline;
         this.inputSize = inputSize;
         this.outputSize = outputSize;
@@ -55,18 +68,19 @@ public class MapExecutor {
         this.allocator = allocator;
         this.descriptorPool = descriptorPool;
         this.commandPool = commandPool;
+        this.queue = queue;
         setup();
     }
 
-    public ByteBuffer execute(ByteBuffer input){
+    public ByteBuffer execute(ByteBuffer input) {
         Buffer.copyBuffer(input, inputBuffer, inputSize);
-        try(MemoryStack stack = stackPush()){
+        try (MemoryStack stack = stackPush()) {
             PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
             VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
                     .pCommandBuffers(pCommandBuffer);
 
             int err = vkQueueSubmit(queue.get(), submitInfo, fence.get());
-            if(err != VK_SUCCESS){
+            if (err != VK_SUCCESS) {
                 throw new VulkanAssertionError("Failed to submit command buffer to queue", err);
             }
             fence.block().reset();
@@ -126,7 +140,7 @@ public class MapExecutor {
             vkCmdDispatch(commandBuffer, groupCount, 1, 1);
 
             err = vkEndCommandBuffer(commandBuffer);
-            if(err != VK_SUCCESS){
+            if (err != VK_SUCCESS) {
                 throw new VulkanAssertionError("Failed to finish recording command buffer", err);
             }
             this.commandBuffer = commandBuffer;
@@ -136,7 +150,7 @@ public class MapExecutor {
     }
 
 
-    public void close(){
+    public void close() {
         commandPool.freeCommandBuffer(commandBuffer);
         descriptorSet.destroy();
         inputBuffer.destroy();

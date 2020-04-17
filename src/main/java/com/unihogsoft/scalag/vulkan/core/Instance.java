@@ -9,6 +9,7 @@ import org.lwjgl.vulkan.VkInstance;
 import org.lwjgl.vulkan.VkInstanceCreateInfo;
 
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
 import static com.unihogsoft.scalag.vulkan.VulkanContext.VALIDATION_LAYERS;
@@ -78,7 +79,7 @@ public class Instance extends VulkanObject {
     }
 
     private PointerBuffer getInstanceExtensions(MemoryStack stack) {
-        List<String> extensions = Arrays.asList(INSTANCE_EXTENSIONS);
+        List<String> extensions = new LinkedList<>(Arrays.asList(INSTANCE_EXTENSIONS));
         if (enableValidationLayers)
             extensions.addAll(Arrays.asList(VALIDATION_LAYERS_INSTANCE_EXTENSIONS));
 

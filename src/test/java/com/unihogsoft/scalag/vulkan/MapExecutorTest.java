@@ -51,10 +51,6 @@ class MapExecutorTest {
 
     @Test
     void execute() {
-        Device device = context.getDevice();
-        Allocator allocator = context.getAllocator();
-        DescriptorPool descriptorPool = context.getDescriptorPool();
-        CommandPool commandPool = context.getCommandPool();
         Random rand = new Random(System.currentTimeMillis());
 
         ByteBuffer input = BufferUtils.createByteBuffer(bufferSize);
@@ -64,8 +60,8 @@ class MapExecutorTest {
         }
         data.flip();
 
-        MapPipeline pipeline = new MapPipeline(shader, device);
-        MapExecutor executor = new MapExecutor(bufferSize, bufferSize, bufferLength, pipeline, device, allocator, descriptorPool, commandPool);
+        MapPipeline pipeline = new MapPipeline(shader, context);
+        MapExecutor executor = new MapExecutor(bufferSize, bufferSize, bufferLength, pipeline, context);
 
         ByteBuffer result = executor.execute(input);
 

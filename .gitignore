@@ -3,10 +3,16 @@
 
 # Ignore Gradle build output directory
 build
-.idea
 .bloop
 .metals
 .settings
 bin
 .project
 .classpath
+
+# Ignore core dupmps
+.log
+
+#ignore ide folders
+.idea/
+.vscode/

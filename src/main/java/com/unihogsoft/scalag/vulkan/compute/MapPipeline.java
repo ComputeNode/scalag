@@ -1,5 +1,6 @@
 package com.unihogsoft.scalag.vulkan.compute;
 
+import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
@@ -25,6 +26,12 @@ public class MapPipeline extends VulkanObjectHandle {
     private long pipelineLayout;
 
     private Device device;
+
+    public MapPipeline(int[] computeShader, VulkanContext context){
+        this.computeShader = computeShader;
+        this.device = context.getDevice();
+        create();
+    }
 
     public MapPipeline(int[] computeShader, Device device) {
         this.computeShader = computeShader;

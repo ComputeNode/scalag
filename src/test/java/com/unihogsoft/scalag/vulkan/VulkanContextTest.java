@@ -2,8 +2,6 @@ package com.unihogsoft.scalag.vulkan;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.fail;
-
 /**
  * @author MarconZet
  * Created 17.04.2020
