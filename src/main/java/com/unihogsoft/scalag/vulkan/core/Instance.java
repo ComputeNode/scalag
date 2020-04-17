@@ -17,6 +17,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
 
 /**
  * @author MarconZet
@@ -45,7 +46,7 @@ public class Instance extends VulkanObject {
                     .pEngineName(stack.UTF8("ScalaG Computing Engine"))
                     .applicationVersion(VK_MAKE_VERSION(0, 1, 0))
                     .engineVersion(VK_MAKE_VERSION(0, 1, 0))
-                    .apiVersion(VK_API_VERSION_1_0);
+                    .apiVersion(VK_API_VERSION_1_1);
 
             PointerBuffer ppEnabledExtensionNames = getInstanceExtensions(stack);
             PointerBuffer ppEnabledLayerNames = getValidationLayers(stack);

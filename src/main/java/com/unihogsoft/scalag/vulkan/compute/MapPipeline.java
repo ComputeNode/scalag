@@ -19,7 +19,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * Created 14.04.2020
  */
 public class MapPipeline extends VulkanObjectHandle {
-    private int[] computeShader;
+    private ByteBuffer computeShader;
 
     private long shaderModule;
     private long descriptorSetLayout;
@@ -27,13 +27,13 @@ public class MapPipeline extends VulkanObjectHandle {
 
     private Device device;
 
-    public MapPipeline(int[] computeShader, VulkanContext context){
+    public MapPipeline(ByteBuffer computeShader, VulkanContext context){
         this.computeShader = computeShader;
         this.device = context.getDevice();
         create();
     }
 
-    public MapPipeline(int[] computeShader, Device device) {
+    public MapPipeline(ByteBuffer computeShader, Device device) {
         this.computeShader = computeShader;
         this.device = device;
         create();
@@ -42,13 +42,11 @@ public class MapPipeline extends VulkanObjectHandle {
     @Override
     protected void init() {
         try(MemoryStack stack = stackPush()){
-            ByteBuffer shader = stack.calloc(4*computeShader.length);
-            shader.asIntBuffer().put(computeShader).flip();
             VkShaderModuleCreateInfo shaderModuleCreateInfo = VkShaderModuleCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO)
                     .pNext(0)
                     .flags(0)
-                    .pCode(shader);
+                    .pCode(computeShader);
 
             LongBuffer pShaderModule = stack.callocLong(1);
             int err = vkCreateShaderModule(device.get(), shaderModuleCreateInfo, null, pShaderModule);
@@ -65,7 +63,7 @@ public class MapPipeline extends VulkanObjectHandle {
                     .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
                     .pImmutableSamplers(null);
             descriptorSetLayoutBindings.get(1)
-                    .binding(0)
+                    .binding(1)
                     .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                     .descriptorCount(1)
                     .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
@@ -104,7 +102,7 @@ public class MapPipeline extends VulkanObjectHandle {
                     .flags(0)
                     .stage(VK_SHADER_STAGE_COMPUTE_BIT)
                     .module(shaderModule)
-                    .pName(stack.ASCII("map"));
+                    .pName(stack.ASCII("main"));
 
             VkComputePipelineCreateInfo.Buffer computePipelineCreateInfo = VkComputePipelineCreateInfo.callocStack(1);
             computePipelineCreateInfo.get(0)
