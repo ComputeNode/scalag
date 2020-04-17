@@ -11,13 +11,13 @@ class VulkanContextTest {
     @Test
     public void initialisingContextWithNoArguments() {
         VulkanContext context = new VulkanContext();
-        context.close();
+        context.destroy();
     }
 
     @Test
     public void initialingContextWithValidationLayers(){
         VulkanContext context = new VulkanContext(true);
-        context.close();
+        context.destroy();
     }
 
 }

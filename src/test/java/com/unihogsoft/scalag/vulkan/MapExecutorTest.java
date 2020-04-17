@@ -1,12 +1,7 @@
 package com.unihogsoft.scalag.vulkan;
 
-import com.unihogsoft.scalag.vulkan.command.CommandPool;
 import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
-import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.Allocator;
-import com.unihogsoft.scalag.vulkan.memory.DescriptorPool;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.BufferUtils;
@@ -14,7 +9,6 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -42,7 +36,7 @@ class MapExecutorTest {
 
     @AfterAll
     static void tearDown() {
-        context.close();
+        context.destroy();
     }
 
     @Test
@@ -54,25 +48,24 @@ class MapExecutorTest {
             FileChannel fc = fis.getChannel();
             ByteBuffer shader = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
 
-
             Random rand = new Random(System.currentTimeMillis());
+            byte[] randData = new byte[bufferSize];
+            rand.nextBytes(randData);
             ByteBuffer input = BufferUtils.createByteBuffer(bufferSize);
-            IntBuffer input_buffer = input.asIntBuffer();
-            while (input_buffer.hasRemaining()) {
-                input_buffer.put(rand.nextInt());
-            }
-            input_buffer.flip();
+            input.put(randData).flip();
 
             MapPipeline pipeline = new MapPipeline(shader, context);
-            MapExecutor executor = new MapExecutor(bufferSize, bufferSize, bufferLength, pipeline, context);
+            MapExecutor executor = new MapExecutor(bufferSize, bufferSize, bufferLength/128, pipeline, context);
 
             ByteBuffer result = executor.execute(input);
 
-            IntBuffer test = result.asIntBuffer();
+            executor.destroy();
+            pipeline.destroy();
 
-            while (test.hasRemaining()) {
-                assertEquals(input_buffer.get(), test.get());
+            while (result.hasRemaining()) {
+                assertEquals(input.get(), result.get());
             }
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

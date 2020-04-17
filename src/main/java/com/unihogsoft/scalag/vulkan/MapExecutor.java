@@ -77,6 +77,7 @@ public class MapExecutor {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
             VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
+                    .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
                     .pCommandBuffers(pCommandBuffer);
 
             int err = vkQueueSubmit(queue.get(), submitInfo, fence.get());
@@ -85,7 +86,7 @@ public class MapExecutor {
             }
             fence.block().reset();
         }
-        ByteBuffer output = BufferUtils.createByteBuffer(outputSize);
+        ByteBuffer output = BufferUtils.createByteBuffer(outputSize);//TODO memory
         Buffer.copyBuffer(outputBuffer, output, outputSize);
         return output;
     }
@@ -110,14 +111,18 @@ public class MapExecutor {
 
             VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(2);
             writeDescriptorSet.get(0)
+                    .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
                     .dstSet(descriptorSet.get())
                     .dstBinding(0)
+                    .descriptorCount(1)
                     .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                     .pBufferInfo(in_descriptorBufferInfo);
 
             writeDescriptorSet.get(1)
+                    .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
                     .dstSet(descriptorSet.get())
                     .dstBinding(1)
+                    .descriptorCount(1)
                     .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                     .pBufferInfo(out_descriptorBufferInfo);
 
@@ -125,7 +130,9 @@ public class MapExecutor {
 
             VkCommandBuffer commandBuffer = commandPool.createCommandBuffer();
 
-            VkCommandBufferBeginInfo commandBufferBeginInfo = VkCommandBufferBeginInfo.callocStack().flags(0);
+            VkCommandBufferBeginInfo commandBufferBeginInfo = VkCommandBufferBeginInfo.callocStack()
+                    .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO)
+                    .flags(0);
 
             int err = vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo);
             if (err != VK_SUCCESS) {
@@ -150,7 +157,8 @@ public class MapExecutor {
     }
 
 
-    public void close() {
+    public void destroy() {
+        fence.destroy();
         commandPool.freeCommandBuffer(commandBuffer);
         descriptorSet.destroy();
         inputBuffer.destroy();

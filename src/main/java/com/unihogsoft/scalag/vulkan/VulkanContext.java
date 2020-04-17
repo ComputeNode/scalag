@@ -41,7 +41,7 @@ public class VulkanContext {
         commandPool = new StandardCommandPool(device, computeQueue);
     }
 
-    public void close(){
+    public void destroy(){
         commandPool.destroy();
         descriptorPool.destroy();
         allocator.destroy();

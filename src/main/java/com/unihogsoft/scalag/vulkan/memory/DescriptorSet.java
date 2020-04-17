@@ -33,6 +33,7 @@ public class DescriptorSet extends VulkanObjectHandle {
         try (MemoryStack stack = stackPush()) {
             LongBuffer pSetLayout = stack.callocLong(1).put(0, pipeline.getDescriptorSetLayout());
             VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo.callocStack()
+                    .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
                     .descriptorPool(descriptorPool.get())
                     .pSetLayouts(pSetLayout);
 

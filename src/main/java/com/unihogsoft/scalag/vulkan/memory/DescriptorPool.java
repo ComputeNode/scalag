@@ -40,6 +40,7 @@ public class DescriptorPool extends VulkanObjectHandle {
             VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO)
                     .maxSets(MAX_SETS)
+                    .flags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT)
                     .pPoolSizes(descriptorPoolSize);
 
             LongBuffer pDescriptorPool = stack.callocLong(1);
