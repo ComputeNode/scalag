@@ -7,7 +7,7 @@ trait Scalar {
 
 
 
-  trait ScalarType extends ValType with Summable with Diffable with Divable with Mulable
+  abstract class ScalarType extends ValType with Summable with Diffable with Divable with Mulable
 
   trait FloatType extends ScalarType
   trait IntegerType extends ScalarType
@@ -38,4 +38,5 @@ trait Scalar {
   def int64(f: Int64): Int64 = f
 
   case class Const[T <: ValType : ClassTag, R](r: R) extends E[T]
+  case class Dynamic[T <: ValType : ClassTag, R](source: String) extends E[T]
 }

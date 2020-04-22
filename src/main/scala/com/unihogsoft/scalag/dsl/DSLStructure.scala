@@ -15,6 +15,8 @@ trait DSLStructure {
     }
   }
 
+  type ValInit[T <: ValType] = E[T] => T
+
   abstract class Expression[T <: ValType : ClassTag] extends Product {
     val valClassTag: ClassTag[T] = implicitly[ClassTag[T]]
   }

@@ -24,6 +24,7 @@ import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
  * Created 13.04.2020
  */
 public class Instance extends VulkanObject {
+
     private static final String[] VALIDATION_LAYERS_INSTANCE_EXTENSIONS = {VK_EXT_DEBUG_REPORT_EXTENSION_NAME};
     private static final String[] INSTANCE_EXTENSIONS = {};
     private final boolean enableValidationLayers;
