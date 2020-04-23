@@ -34,11 +34,18 @@ repositories {
     maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
 }
 
+apply plugin: 'java'
 
+test {
+    jvmArgs '-Dorg.lwjgl.vulkan.libname=libvulkan.666.dylib'
+    useJUnitPlatform()
+}
 
 dependencies {
     // Use Scala 2.13 in our library project
     implementation 'org.scala-lang:scala-library:2.13.1'
+    implementation group: 'org.scala-lang', name: 'scala-reflect', version: '2.13.1'
+
     implementation group: 'com.chuusai', name: 'shapeless_2.13', version: '2.3.3'
 
     // Use LWJGL
@@ -49,7 +56,6 @@ dependencies {
     
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-vma:${lwjglVersion}:${lwjglNatives}"
-    if (lwjglNatives.equals("natives-macos")) runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
 
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
     testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
@@ -65,4 +71,5 @@ dependencies {
     testRuntimeOnly 'org.scala-lang.modules:scala-xml_2.13:1.2.0'
 
     testImplementation('org.junit.jupiter:junit-jupiter:5.6.2')
+    testRuntime('org.junit.jupiter:junit-jupiter-engine:5.6.2')
 }
