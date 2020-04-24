@@ -25,12 +25,12 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class Buffer extends VulkanObjectHandle {
     private long allocation;
-    private final long size;
+    private final int size;
     private final int usage, flags, memUsage;
 
     private Allocator allocator;
 
-    public Buffer(long size, int usage, int flags, int memUsage, Allocator allocator) {
+    public Buffer(int size, int usage, int flags, int memUsage, Allocator allocator) {
         this.allocator = allocator;
         this.size = size;
         this.usage = usage;
@@ -70,6 +70,14 @@ public class Buffer extends VulkanObjectHandle {
         vmaDestroyBuffer(allocator.get(), handle, allocation);
     }
 
+    public void get(byte[] dst){
+        int len = Math.min(dst.length, size);
+        ByteBuffer byteBuffer = memCalloc(len);
+        Buffer.copyBuffer(this, byteBuffer, len);
+        byteBuffer.get(dst);
+        memFree(byteBuffer);
+    }
+
     public static void copyBuffer(ByteBuffer src, Buffer dst, long bytes) {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pData = stack.callocPointer(1);
@@ -79,6 +87,7 @@ public class Buffer extends VulkanObjectHandle {
             }
             long data = pData.get();
             memCopy(memAddress(src), data, bytes);
+            vmaFlushAllocation(dst.getAllocator().get(), dst.getAllocation(), 0, bytes);
             vmaUnmapMemory(dst.getAllocator().get(), dst.getAllocation());
         }
     }
@@ -114,7 +123,7 @@ public class Buffer extends VulkanObjectHandle {
         return allocator;
     }
 
-    public long getSize() {
+    public int getSize() {
         return size;
     }
 

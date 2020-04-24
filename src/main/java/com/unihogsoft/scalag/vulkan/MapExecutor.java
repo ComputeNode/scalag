@@ -13,14 +13,14 @@ import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_CPU_TO_GPU;
-import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_TO_CPU;
+import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 
@@ -73,7 +73,17 @@ public class MapExecutor {
     }
 
     public ByteBuffer execute(ByteBuffer input) {
-        Buffer.copyBuffer(input, inputBuffer, inputSize);
+        Buffer stagingBuffer = new Buffer(
+                Math.max(inputSize, outputSize),
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                VMA_MEMORY_USAGE_UNKNOWN,
+                allocator
+        );
+
+        Buffer.copyBuffer(input, stagingBuffer, inputSize);
+        Buffer.copyBuffer(stagingBuffer, inputBuffer, inputSize, commandPool).block().destroy();
+
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
             VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
@@ -86,16 +96,30 @@ public class MapExecutor {
             }
             fence.block().reset();
         }
-        ByteBuffer output = BufferUtils.createByteBuffer(outputSize);//TODO memory
-        Buffer.copyBuffer(outputBuffer, output, outputSize);
+
+        ByteBuffer output = MemoryUtil.memAlloc(outputSize);
+        Buffer.copyBuffer(outputBuffer, stagingBuffer, outputSize, commandPool).block().destroy();
+        Buffer.copyBuffer(stagingBuffer, output, outputSize);
+        stagingBuffer.destroy();
         return output;
     }
 
     private void setup() {
         try (MemoryStack stack = stackPush()) {
-            //TODO this is not optimal
-            inputBuffer = new Buffer(inputSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, allocator);
-            outputBuffer = new Buffer(outputSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, allocator);
+            inputBuffer = new Buffer(
+                    inputSize,
+                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                    0,
+                    VMA_MEMORY_USAGE_GPU_ONLY,
+                    allocator
+            );
+            outputBuffer = new Buffer(
+                    outputSize,
+                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                    0,
+                    VMA_MEMORY_USAGE_GPU_ONLY,
+                    allocator
+            );
 
             VkDescriptorBufferInfo.Buffer in_descriptorBufferInfo = VkDescriptorBufferInfo.callocStack(1)
                     .buffer(inputBuffer.get())
@@ -155,7 +179,6 @@ public class MapExecutor {
             this.fence = new Fence(device);
         }
     }
-
 
     public void destroy() {
         fence.destroy();
