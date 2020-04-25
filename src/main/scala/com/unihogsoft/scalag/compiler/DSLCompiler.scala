@@ -9,9 +9,12 @@ import org.lwjgl.BufferUtils
 import scala.util.hashing.MurmurHash3
 class DSLCompiler {
   def compile[T<: ValType](returnVal: T): ByteBuffer = {
-    println("Compiling :)")
-    println(formatTree(returnVal.tree))
-    println(Digest.formatTreeWithDigest(Digest.digest(returnVal.tree)._1))
+    val tree = returnVal.tree
+    val (digestTree, hash) = Digest.digest(tree)
+    val sorted = TopologicalSort.sortTree(digestTree)
+    println(Digest.formatTreeWithDigest(digestTree))
+    println()
+    println(sorted.mkString("\n"))
     BufferUtils.createByteBuffer(1)
   }
 }
