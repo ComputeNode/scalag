@@ -2,17 +2,14 @@ package com.unihogsoft.scalag.compiler
 
 object Opcodes {
 
-  class InsnList {
-
-  }
-
   case class Instruction(code: Code, operands: List[Int])
 
   case class Code(mnemo: String, opcode: Int)
 
   val MagicNumber = Code("MagicNumber", 0x07230203)
-  val Version = Code("Version", 0x00010100)
+  val Version = Code("Version", 0x00010000)
   val Revision = Code("Revision", 8)
+  val Generator = Code("Generator", 0)
   val OpCodeMask = Code("OpCodeMask", 0xffff)
   val WordCountShift = Code("WordCountShift", 16)
 
