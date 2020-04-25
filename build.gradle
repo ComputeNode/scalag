@@ -13,6 +13,7 @@ plugins {
 import org.gradle.internal.os.OperatingSystem
 
 project.ext.lwjglVersion = "3.2.4-SNAPSHOT"
+project.ext.jomlVersion = "1.9.24"
 
 switch (OperatingSystem.current()) {
     case OperatingSystem.LINUX:
@@ -56,6 +57,8 @@ dependencies {
     
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-vma:${lwjglVersion}:${lwjglNatives}"
+
+    implementation "org.joml:joml:${jomlVersion}"
 
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
     testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
