@@ -40,7 +40,7 @@ public class MapPipeline extends VulkanObjectHandle {
     @Override
     protected void init() {
         try(MemoryStack stack = stackPush()){
-            List<BindingInfo> inputSizes = computeShader.getInputSizes();
+            List<BindingInfo> inputSizes = computeShader.getBindingInfos();
             VkDescriptorSetLayoutBinding.Buffer descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.callocStack(inputSizes.size());
             for (BindingInfo bindingInfo : inputSizes) {
                 descriptorSetLayoutBindings.get()

@@ -8,6 +8,8 @@ import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.memory.*;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
+import com.unihogsoft.scalag.vulkan.utility.VulkanObject;
+import org.joml.Vector3ic;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -15,12 +17,10 @@ import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.OP_DO_NOTHING;
+import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_INPUT;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.vulkan.VK10.*;
@@ -37,7 +37,6 @@ public class MapExecutor {
     private Fence fence;
 
     private final int groupCount;
-    private final Map<Integer, Integer> operations;
     private final Shader shader;
     private final MapPipeline mapPipeline;
 
@@ -47,10 +46,9 @@ public class MapExecutor {
     private final DescriptorPool descriptorPool;
     private final CommandPool commandPool;
 
-    public MapExecutor(int groupCount, Map<Integer, Integer> operations, MapPipeline mapPipeline, VulkanContext context) {
+    public MapExecutor(int groupCount, MapPipeline mapPipeline, VulkanContext context) {
         this.mapPipeline = mapPipeline;
         this.groupCount = groupCount;
-        this.operations = operations;
         this.shader = mapPipeline.getComputeShader();
         this.device = context.getDevice();
         this.allocator = context.getAllocator();
@@ -62,11 +60,11 @@ public class MapExecutor {
 
     private void setup() {
         try (MemoryStack stack = stackPush()) {
-            List<BindingInfo> bindingInfos = shader.getInputSizes();
+            List<BindingInfo> bindingInfos = shader.getBindingInfos();
             buffers = bindingInfos.stream().map(bindingInfo ->
                     new Buffer(
                             bindingInfo.getSize() * groupCount,
-                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | operations.getOrDefault(bindingInfo.getBinding(), OP_DO_NOTHING),
+                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | (bindingInfo.getType() == BINDING_TYPE_INPUT ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : VK_BUFFER_USAGE_TRANSFER_SRC_BIT),
                             0,
                             VMA_MEMORY_USAGE_GPU_ONLY,
                             allocator
@@ -110,7 +108,8 @@ public class MapExecutor {
             LongBuffer pDescriptorSet = stack.callocLong(1).put(0, descriptorSet.get());
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, mapPipeline.getPipelineLayout(), 0, pDescriptorSet, null);
 
-            vkCmdDispatch(commandBuffer, groupCount, 1, 1);
+            Vector3ic workgroup = shader.getWorkgroupDimensions();
+            vkCmdDispatch(commandBuffer, groupCount / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
 
             err = vkEndCommandBuffer(commandBuffer);
             if (err != VK_SUCCESS) {
@@ -122,17 +121,20 @@ public class MapExecutor {
         }
     }
 
-    public ByteBuffer execute(ByteBuffer input) {
+    public ByteBuffer[] execute(ByteBuffer[] input) {
         Buffer stagingBuffer = new Buffer(
-                Math.max(inputSize, outputSize),
+                shader.getBindingInfos().stream().mapToInt(BindingInfo::getSize).max().orElse(0) * groupCount,
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
                 VMA_MEMORY_USAGE_UNKNOWN,
                 allocator
         );
 
-        Buffer.copyBuffer(input, stagingBuffer, inputSize);
-        Buffer.copyBuffer(stagingBuffer, inputBuffer, inputSize, commandPool).block().destroy();
+        for (int i = 0; i < input.length; i++) {
+            ByteBuffer buffer = input[i];
+            Buffer.copyBuffer(buffer, stagingBuffer, buffer.remaining());
+            Buffer.copyBuffer(stagingBuffer, buffers.get(i), buffer.remaining(), commandPool).block().destroy();
+        }
 
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
@@ -147,9 +149,14 @@ public class MapExecutor {
             fence.block().reset();
         }
 
-        ByteBuffer output = MemoryUtil.memAlloc(outputSize);
-        Buffer.copyBuffer(outputBuffer, stagingBuffer, outputSize, commandPool).block().destroy();
-        Buffer.copyBuffer(stagingBuffer, output, outputSize);
+        ByteBuffer[] output = new ByteBuffer[shader.getOutputNumber()];
+        int offset = shader.getInputNumber();
+        for(int i = offset; i < shader.getBindingInfos().size(); i++) {
+            Fence fence = Buffer.copyBuffer(buffers.get(i), stagingBuffer, buffers.get(i).getSize(), commandPool);
+            output[i - offset] = MemoryUtil.memAlloc(buffers.get(i).getSize());
+            fence.block().destroy();
+            Buffer.copyBuffer(stagingBuffer, output[i-offset], output[i-offset].remaining());
+        }
         stagingBuffer.destroy();
         return output;
     }
@@ -158,7 +165,6 @@ public class MapExecutor {
         fence.destroy();
         commandPool.freeCommandBuffer(commandBuffer);
         descriptorSet.destroy();
-        inputBuffer.destroy();
-        outputBuffer.destroy();
+        buffers.forEach(VulkanObject::destroy);
     }
 }

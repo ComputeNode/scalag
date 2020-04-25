@@ -13,13 +13,20 @@ public class BindingInfo {
             OP_WRITE_BEFORE_EXECUTION = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             OP_READ_AFTER_OPERATION = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
+    public final static int
+            BINDING_TYPE_INPUT = 1,
+            BINDING_TYPE_OUTPUT = 2;
 
-    private final int binding;
-    private final int size;
 
-    public BindingInfo(int binding, int size) {
+    private final int
+            binding,
+            size,
+            type;
+
+    public BindingInfo(int binding, int size, int type) {
         this.binding = binding;
         this.size = size;
+        this.type = type;
     }
 
     public int getBinding() {
@@ -28,5 +35,9 @@ public class BindingInfo {
 
     public int getSize() {
         return size;
+    }
+
+    public int getType() {
+        return type;
     }
 }
