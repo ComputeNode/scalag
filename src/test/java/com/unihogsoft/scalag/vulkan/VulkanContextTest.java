@@ -1,10 +1,6 @@
 package com.unihogsoft.scalag.vulkan;
 
-import junit.textui.TestRunner;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.scalatestplus.junit.JUnitRunner;
 
 /**
  * @author MarconZet

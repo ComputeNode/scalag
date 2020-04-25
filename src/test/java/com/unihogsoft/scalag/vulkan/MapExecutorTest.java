@@ -16,7 +16,9 @@ import java.nio.channels.FileChannel;
 import java.util.Objects;
 import java.util.Random;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.lwjgl.system.MemoryUtil.memFree;
 
 /**
  * @author MarconZet
@@ -41,33 +43,39 @@ class MapExecutorTest {
 
     @Test
     void execute() {
+        ByteBuffer shader;
         try {
             ClassLoader classLoader = getClass().getClassLoader();
             File file = new File(Objects.requireNonNull(classLoader.getResource("comp.spv")).getFile());
             FileInputStream fis = new FileInputStream(file);
             FileChannel fc = fis.getChannel();
-            ByteBuffer shader = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-
-            Random rand = new Random(System.currentTimeMillis());
-            byte[] randData = new byte[bufferSize];
-            rand.nextBytes(randData);
-            ByteBuffer input = BufferUtils.createByteBuffer(bufferSize);
-            input.put(randData).flip();
-
-            MapPipeline pipeline = new MapPipeline(shader, context);
-            MapExecutor executor = new MapExecutor(bufferSize, bufferSize, bufferLength/128, pipeline, context);
-
-            ByteBuffer result = executor.execute(input);
-
-            executor.destroy();
-            pipeline.destroy();
-
-            while (result.hasRemaining()) {
-                assertEquals(input.get(), result.get());
-            }
-
+            shader = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        Random rand = new Random(System.currentTimeMillis());
+        byte[] randData = new byte[bufferSize];
+        rand.nextBytes(randData);
+        ByteBuffer input = MemoryUtil.memAlloc(bufferSize);
+        input.put(randData).flip();
+
+        MapPipeline pipeline = new MapPipeline(shader, context);
+        MapExecutor executor = new MapExecutor(bufferSize, bufferSize, bufferLength/128, pipeline, context);
+
+        ByteBuffer output = executor.execute(input);
+
+        executor.destroy();
+        pipeline.destroy();
+
+        byte []in = new byte[input.remaining()];
+        byte []out = new byte[output.remaining()];
+        input.get(in);
+        output.get(out);
+
+        memFree(input);
+        memFree(output);
+
+        assertArrayEquals(in, out);
+
     }
 }
