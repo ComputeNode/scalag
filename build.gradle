@@ -38,7 +38,7 @@ repositories {
 apply plugin: 'java'
 
 test {
-    jvmArgs '-Dorg.lwjgl.vulkan.libname=libvulkan.666.dylib'
+    if (lwjglNatives.equals("natives-macos")) jvmArgs '-Dorg.lwjgl.vulkan.libname=libvulkan.666.dylib'
     useJUnitPlatform()
 }
 
