@@ -1,1 +1,1 @@
-glslangValidator -V shader.comp
+glslangValidator -V copy.comp

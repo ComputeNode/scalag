@@ -2,16 +2,16 @@ package com.unihogsoft.scalag.vulkan.compute;
 
 import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.core.Device;
+import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
-import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
+import java.util.List;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 import static org.lwjgl.vulkan.VK10.*;
 
 /**
@@ -19,21 +19,19 @@ import static org.lwjgl.vulkan.VK10.*;
  * Created 14.04.2020
  */
 public class MapPipeline extends VulkanObjectHandle {
-    private ByteBuffer computeShader;
-
-    private long shaderModule;
     private long descriptorSetLayout;
     private long pipelineLayout;
+    private final Shader computeShader;
 
-    private Device device;
+    private final Device device;
 
-    public MapPipeline(ByteBuffer computeShader, VulkanContext context){
+    public MapPipeline(Shader computeShader, VulkanContext context){
         this.computeShader = computeShader;
         this.device = context.getDevice();
         create();
     }
 
-    public MapPipeline(ByteBuffer computeShader, Device device) {
+    public MapPipeline(Shader computeShader, Device device) {
         this.computeShader = computeShader;
         this.device = device;
         create();
@@ -42,32 +40,17 @@ public class MapPipeline extends VulkanObjectHandle {
     @Override
     protected void init() {
         try(MemoryStack stack = stackPush()){
-            VkShaderModuleCreateInfo shaderModuleCreateInfo = VkShaderModuleCreateInfo.callocStack()
-                    .sType(VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO)
-                    .pNext(0)
-                    .flags(0)
-                    .pCode(computeShader);
-
-            LongBuffer pShaderModule = stack.callocLong(1);
-            int err = vkCreateShaderModule(device.get(), shaderModuleCreateInfo, null, pShaderModule);
-            if(err != VK_SUCCESS){
-                throw new VulkanAssertionError("Failed to create shader module",  err);
+            List<BindingInfo> inputSizes = computeShader.getBindingInfos();
+            VkDescriptorSetLayoutBinding.Buffer descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.callocStack(inputSizes.size());
+            for (BindingInfo bindingInfo : inputSizes) {
+                descriptorSetLayoutBindings.get()
+                        .binding(bindingInfo.getBinding())
+                        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                        .descriptorCount(1)
+                        .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
+                        .pImmutableSamplers(null);
             }
-            shaderModule = pShaderModule.get();
-
-            VkDescriptorSetLayoutBinding.Buffer descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.callocStack(2);
-            descriptorSetLayoutBindings.get(0)
-                    .binding(0)
-                    .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                    .descriptorCount(1)
-                    .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
-                    .pImmutableSamplers(null);
-            descriptorSetLayoutBindings.get(1)
-                    .binding(1)
-                    .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                    .descriptorCount(1)
-                    .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
-                    .pImmutableSamplers(null);
+            descriptorSetLayoutBindings.flip();
 
             VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = VkDescriptorSetLayoutCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO)
@@ -76,7 +59,7 @@ public class MapPipeline extends VulkanObjectHandle {
                     .pBindings(descriptorSetLayoutBindings);
 
             LongBuffer pDescriptorSetLayout = stack.callocLong(1);
-            err = vkCreateDescriptorSetLayout(device.get(), descriptorSetLayoutCreateInfo, null, pDescriptorSetLayout);
+            int err = vkCreateDescriptorSetLayout(device.get(), descriptorSetLayoutCreateInfo, null, pDescriptorSetLayout);
             if(err != VK_SUCCESS){
                 throw new VulkanAssertionError("Failed to create descriptor set layout", err);
             }
@@ -101,8 +84,8 @@ public class MapPipeline extends VulkanObjectHandle {
                     .pNext(0)
                     .flags(0)
                     .stage(VK_SHADER_STAGE_COMPUTE_BIT)
-                    .module(shaderModule)
-                    .pName(stack.ASCII("main"));
+                    .module(computeShader.get())
+                    .pName(stack.ASCII(computeShader.getFunctionName()));
 
             VkComputePipelineCreateInfo.Buffer computePipelineCreateInfo = VkComputePipelineCreateInfo.callocStack(1);
             computePipelineCreateInfo.get(0)
@@ -127,12 +110,15 @@ public class MapPipeline extends VulkanObjectHandle {
     protected void close() {
         vkDestroyPipeline(device.get(), handle, null);
         vkDestroyPipelineLayout(device.get(), pipelineLayout, null);
-        vkDestroyShaderModule(device.get(), shaderModule, null);
         vkDestroyDescriptorSetLayout(device.get(), descriptorSetLayout, null);
     }
 
     public long getDescriptorSetLayout() {
         return descriptorSetLayout;
+    }
+
+    public Shader getComputeShader() {
+        return computeShader;
     }
 
     public long getPipelineLayout() {
