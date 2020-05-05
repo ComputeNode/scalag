@@ -1,10 +1,80 @@
 package com.unihogsoft.scalag.compiler
 
+import java.nio.charset.StandardCharsets
+
 object Opcodes {
 
-  case class Instruction(code: Code, operands: List[Int])
 
-  case class Code(mnemo: String, opcode: Int)
+  def intToBytes(i: Int): List[Byte] = {
+    List[Byte] (
+      (i >>> 24).asInstanceOf[Byte],
+      (i >>> 16).asInstanceOf[Byte],
+      (i >>> 8).asInstanceOf[Byte],
+      (i >>> 0).asInstanceOf[Byte]
+    )
+  }
+
+  trait Words {
+    def toWords: List[Byte]
+    def length: Int
+  }
+
+  case class Word(bytes: Array[Byte]) extends Words {
+    def toWords: List[Byte] = bytes.toList
+    def length = 1
+  }
+
+  case class WordVariable(name: String) extends Words {
+    def toWords: List[Byte] = throw new UnsupportedOperationException
+    def length = 1
+  }
+
+
+  case class Instruction(code: Code, operands: List[Words]) extends Words {
+    override def toWords: List[Byte] =
+      code.toWords.take(2) :::
+      intToBytes(length).reverse.take(2) :::
+      operands.flatMap(_.toWords)
+
+    def length = 1 + operands.map(_.length).sum
+
+    def replaceVar(name: String, value: Int): Instruction = {
+      this.copy(operands = operands.map {
+        case WordVariable(name) => IntWord(value)
+        case any => any
+      })
+    }
+  }
+
+  case class Code(mnemo: String, opcode: Int) extends Words {
+    override def toWords: List[Byte] = intToBytes(opcode).reverse
+    override def length: Int = 1
+  }
+
+  case class Text(text: String) extends Words {
+    override def toWords: List[Byte] = {
+      val textBytes = text.getBytes(StandardCharsets.UTF_8).toList
+      val complBytesLength = 4 - (textBytes.length % 4)
+      val complBytes = List.fill[Byte](complBytesLength)(0)
+      textBytes ::: complBytes
+    }
+
+    override def length: Int = toWords.length / 4
+  }
+
+  case class IntWord(i: Int) extends Words {
+    override def toWords: List[Byte] = intToBytes(i).reverse
+
+    override def length: Int = 1
+  }
+
+  case class ResultRef(result: Int) extends Words {
+    override def toWords: List[Byte] = intToBytes(result).reverse
+
+    override def length: Int = 1
+  }
+
+
 
   val MagicNumber = Code("MagicNumber", 0x07230203)
   val Version = Code("Version", 0x00010000)

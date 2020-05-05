@@ -11,14 +11,14 @@ import com.unihogsoft.scalag.vulkan.{MapExecutor, VulkanContext}
 import com.unihogsoft.scalag.vulkan.compute.MapPipeline
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
+import scala.reflect.runtime.universe.TypeTag
 
 trait Executable[H <: ValType, R <: ValType] {
   def execute(input: GMem[H], output: WritableGMem[R]): Future[Unit]
 }
 
 trait GContext {
-  def compile[H <: ValType : ClassTag, R <: ValType](map: GMap[H, R]): Executable[H, R]
+  def compile[H <: ValType : TypeTag, R <: ValType : TypeTag](map: GMap[H, R]): Executable[H, R]
 }
 
 object WorkerIndex extends Int32(Dynamic("worker_index"))
@@ -29,9 +29,9 @@ class MVPContext extends GContext {
   val vkContext = new VulkanContext(true)
   val compiler: DSLCompiler = new DSLCompiler
 
-  override def compile[H <: DSL.ValType : ClassTag, R <: DSL.ValType](map: GMap[H, R]): Executable[H, R] = {
+  override def compile[H <: DSL.ValType : TypeTag, R <: DSL.ValType : TypeTag](map: GMap[H, R]): Executable[H, R] = {
     val tree = map.fn.apply(WorkerIndex, GArray(0))
-    val shader = compiler.compile(tree)
+    val shader = compiler.compile(tree, map.arrayInputs, map.arrayOutputs)
 //    val pipeline = new MapPipeline(shader, vkContext)
     (input: GMem[H], output: WritableGMem[R]) => Future {
 //      val executor = new MapExecutor(input.getSize(), output.getSize(), output.getSize() / 128, pipeline, vkContext)

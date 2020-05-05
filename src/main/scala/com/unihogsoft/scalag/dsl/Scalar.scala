@@ -1,7 +1,7 @@
 package com.unihogsoft.scalag.dsl
 
 import com.unihogsoft.scalag.dsl.DSL._
-import scala.reflect.ClassTag
+import scala.reflect.runtime.universe.TypeTag
 
 trait Scalar {
 
@@ -37,6 +37,6 @@ trait Scalar {
   def int32(f: Int32): Int32 = f
   def int64(f: Int64): Int64 = f
 
-  case class Const[T <: ValType : ClassTag, R](r: R) extends E[T]
-  case class Dynamic[T <: ValType : ClassTag, R](source: String) extends E[T]
+  case class Const[T <: ValType : TypeTag, R](r: R) extends E[T]
+  case class Dynamic[T <: ValType : TypeTag, R](source: String) extends E[T]
 }
