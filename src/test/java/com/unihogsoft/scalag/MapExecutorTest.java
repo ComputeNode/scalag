@@ -1,6 +1,8 @@
-package com.unihogsoft.scalag.vulkan;
+package com.unihogsoft.scalag;
 
-import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
+import com.unihogsoft.scalag.MapExecutor;
+import com.unihogsoft.scalag.vulkan.VulkanContext;
+import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
 import org.joml.Vector3i;
@@ -63,9 +65,7 @@ class MapExecutorTest {
         Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
 
         Shader shader = new Shader(shaderCode, workgroupDimensions, bindingInfos, "main", context.getDevice());
-        MapPipeline pipeline = new MapPipeline(shader, context);
-
-        MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
+        MapExecutor executor = new MapExecutor(bufferLength, shader, context);
 
         Random rand = new Random(System.currentTimeMillis());
         byte[] randData = new byte[bufferSize];
@@ -78,7 +78,6 @@ class MapExecutorTest {
         ByteBuffer[] output = executor.execute(input);
 
         executor.destroy();
-        pipeline.destroy();
         shader.destroy();
 
         byte[] in = new byte[input[0].remaining()];
@@ -116,9 +115,9 @@ class MapExecutorTest {
         Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
 
         Shader shader = new Shader(shaderCode, workgroupDimensions, bindingInfos, "main", context.getDevice());
-        MapPipeline pipeline = new MapPipeline(shader, context);
+        ComputePipeline computePipeline = new ComputePipeline(shader, context);
 
-        MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
+        MapExecutor executor = new MapExecutor(bufferLength, shader, context);
 
         Random rand = new Random(System.currentTimeMillis());
         byte[][] randData = new byte[n][bufferSize];
@@ -132,7 +131,7 @@ class MapExecutorTest {
         ByteBuffer[] output = executor.execute(input);
 
         executor.destroy();
-        pipeline.destroy();
+        computePipeline.destroy();
         shader.destroy();
 
         byte[][] out = new byte[n][bufferSize];

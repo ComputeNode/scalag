@@ -14,6 +14,7 @@ public class BindingInfo {
             OP_READ_AFTER_OPERATION = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     public final static int
+            BINDING_TYPE_WORK = 0,
             BINDING_TYPE_INPUT = 1,
             BINDING_TYPE_OUTPUT = 2;
 
@@ -39,5 +40,18 @@ public class BindingInfo {
 
     public int getType() {
         return type;
+    }
+
+    public int getUsageBit(){
+        switch (type){
+            case BINDING_TYPE_WORK:
+                return 0;
+            case BINDING_TYPE_INPUT:
+                return VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            case BINDING_TYPE_OUTPUT:
+                return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            default:
+                throw new IllegalStateException();
+        }
     }
 }

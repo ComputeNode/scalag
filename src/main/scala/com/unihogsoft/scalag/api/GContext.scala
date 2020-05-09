@@ -7,8 +7,8 @@ import com.unihogsoft.scalag.dsl.DSL
 import shapeless.HList
 import shapeless.ops.hlist.{HKernelAux, Length}
 import com.unihogsoft.scalag.dsl.DSL._
-import com.unihogsoft.scalag.vulkan.{MapExecutor, VulkanContext}
-import com.unihogsoft.scalag.vulkan.compute.MapPipeline
+import com.unihogsoft.scalag.vulkan.compute.ComputePipeline
+import com.unihogsoft.scalag.vulkan.VulkanContext
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.runtime.universe.TypeTag

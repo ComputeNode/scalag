@@ -1,6 +1,6 @@
 package com.unihogsoft.scalag.vulkan.memory;
 
-import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
+import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
@@ -18,12 +18,12 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class DescriptorSet extends VulkanObjectHandle {
     private Device device;
-    private MapPipeline pipeline;
+    private ComputePipeline computePipeline;
     private DescriptorPool descriptorPool;
 
-    public DescriptorSet(Device device, MapPipeline pipeline, DescriptorPool descriptorPool) {
+    public DescriptorSet(Device device, ComputePipeline computePipeline, DescriptorPool descriptorPool) {
         this.device = device;
-        this.pipeline = pipeline;
+        this.computePipeline = computePipeline;
         this.descriptorPool = descriptorPool;
         create();
     }
@@ -31,7 +31,7 @@ public class DescriptorSet extends VulkanObjectHandle {
     @Override
     protected void init() {
         try (MemoryStack stack = stackPush()) {
-            LongBuffer pSetLayout = stack.callocLong(1).put(0, pipeline.getDescriptorSetLayout());
+            LongBuffer pSetLayout = stack.callocLong(1).put(0, computePipeline.getDescriptorSetLayout());
             VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
                     .descriptorPool(descriptorPool.get())
