@@ -25,7 +25,9 @@ object Opcodes {
   }
 
   case class WordVariable(name: String) extends Words {
-    def toWords: List[Byte] = throw new UnsupportedOperationException
+    def toWords: List[Byte] = {
+      List(-1, -1, -1, -1)
+    }
     def length = 1
   }
 
