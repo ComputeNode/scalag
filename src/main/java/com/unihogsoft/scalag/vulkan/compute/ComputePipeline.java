@@ -8,11 +8,13 @@ import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.List;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK12.VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 
 /**
  * @author MarconZet
@@ -52,9 +54,16 @@ public class ComputePipeline extends VulkanObjectHandle {
             }
             descriptorSetLayoutBindings.flip();
 
+            IntBuffer descriptorBindingFlags = stack.callocInt(1);
+            descriptorBindingFlags.put(0, VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
+
+            VkDescriptorSetLayoutBindingFlagsCreateInfo descriptorSetLayoutBindingFlagsCreateInfo = VkDescriptorSetLayoutBindingFlagsCreateInfo.callocStack()
+                    .pBindingFlags(descriptorBindingFlags);
+
+
             VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = VkDescriptorSetLayoutCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO)
-                    .pNext(0)
+                    .pNext(descriptorSetLayoutBindingFlagsCreateInfo.address())
                     .flags(0)
                     .pBindings(descriptorSetLayoutBindings);
 

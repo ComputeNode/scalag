@@ -1,6 +1,7 @@
 package com.unihogsoft.scalag.vulkan.command;
 
 import com.unihogsoft.scalag.vulkan.core.Device;
+import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObject;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -8,8 +9,7 @@ import org.lwjgl.vulkan.VkQueue;
 import org.lwjgl.vulkan.VkSubmitInfo;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.vkGetDeviceQueue;
-import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
+import static org.lwjgl.vulkan.VK10.*;
 
 /**
  * @author MarconZet
@@ -31,8 +31,11 @@ public class Queue extends VulkanObject {
         create();
     }
 
-    public synchronized int submit(VkSubmitInfo submitInfo, Fence fence) {
-        return vkQueueSubmit(queue, submitInfo, fence.get());
+    public synchronized void submit(VkSubmitInfo submitInfo, Fence fence) {
+        int err = vkQueueSubmit(queue, submitInfo, fence.get());
+        if (err != VK_SUCCESS) {
+            throw new VulkanAssertionError("Failed to submit command buffer to queue", err);
+        }
     }
 
     @Override
