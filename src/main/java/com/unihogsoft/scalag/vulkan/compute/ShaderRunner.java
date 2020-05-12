@@ -4,8 +4,6 @@ import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.command.CommandPool;
 import com.unihogsoft.scalag.vulkan.command.Fence;
 import com.unihogsoft.scalag.vulkan.command.Queue;
-import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
-import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.memory.*;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
@@ -30,6 +28,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 09.05.2020
  */
+@Deprecated
 public class ShaderRunner {
     private List<Buffer> buffers;
     private VkCommandBuffer commandBuffer;

@@ -2,7 +2,6 @@ package com.unihogsoft.scalag.vulkan.compute;
 
 import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
 import org.lwjgl.system.MemoryStack;

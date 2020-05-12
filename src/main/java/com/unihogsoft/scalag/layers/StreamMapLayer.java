@@ -3,7 +3,7 @@ package com.unihogsoft.scalag.layers;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
+import com.unihogsoft.scalag.vulkan.compute.BindingInfo;
 import com.unihogsoft.scalag.vulkan.memory.Buffer;
 import com.unihogsoft.scalag.vulkan.memory.DescriptorPool;
 import com.unihogsoft.scalag.vulkan.memory.DescriptorSet;
@@ -13,6 +13,7 @@ import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
 import java.nio.LongBuffer;
+import java.util.LinkedList;
 import java.util.List;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -22,7 +23,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 11.05.2020
  */
-public class StreamMap implements Layer {
+public class StreamMapLayer implements Layer {
     private ComputePipeline computePipeline;
     private DescriptorSet descriptorSet;
 
@@ -30,7 +31,7 @@ public class StreamMap implements Layer {
     private Shader shader;
     private Device device;
 
-    StreamMap(Shader shader) {
+    StreamMapLayer(Shader shader) {
         this.shader = shader;
     }
 
@@ -54,12 +55,17 @@ public class StreamMap implements Layer {
     }
 
     @Override
-    public List<BindingInfo> getBufferInfo() {
+    public List<BindingInfo> getBufferInfos() {
         return shader.getBindingInfos();
     }
 
     @Override
-    public void bindBuffers(List<Buffer> buffers) {
+    public void bindBuffers(List<Buffer> inputData, List<Buffer> outputData, List<Buffer> additionalData) {
+        List<Buffer> buffers = new LinkedList<>();
+        buffers.addAll(additionalData);
+        buffers.addAll(inputData);
+        buffers.addAll(outputData);
+
         try (MemoryStack stack = stackPush()) {
             VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(buffers.size());
 

@@ -1,10 +1,9 @@
 package com.unihogsoft.scalag;
 
-import com.unihogsoft.scalag.MapExecutor;
 import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
+import com.unihogsoft.scalag.vulkan.compute.BindingInfo;
 import org.joml.Vector3i;
 import org.joml.Vector3ic;
 import org.junit.jupiter.api.AfterAll;
@@ -19,7 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
 
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.*;
+import static com.unihogsoft.scalag.vulkan.compute.BindingInfo.*;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryUtil.memFree;

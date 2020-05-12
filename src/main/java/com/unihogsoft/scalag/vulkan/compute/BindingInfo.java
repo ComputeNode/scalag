@@ -1,4 +1,4 @@
-package com.unihogsoft.scalag.vulkan.memory;
+package com.unihogsoft.scalag.vulkan.compute;
 
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -9,14 +9,10 @@ import static org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
  */
 public class BindingInfo {
     public final static int
-            OP_DO_NOTHING = 0,
-            OP_WRITE_BEFORE_EXECUTION = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            OP_READ_AFTER_OPERATION = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    public final static int
             BINDING_TYPE_WORK = 0,
             BINDING_TYPE_INPUT = 1,
-            BINDING_TYPE_OUTPUT = 2;
+            BINDING_TYPE_OUTPUT = 2,
+            BINDING_TYPE_ADDITIONAL_DATA = 3;
 
 
     private final int
@@ -42,11 +38,12 @@ public class BindingInfo {
         return type;
     }
 
-    public int getUsageBit(){
-        switch (type){
+    public int getUsageBit() {
+        switch (type) {
             case BINDING_TYPE_WORK:
                 return 0;
             case BINDING_TYPE_INPUT:
+            case BINDING_TYPE_ADDITIONAL_DATA:
                 return VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             case BINDING_TYPE_OUTPUT:
                 return VK_BUFFER_USAGE_TRANSFER_SRC_BIT;

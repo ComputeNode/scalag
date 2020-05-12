@@ -1,7 +1,6 @@
 package com.unihogsoft.scalag.vulkan.compute;
 
 import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
 import org.joml.Vector3ic;
@@ -12,7 +11,7 @@ import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.List;
 
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_INPUT;
+import static com.unihogsoft.scalag.vulkan.compute.BindingInfo.BINDING_TYPE_INPUT;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
