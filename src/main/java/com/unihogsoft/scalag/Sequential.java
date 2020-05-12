@@ -180,6 +180,26 @@ public class Sequential {
         }
     }
 
+    public void sendBatch(List<ByteBuffer> data){
+        Buffer stagingBuffer = new Buffer(
+                data.stream().mapToInt(ByteBuffer::remaining).max().orElse(0),
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                0,
+                VMA_MEMORY_USAGE_CPU_TO_GPU,
+                allocator
+        );
+
+        for (int i = 0; i < topOfLineBuffers.size(); i++) {
+            ByteBuffer byteBuffer = data.get(i);
+            int size = byteBuffer.remaining();
+            Buffer.copyBuffer(byteBuffer, stagingBuffer, size);
+            Buffer gpuData = topOfLineBuffers.get(i);
+            Buffer.copyBuffer(stagingBuffer, gpuData, size, commandPool).block().destroy();
+        }
+
+        stagingBuffer.destroy();
+    }
+
     public void freeMemory() {
         buffers.forEach(VulkanObject::destroy);
         buffers.clear();
