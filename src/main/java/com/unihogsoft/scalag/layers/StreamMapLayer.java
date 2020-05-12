@@ -31,7 +31,7 @@ public class StreamMapLayer implements Layer {
     private Shader shader;
     private Device device;
 
-    StreamMapLayer(Shader shader) {
+    public StreamMapLayer(Shader shader) {
         this.shader = shader;
     }
 

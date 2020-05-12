@@ -5,7 +5,6 @@ import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.command.CommandPool;
 import com.unihogsoft.scalag.vulkan.command.Fence;
 import com.unihogsoft.scalag.vulkan.command.Queue;
-import com.unihogsoft.scalag.vulkan.compute.BindingInfo;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.memory.Allocator;
 import com.unihogsoft.scalag.vulkan.memory.Buffer;
@@ -14,17 +13,16 @@ import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObject;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
 import org.lwjgl.vulkan.VkDispatchIndirectCommand;
 import org.lwjgl.vulkan.VkSubmitInfo;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.unihogsoft.scalag.vulkan.compute.BindingInfo.BINDING_TYPE_INPUT;
 import static com.unihogsoft.scalag.vulkan.compute.BindingInfo.BINDING_TYPE_OUTPUT;
@@ -42,9 +40,11 @@ public class Sequential {
     private List<Layer> layers;
     private List<Buffer> buffers;
     private List<Buffer> topOfLineBuffers;
+    private List<Buffer> endOfLineBuffers;
     private VkCommandBuffer commandBuffer;
     private Fence fence;
-    private Buffer workgroup;
+    private Buffer workgroupBuffer;
+    int length;
 
     private DescriptorPool descriptorPool;
     private CommandPool commandPool;
@@ -79,7 +79,7 @@ public class Sequential {
             throw new VulkanAssertionError("Failed to begin recording command buffer", err);
         }
 
-        workgroup = new Buffer(
+        workgroupBuffer = new Buffer(
                 4 * 3,
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
@@ -87,7 +87,7 @@ public class Sequential {
                 allocator
         );
 
-        layers.forEach(layer -> layer.record(commandBuffer, workgroup));
+        layers.forEach(layer -> layer.record(commandBuffer, workgroupBuffer));
 
         err = vkEndCommandBuffer(commandBuffer);
         if (err != VK_SUCCESS) {
@@ -100,11 +100,11 @@ public class Sequential {
 
     public Fence execute() {
         try (MemoryStack stack = stackPush()) {
-            VkDispatchIndirectCommand indirectCommand = VkDispatchIndirectCommand.callocStack().set(10, 1, 1);
+            VkDispatchIndirectCommand indirectCommand = VkDispatchIndirectCommand.callocStack().set(length / 128, 1, 1);
             int indirectSize = VkDispatchIndirectCommand.SIZEOF;
             ByteBuffer byteBuffer = stack.calloc(indirectSize);
             memCopy(memAddress(byteBuffer), indirectCommand.address(), indirectSize);
-            Buffer.copyBuffer(byteBuffer, workgroup, indirectSize);
+            Buffer.copyBuffer(byteBuffer, workgroupBuffer, indirectSize);
 
             PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
             VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
@@ -117,28 +117,32 @@ public class Sequential {
     }
 
     public void allocateMemory(List<ByteBuffer> additionalData, int length) {
-        Buffer stagingBuffer = new Buffer(
-                additionalData.stream().mapToInt(ByteBuffer::remaining).max().orElse(0),
-                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                0,
-                VMA_MEMORY_USAGE_CPU_TO_GPU,
-                allocator
-        );
-        List<Buffer> additionalBuffers = additionalData.stream().map(byteBuffer -> {
-            int size = byteBuffer.remaining();
-            Buffer.copyBuffer(byteBuffer, stagingBuffer, size);
-            Buffer gpuData = new Buffer(
-                    size,
-                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        this.length = length;
+        List<Buffer> additionalBuffers = null;
+        if (additionalData != null) {
+            Buffer stagingBuffer = new Buffer(
+                    additionalData.stream().mapToInt(ByteBuffer::remaining).max().orElse(0),
+                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                     0,
-                    VMA_MEMORY_USAGE_GPU_ONLY,
+                    VMA_MEMORY_USAGE_CPU_TO_GPU,
                     allocator
             );
-            buffers.add(gpuData);
-            Buffer.copyBuffer(stagingBuffer, gpuData, size, commandPool).block().destroy();
-            return gpuData;
-        }).collect(Collectors.toList());
-        buffers.addAll(additionalBuffers);
+            additionalBuffers = additionalData.stream().map(byteBuffer -> {
+                int size = byteBuffer.remaining();
+                Buffer.copyBuffer(byteBuffer, stagingBuffer, size);
+                Buffer gpuData = new Buffer(
+                        size,
+                        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                        0,
+                        VMA_MEMORY_USAGE_GPU_ONLY,
+                        allocator
+                );
+                buffers.add(gpuData);
+                Buffer.copyBuffer(stagingBuffer, gpuData, size, commandPool).block().destroy();
+                return gpuData;
+            }).collect(Collectors.toList());
+            buffers.addAll(additionalBuffers);
+        }
 
         topOfLineBuffers = layers.get(0)
                 .getBufferInfos()
@@ -160,7 +164,7 @@ public class Sequential {
         for (int i = 0; i < layers.size(); i++) {
             Layer layer = layers.get(i);
 
-            int lastFlag = (i == layers.size()-1)?VK_BUFFER_USAGE_TRANSFER_SRC_BIT:0;
+            int lastFlag = (i == layers.size() - 1) ? VK_BUFFER_USAGE_TRANSFER_SRC_BIT : 0;
             List<Buffer> nextBuffers = layer
                     .getBufferInfos()
                     .stream()
@@ -177,10 +181,14 @@ public class Sequential {
             buffers.addAll(nextBuffers);
 
             layer.bindBuffers(previousBuffers, nextBuffers, additionalBuffers);
+
+            previousBuffers = nextBuffers;
         }
+
+        endOfLineBuffers = previousBuffers;
     }
 
-    public void sendBatch(List<ByteBuffer> data){
+    public void sendBatch(List<ByteBuffer> data) {
         Buffer stagingBuffer = new Buffer(
                 data.stream().mapToInt(ByteBuffer::remaining).max().orElse(0),
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -198,6 +206,14 @@ public class Sequential {
         }
 
         stagingBuffer.destroy();
+    }
+
+    public List<ByteBuffer> retrieveResults() {
+        return endOfLineBuffers.stream().map(buffer -> {
+            ByteBuffer byteBuffer = MemoryUtil.memCalloc(buffer.getSize());
+            Buffer.copyBuffer(buffer, byteBuffer, buffer.getSize());
+            return byteBuffer;
+        }).collect(Collectors.toList());
     }
 
     public void freeMemory() {
