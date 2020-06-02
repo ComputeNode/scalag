@@ -1,7 +1,7 @@
 # scalag
 
 Prototype project that would allow to run Scala DSL to be compiled to SPIR-V and run as Vulkan Compute Shaders. Working POC:
-```
+```scala
 object Test extends App {
 
   implicit val gcontext: GContext = new MVPContext()
