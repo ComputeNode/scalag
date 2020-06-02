@@ -1,6 +1,6 @@
 # scalag
 
-Prototype project that would allow to run Scala DSL to be compiled to SPIR-V and run as Vulkan Compute Shaders. Working POC:
+Prototype project that would allow to run Scala DSL to be compiled to SPIR-V and run as Vulkan Compute Shaders on GPU. Such approach allows much more flexibility than compiling the DSL to CUDA/OpenCL code and makes it highly multi-platform - works on all popular operating systems and most of the platforms that implement Vulkan 1.0 in some way. SPIR-V is also easily transpiled to HLSL for Direct3D. Working POC:
 ```scala
 object Test extends App {
 
