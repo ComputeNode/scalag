@@ -14,7 +14,7 @@ object Test extends App {
       (prev / 2) + (next / 2)
   } //gets compiled to SPIR-V
 
-  val data = FloatMem(Array(1.0f, 2.0f, 3.0f))
+  val data = FloatMem(Array(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f))
 
   data.map(addOne).map(r => {
     println("Output!")
