@@ -18,22 +18,16 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 14.04.2020
  */
-public class MapPipeline extends VulkanObjectHandle {
+public class ComputePipeline extends VulkanObjectHandle {
     private long descriptorSetLayout;
     private long pipelineLayout;
     private final Shader computeShader;
 
     private final Device device;
 
-    public MapPipeline(Shader computeShader, VulkanContext context){
+    public ComputePipeline(Shader computeShader, VulkanContext context){
         this.computeShader = computeShader;
         this.device = context.getDevice();
-        create();
-    }
-
-    public MapPipeline(Shader computeShader, Device device) {
-        this.computeShader = computeShader;
-        this.device = device;
         create();
     }
 

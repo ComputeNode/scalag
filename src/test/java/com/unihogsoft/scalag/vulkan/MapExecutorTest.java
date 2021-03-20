@@ -1,7 +1,8 @@
 package com.unihogsoft.scalag.vulkan;
 
-import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
+import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
+import com.unihogsoft.scalag.vulkan.executor.MapExecutor;
 import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
 import org.joml.Vector3i;
 import org.joml.Vector3ic;
@@ -63,7 +64,7 @@ class MapExecutorTest {
         Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
 
         Shader shader = new Shader(shaderCode, workgroupDimensions, bindingInfos, "main", context.getDevice());
-        MapPipeline pipeline = new MapPipeline(shader, context);
+        ComputePipeline pipeline = new ComputePipeline(shader, context);
 
         MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
 
@@ -116,7 +117,7 @@ class MapExecutorTest {
         Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
 
         Shader shader = new Shader(shaderCode, workgroupDimensions, bindingInfos, "main", context.getDevice());
-        MapPipeline pipeline = new MapPipeline(shader, context);
+        ComputePipeline pipeline = new ComputePipeline(shader, context);
 
         MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
 

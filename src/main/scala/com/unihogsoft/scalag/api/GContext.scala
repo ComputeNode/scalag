@@ -1,14 +1,13 @@
 package com.unihogsoft.scalag.api
 
 import java.util.concurrent.Executors
-
 import com.unihogsoft.scalag.compiler.DSLCompiler
 import com.unihogsoft.scalag.dsl.DSL
 import shapeless.HList
 import shapeless.ops.hlist.{HKernelAux, Length}
 import com.unihogsoft.scalag.dsl.DSL._
-import com.unihogsoft.scalag.vulkan.{MapExecutor, VulkanContext}
-import com.unihogsoft.scalag.vulkan.compute.MapPipeline
+import com.unihogsoft.scalag.vulkan.VulkanContext
+import com.unihogsoft.scalag.vulkan.compute.ComputePipeline
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.runtime.universe.TypeTag

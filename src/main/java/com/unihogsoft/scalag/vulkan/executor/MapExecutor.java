@@ -1,9 +1,10 @@
-package com.unihogsoft.scalag.vulkan;
+package com.unihogsoft.scalag.vulkan.executor;
 
+import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.command.CommandPool;
 import com.unihogsoft.scalag.vulkan.command.Fence;
 import com.unihogsoft.scalag.vulkan.command.Queue;
-import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
+import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.memory.*;
@@ -30,7 +31,7 @@ import static org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
  * @author MarconZet
  * Created 15.04.2020
  */
-public class MapExecutor {
+public class MapExecutor implements Executor {
     private List<Buffer> buffers;
     private VkCommandBuffer commandBuffer;
     private DescriptorSet descriptorSet;
@@ -38,7 +39,7 @@ public class MapExecutor {
 
     private final int groupCount;
     private final Shader shader;
-    private final MapPipeline mapPipeline;
+    private final ComputePipeline computePipeline;
 
     private final Device device;
     private final Queue queue;
@@ -46,10 +47,10 @@ public class MapExecutor {
     private final DescriptorPool descriptorPool;
     private final CommandPool commandPool;
 
-    public MapExecutor(int groupCount, MapPipeline mapPipeline, VulkanContext context) {
-        this.mapPipeline = mapPipeline;
+    public MapExecutor(int groupCount, ComputePipeline computePipeline, VulkanContext context) {
+        this.computePipeline = computePipeline;
         this.groupCount = groupCount;
-        this.shader = mapPipeline.getComputeShader();
+        this.shader = computePipeline.getComputeShader();
         this.device = context.getDevice();
         this.allocator = context.getAllocator();
         this.descriptorPool = context.getDescriptorPool();
@@ -71,7 +72,7 @@ public class MapExecutor {
                     )
             ).collect(Collectors.toList());
 
-            descriptorSet = new DescriptorSet(device, mapPipeline, descriptorPool);
+            descriptorSet = new DescriptorSet(device, computePipeline, descriptorPool);
 
             VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(buffers.size());
 
@@ -103,10 +104,10 @@ public class MapExecutor {
                 throw new VulkanAssertionError("Failed to begin recording command buffer", err);
             }
 
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, mapPipeline.get());
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.get());
 
             LongBuffer pDescriptorSet = stack.callocLong(1).put(0, descriptorSet.get());
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, mapPipeline.getPipelineLayout(), 0, pDescriptorSet, null);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.getPipelineLayout(), 0, pDescriptorSet, null);
 
             Vector3ic workgroup = shader.getWorkgroupDimensions();
             vkCmdDispatch(commandBuffer, groupCount / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
@@ -121,6 +122,7 @@ public class MapExecutor {
         }
     }
 
+    @Override
     public ByteBuffer[] execute(ByteBuffer[] input) {
         Buffer stagingBuffer = new Buffer(
                 shader.getBindingInfos().stream().mapToInt(BindingInfo::getSize).max().orElse(0) * groupCount,
@@ -151,16 +153,17 @@ public class MapExecutor {
 
         ByteBuffer[] output = new ByteBuffer[shader.getOutputNumber()];
         int offset = shader.getInputNumber();
-        for(int i = offset; i < shader.getBindingInfos().size(); i++) {
+        for (int i = offset; i < shader.getBindingInfos().size(); i++) {
             Fence fence = Buffer.copyBuffer(buffers.get(i), stagingBuffer, buffers.get(i).getSize(), commandPool);
             output[i - offset] = MemoryUtil.memAlloc(buffers.get(i).getSize());
             fence.block().destroy();
-            Buffer.copyBuffer(stagingBuffer, output[i-offset], output[i-offset].remaining());
+            Buffer.copyBuffer(stagingBuffer, output[i - offset], output[i - offset].remaining());
         }
         stagingBuffer.destroy();
         return output;
     }
 
+    @Override
     public void destroy() {
         fence.destroy();
         commandPool.freeCommandBuffer(commandBuffer);

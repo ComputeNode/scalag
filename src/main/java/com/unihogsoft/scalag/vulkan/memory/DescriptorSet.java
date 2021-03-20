@@ -1,6 +1,6 @@
 package com.unihogsoft.scalag.vulkan.memory;
 
-import com.unihogsoft.scalag.vulkan.compute.MapPipeline;
+import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
@@ -18,10 +18,10 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class DescriptorSet extends VulkanObjectHandle {
     private Device device;
-    private MapPipeline pipeline;
+    private ComputePipeline pipeline;
     private DescriptorPool descriptorPool;
 
-    public DescriptorSet(Device device, MapPipeline pipeline, DescriptorPool descriptorPool) {
+    public DescriptorSet(Device device, ComputePipeline pipeline, DescriptorPool descriptorPool) {
         this.device = device;
         this.pipeline = pipeline;
         this.descriptorPool = descriptorPool;
