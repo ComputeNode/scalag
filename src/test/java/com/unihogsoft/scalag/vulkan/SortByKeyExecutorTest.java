@@ -11,6 +11,7 @@ import org.junit.Ignore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
@@ -18,10 +19,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
+import java.util.stream.IntStream;
 
 import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_INPUT;
 import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_OUTPUT;
@@ -30,9 +29,6 @@ import static org.lwjgl.system.MemoryUtil.memFree;
 
 class SortByKeyExecutorTest {
     private static VulkanContext context;
-
-    private final static int bufferLength = 1024;
-    private final static int bufferSize = 4 * bufferLength;
 
     @BeforeAll
     static void setUp() {
@@ -47,26 +43,29 @@ class SortByKeyExecutorTest {
     @Test
     @Ignore
     void sortShaderTest() {
-        ByteBuffer shaderCode = loadShader("sort.spv");
+        int n = 1024;
 
-        List<BindingInfo> bindingInfos = new ArrayList<>(2);
-        bindingInfos.add(new BindingInfo(0, 4, BINDING_TYPE_INPUT));
-        bindingInfos.add(new BindingInfo(1, 4, BINDING_TYPE_OUTPUT));
+        Shader shader = new Shader(
+                loadShader("sort.spv"),
+                new Vector3i(64, 1, 1),
+                Arrays.asList(
+                        new BindingInfo(0, 4, BINDING_TYPE_INPUT),
+                        new BindingInfo(1, 4, BINDING_TYPE_OUTPUT)
+                ),
+                "main",
+                context.getDevice()
+        );
 
-        Vector3ic workgroupDimensions = new Vector3i(64, 1, 1);
-
-        Shader shader = new Shader(shaderCode, workgroupDimensions, bindingInfos, "main", context.getDevice());
         ComputePipeline pipeline = new ComputePipeline(shader, context);
 
-        MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
+        MapExecutor executor = new MapExecutor(n, pipeline, context);
 
         Random rand = new Random(System.currentTimeMillis());
-        byte[] keys = new byte[bufferSize];
-        rand.nextBytes(keys);
-        ByteBuffer inputBuffer = MemoryUtil.memAlloc(bufferSize);
-        inputBuffer.put(keys).flip();
-        ByteBuffer[] input = new ByteBuffer[1];
-        input[0] = inputBuffer;
+        int[] values = IntStream.generate(() -> rand.nextInt(1000)).limit(n).toArray();
+
+        ByteBuffer inputBuffer = BufferUtils.createByteBuffer(n * 4);
+        inputBuffer.asIntBuffer().put(values).flip();
+        ByteBuffer[] input = {inputBuffer};
 
         ByteBuffer[] output = executor.execute(input);
 
@@ -74,15 +73,12 @@ class SortByKeyExecutorTest {
         pipeline.destroy();
         shader.destroy();
 
-        byte[] in = new byte[input[0].remaining()];
-        byte[] out = new byte[output[0].remaining()];
-        input[0].get(in);
-        output[0].get(out);
+        int[] result = new int[values.length];
+        output[0].asIntBuffer().get(result);
 
-        memFree(input[0]);
-        memFree(output[0]);
+        Arrays.sort(values);
 
-        assertArrayEquals(in, out);
+        assertArrayEquals(values, result);
     }
 
     private ByteBuffer loadShader(String path) {

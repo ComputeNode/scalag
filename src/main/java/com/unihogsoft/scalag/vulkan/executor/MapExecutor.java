@@ -11,6 +11,7 @@ import com.unihogsoft.scalag.vulkan.memory.*;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObject;
 import org.joml.Vector3ic;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -155,7 +156,7 @@ public class MapExecutor implements Executor {
         int offset = shader.getInputNumber();
         for (int i = offset; i < shader.getBindingInfos().size(); i++) {
             Fence fence = Buffer.copyBuffer(buffers.get(i), stagingBuffer, buffers.get(i).getSize(), commandPool);
-            output[i - offset] = MemoryUtil.memAlloc(buffers.get(i).getSize());
+            output[i - offset] = BufferUtils.createByteBuffer(buffers.get(i).getSize());
             fence.block().destroy();
             Buffer.copyBuffer(stagingBuffer, output[i - offset], output[i - offset].remaining());
         }

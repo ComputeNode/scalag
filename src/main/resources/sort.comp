@@ -34,7 +34,6 @@ void main(void){
                 if ((i&k)==0 && get_key(i)>get_key(ixj)) exchange(i, ixj);
                 if ((i&k)!=0 && get_key(i)<get_key(ixj)) exchange(i, ixj);
             }
-
         }
     }
 }
