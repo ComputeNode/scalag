@@ -1,5 +1,6 @@
-package com.unihogsoft.scalag.vulkan;
+package com.unihogsoft.scalag.vulkan.executor;
 
+import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.executor.MapExecutor;

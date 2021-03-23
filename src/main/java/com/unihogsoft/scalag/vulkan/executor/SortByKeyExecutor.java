@@ -167,6 +167,9 @@ public class SortByKeyExecutor {
     }
 
     public void destroy() {
-
+        fence.destroy();
+        commandPool.freeCommandBuffer(commandBuffer);
+        descriptorSets.forEach(DescriptorSet::destroy);
+        buffers.forEach(Buffer::destroy);
     }
 }
