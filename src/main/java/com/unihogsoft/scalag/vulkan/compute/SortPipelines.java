@@ -84,15 +84,7 @@ public class SortPipelines {
         return keyPipeline.getComputeShader().getBindingInfos().get(0).getSize();
     }
 
-    public ComputePipeline getKeyPipeline() {
-        return keyPipeline;
-    }
-
-    public ComputePipeline getSortPipeline() {
-        return sortPipeline;
-    }
-
-    public ComputePipeline getCopyPipeline() {
-        return copyPipeline;
+    public List<ComputePipeline> getPipelines() {
+        return Arrays.asList(keyPipeline, copyPipeline, sortPipeline);
     }
 }
