@@ -17,4 +17,4 @@ bin
 .idea/
 .vscode/
 
-.spv
+*.spv

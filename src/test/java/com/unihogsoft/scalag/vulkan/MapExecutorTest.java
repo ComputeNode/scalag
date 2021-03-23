@@ -1,4 +1,4 @@
-package com.unihogsoft.scalag.vulkan.executor;
+package com.unihogsoft.scalag.vulkan;
 
 import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;

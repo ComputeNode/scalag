@@ -17,13 +17,13 @@ public class VulkanContext {
     public static final String[] VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
     private final boolean enableValidationLayers;
 
-    private Instance instance;
-    private DebugCallback debugCallback;
-    private Device device;
-    private Allocator allocator;
-    private Queue computeQueue;
-    private DescriptorPool descriptorPool;
-    private CommandPool commandPool;
+    private final Instance instance;
+    private final DebugCallback debugCallback;
+    private final Device device;
+    private final Allocator allocator;
+    private final Queue computeQueue;
+    private final DescriptorPool descriptorPool;
+    private final CommandPool commandPool;
 
     public VulkanContext() {
         this(false);
@@ -32,8 +32,7 @@ public class VulkanContext {
     public VulkanContext(boolean enableValidationLayers) {
         this.enableValidationLayers = enableValidationLayers;
         instance = new Instance(enableValidationLayers);
-        if(enableValidationLayers)
-            debugCallback = new DebugCallback(instance);
+        debugCallback = (enableValidationLayers) ? new DebugCallback(instance) : null;
         device = new Device(enableValidationLayers, instance);
         computeQueue = new Queue(device.getComputeQueueFamily(), 0, device);
         allocator = new Allocator(instance, device);
@@ -41,17 +40,16 @@ public class VulkanContext {
         commandPool = new StandardCommandPool(device, computeQueue);
     }
 
-    public void destroy(){
+    public void destroy() {
         commandPool.destroy();
         descriptorPool.destroy();
         allocator.destroy();
         computeQueue.destroy();
         device.destroy();
-        if(enableValidationLayers)
+        if (enableValidationLayers)
             debugCallback.destroy();
         instance.destroy();
     }
-
 
 
     public Device getDevice() {

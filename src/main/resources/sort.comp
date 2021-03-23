@@ -1,0 +1,40 @@
+#version 450
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout (binding = 0, set = 0) buffer KeysBuffer {
+    int keys[];
+};
+layout (binding = 1, set = 0) buffer OrderBuffer {
+    int order[];
+};
+
+
+int get_key(int index){
+    return keys[order[index]];
+}
+
+void exchange(int a, int b){
+    int t = order[a];
+    order[a] = order[b];
+    order[b] = t;
+}
+
+void main(void){
+    uint N = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    int gi = gl_GlobalInvocationID.x;
+    order[gi] = gi;
+
+    int i, j, k;
+    for (k=2;k<=N;k=2*k) {
+        for (j=k>>1;j>0;j=j>>1) {
+            barrier();
+            int ixj=i^j;
+            if ((ixj)>i) {
+                if ((i&k)==0 && get_key(i)>get_key(ixj)) exchange(i, ixj);
+                if ((i&k)!=0 && get_key(i)<get_key(ixj)) exchange(i, ixj);
+            }
+
+        }
+    }
+}
