@@ -7,25 +7,26 @@ import com.unihogsoft.scalag.vulkan.command.Queue;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.SortPipelines;
 import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.Allocator;
-import com.unihogsoft.scalag.vulkan.memory.Buffer;
-import com.unihogsoft.scalag.vulkan.memory.DescriptorPool;
-import com.unihogsoft.scalag.vulkan.memory.DescriptorSet;
+import com.unihogsoft.scalag.vulkan.memory.*;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import org.joml.Vector3ic;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
+import org.lwjgl.vulkan.VkSubmitInfo;
 
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.Math.max;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_ONLY;
+import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_UNKNOWN;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class SortByKeyExecutor {
@@ -129,7 +130,40 @@ public class SortByKeyExecutor {
 
 
     public ByteBuffer execute(ByteBuffer input) {
-        return BufferUtils.createByteBuffer(0);
+        int bufferSize = Math.max(sortPipelines.getDataSize() * groupCount, 4);
+        Buffer stagingBuffer = new Buffer(
+                bufferSize,
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                VMA_MEMORY_USAGE_UNKNOWN,
+                allocator
+        );
+
+        Buffer.copyBuffer(input, stagingBuffer, input.remaining());
+        Buffer.copyBuffer(stagingBuffer, buffers.get(0), input.remaining(), commandPool).block().destroy();
+
+        try (MemoryStack stack = stackPush()) {
+            PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
+            VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
+                    .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
+                    .pCommandBuffers(pCommandBuffer);
+
+            int err = vkQueueSubmit(queue.get(), submitInfo, fence.get());
+            if (err != VK_SUCCESS) {
+                throw new VulkanAssertionError("Failed to submit command buffer to queue", err);
+            }
+            fence.block().reset();
+        }
+
+
+        Buffer outputBuffer = buffers.get(3);
+        Fence fence = Buffer.copyBuffer(outputBuffer, stagingBuffer, outputBuffer.getSize(), commandPool);
+        ByteBuffer output = MemoryUtil.memAlloc(outputBuffer.getSize());
+        fence.block().destroy();
+        Buffer.copyBuffer(stagingBuffer, output, output.remaining());
+
+        stagingBuffer.destroy();
+        return output;
     }
 
     public void destroy() {
