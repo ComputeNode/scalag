@@ -1,10 +1,9 @@
 package com.unihogsoft.scalag.vulkan;
 
-import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.executor.MapExecutor;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
+import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
 import org.joml.Vector3i;
 import org.joml.Vector3ic;
 import org.junit.jupiter.api.AfterAll;
@@ -19,7 +18,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
 
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.*;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.lwjgl.system.MemoryUtil.memFree;
@@ -58,13 +56,13 @@ class MapExecutorTest {
             throw new RuntimeException(e);
         }
 
-        List<BindingInfo> bindingInfos = new ArrayList<>(2);
-        bindingInfos.add(new BindingInfo(0, 4, BINDING_TYPE_INPUT));
-        bindingInfos.add(new BindingInfo(1, 4, BINDING_TYPE_OUTPUT));
+        List<LayoutInfo> layoutInfos = new ArrayList<>(2);
+        layoutInfos.add(new LayoutInfo(0, 0, 4, BINDING_TYPE_INPUT));
+        layoutInfos.add(new LayoutInfo(0, 1, 4, BINDING_TYPE_OUTPUT));
 
         Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
 
-        Shader shader = new Shader(shaderCode, workgroupDimensions, bindingInfos, "main", context.getDevice());
+        Shader shader = new Shader(shaderCode, workgroupDimensions, layoutInfos, "main", context.getDevice());
         ComputePipeline pipeline = new ComputePipeline(shader, context);
 
         MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
@@ -109,15 +107,15 @@ class MapExecutorTest {
             throw new RuntimeException(e);
         }
 
-        List<BindingInfo> bindingInfos = new ArrayList<>(4);
-        bindingInfos.add(new BindingInfo(0, 4, BINDING_TYPE_INPUT));
-        bindingInfos.add(new BindingInfo(1, 4, BINDING_TYPE_INPUT));
-        bindingInfos.add(new BindingInfo(2, 4, BINDING_TYPE_OUTPUT));
-        bindingInfos.add(new BindingInfo(3, 4, BINDING_TYPE_OUTPUT));
+        List<LayoutInfo> layoutInfos = new ArrayList<>(4);
+        layoutInfos.add(new LayoutInfo(0, 0, 4, BINDING_TYPE_INPUT));
+        layoutInfos.add(new LayoutInfo(0, 1, 4, BINDING_TYPE_INPUT));
+        layoutInfos.add(new LayoutInfo(0, 2, 4, BINDING_TYPE_OUTPUT));
+        layoutInfos.add(new LayoutInfo(0, 3, 4, BINDING_TYPE_OUTPUT));
 
         Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
 
-        Shader shader = new Shader(shaderCode, workgroupDimensions, bindingInfos, "main", context.getDevice());
+        Shader shader = new Shader(shaderCode, workgroupDimensions, layoutInfos, "main", context.getDevice());
         ComputePipeline pipeline = new ComputePipeline(shader, context);
 
         MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);

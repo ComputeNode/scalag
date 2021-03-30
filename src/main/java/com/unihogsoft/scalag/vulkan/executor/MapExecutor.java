@@ -5,6 +5,7 @@ import com.unihogsoft.scalag.vulkan.command.CommandPool;
 import com.unihogsoft.scalag.vulkan.command.Fence;
 import com.unihogsoft.scalag.vulkan.command.Queue;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
+import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.core.Device;
 import com.unihogsoft.scalag.vulkan.memory.*;
@@ -14,7 +15,6 @@ import org.joml.Vector3ic;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
@@ -22,7 +22,7 @@ import java.nio.LongBuffer;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_INPUT;
+import static com.unihogsoft.scalag.vulkan.compute.LayoutInfo.BINDING_TYPE_INPUT;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.vulkan.VK10.*;
@@ -62,8 +62,8 @@ public class MapExecutor implements Executor {
 
     private void setup() {
         try (MemoryStack stack = stackPush()) {
-            List<BindingInfo> bindingInfos = shader.getBindingInfos();
-            buffers = bindingInfos.stream().map(bindingInfo ->
+            List<LayoutInfo> layoutInfos = shader.getBindingInfos();
+            buffers = layoutInfos.stream().map(bindingInfo ->
                     new Buffer(
                             bindingInfo.getSize() * groupCount,
                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | (bindingInfo.getType() == BINDING_TYPE_INPUT ? VK_BUFFER_USAGE_TRANSFER_DST_BIT : VK_BUFFER_USAGE_TRANSFER_SRC_BIT),
@@ -73,7 +73,7 @@ public class MapExecutor implements Executor {
                     )
             ).collect(Collectors.toList());
 
-            descriptorSet = new DescriptorSet(device, computePipeline, descriptorPool);
+            descriptorSet = new DescriptorSet(device, computePipeline.getDescriptorSetLayouts().get(0), descriptorPool);
 
             VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(buffers.size());
 
@@ -86,7 +86,7 @@ public class MapExecutor implements Executor {
                 writeDescriptorSet.get(i)
                         .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
                         .dstSet(descriptorSet.get())
-                        .dstBinding(bindingInfos.get(i).getBinding())
+                        .dstBinding(layoutInfos.get(i).getBinding())
                         .descriptorCount(1)
                         .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         .pBufferInfo(descriptorBufferInfo);
@@ -126,7 +126,7 @@ public class MapExecutor implements Executor {
     @Override
     public ByteBuffer[] execute(ByteBuffer[] input) {
         Buffer stagingBuffer = new Buffer(
-                shader.getBindingInfos().stream().mapToInt(BindingInfo::getSize).max().orElse(0) * groupCount,
+                shader.getBindingInfos().stream().mapToInt(LayoutInfo::getSize).max().orElse(0) * groupCount,
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
                 VMA_MEMORY_USAGE_UNKNOWN,

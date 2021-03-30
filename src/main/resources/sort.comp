@@ -28,6 +28,7 @@ void main(void){
     for (k=2;k<=N;k=2*k) {
         for (j=k>>1;j>0;j=j>>1) {
             memoryBarrierBuffer();
+            barrier();
             uint ixj=i^j;
             if ((ixj)>i) {
                 if ((i&k)==0 && get_value(i)>get_value(ixj)) swap(i, ixj);

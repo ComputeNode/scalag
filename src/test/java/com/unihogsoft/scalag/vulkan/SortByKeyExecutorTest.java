@@ -3,7 +3,7 @@ package com.unihogsoft.scalag.vulkan;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
 import com.unihogsoft.scalag.vulkan.executor.MapExecutor;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
+import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.joml.Vector3i;
 import org.junit.Ignore;
@@ -20,8 +20,8 @@ import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.stream.IntStream;
 
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_INPUT;
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_OUTPUT;
+import static com.unihogsoft.scalag.vulkan.compute.LayoutInfo.BINDING_TYPE_INPUT;
+import static com.unihogsoft.scalag.vulkan.compute.LayoutInfo.BINDING_TYPE_OUTPUT;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.lwjgl.system.MemoryUtil.memFree;
 
@@ -42,14 +42,14 @@ class SortByKeyExecutorTest {
     @Test
     @Ignore
     void sortShaderTest() {
-        int n = 1*64;
+        int n = 2*64;
 
         Shader shader = new Shader(
                 loadShader("sort.spv", VulkanContext.class.getClassLoader()),
                 new Vector3i(64, 1, 1),
                 Arrays.asList(
-                        new BindingInfo(0, 4, BINDING_TYPE_INPUT),
-                        new BindingInfo(1, 4, BINDING_TYPE_OUTPUT)
+                        new LayoutInfo(0, 0, 4, BINDING_TYPE_INPUT),
+                        new LayoutInfo(0, 1, 4, BINDING_TYPE_OUTPUT)
                 ),
                 "main",
                 context.getDevice()
@@ -77,7 +77,6 @@ class SortByKeyExecutorTest {
 
 
         result = Arrays.stream(result).map(x -> values[x]).toArray();
-        log.info(Arrays.toString(result));
 
         Arrays.sort(values);
 

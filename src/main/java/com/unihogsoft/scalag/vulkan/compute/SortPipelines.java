@@ -1,19 +1,13 @@
 package com.unihogsoft.scalag.vulkan.compute;
 
 import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
 import com.unihogsoft.scalag.vulkan.memory.Buffer;
 import com.unihogsoft.scalag.vulkan.memory.DescriptorPool;
 import com.unihogsoft.scalag.vulkan.memory.DescriptorSet;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDescriptorBufferInfo;
 import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -42,9 +36,9 @@ public class SortPipelines {
     }
 
     private DescriptorSet bindTo(ComputePipeline pipeline, List<Buffer> buffers, DescriptorPool descriptorPool, Device device) {
-        DescriptorSet descriptorSet = new DescriptorSet(device, pipeline, descriptorPool);
+        DescriptorSet descriptorSet = new DescriptorSet(device, pipeline.getDescriptorSetLayouts().get(0), descriptorPool);
 
-        List<BindingInfo> bindingInfos = pipeline.getComputeShader().getBindingInfos();
+        List<LayoutInfo> layoutInfos = pipeline.getComputeShader().getBindingInfos();
         try (MemoryStack stack = stackPush()) {
             VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(buffers.size());
 
@@ -57,7 +51,7 @@ public class SortPipelines {
                 writeDescriptorSet.get(i)
                         .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
                         .dstSet(descriptorSet.get())
-                        .dstBinding(bindingInfos.get(i).getBinding())
+                        .dstBinding(layoutInfos.get(i).getBinding())
                         .descriptorCount(1)
                         .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         .pBufferInfo(descriptorBufferInfo);

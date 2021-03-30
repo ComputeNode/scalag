@@ -17,13 +17,13 @@ import static org.lwjgl.vulkan.VK10.*;
  * Created 15.04.2020
  */
 public class DescriptorSet extends VulkanObjectHandle {
-    private Device device;
-    private ComputePipeline pipeline;
-    private DescriptorPool descriptorPool;
+    private final Device device;
+    private final long descriptorSetLayout;
+    private final DescriptorPool descriptorPool;
 
-    public DescriptorSet(Device device, ComputePipeline pipeline, DescriptorPool descriptorPool) {
+    public DescriptorSet(Device device, long descriptorSetLayout, DescriptorPool descriptorPool) {
         this.device = device;
-        this.pipeline = pipeline;
+        this.descriptorSetLayout = descriptorSetLayout;
         this.descriptorPool = descriptorPool;
         create();
     }
@@ -31,7 +31,7 @@ public class DescriptorSet extends VulkanObjectHandle {
     @Override
     protected void init() {
         try (MemoryStack stack = stackPush()) {
-            LongBuffer pSetLayout = stack.callocLong(1).put(0, pipeline.getDescriptorSetLayout());
+            LongBuffer pSetLayout = stack.callocLong(1).put(0, descriptorSetLayout);
             VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
                     .descriptorPool(descriptorPool.get())
@@ -39,7 +39,7 @@ public class DescriptorSet extends VulkanObjectHandle {
 
             LongBuffer pDescriptorSet = stack.callocLong(1);
             int err = vkAllocateDescriptorSets(device.get(), descriptorSetAllocateInfo, pDescriptorSet);
-            if(err != VK_SUCCESS){
+            if (err != VK_SUCCESS) {
                 throw new VulkanAssertionError("Failed to allocate descriptor set", err);
             }
             handle = pDescriptorSet.get();

@@ -1,9 +1,9 @@
 package com.unihogsoft.scalag.vulkan.compute;
 
 import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.BindingInfo;
 import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
 import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
+import lombok.Getter;
 import org.joml.Vector3ic;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo;
@@ -12,7 +12,6 @@ import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.List;
 
-import static com.unihogsoft.scalag.vulkan.memory.BindingInfo.BINDING_TYPE_INPUT;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -22,16 +21,20 @@ import static org.lwjgl.vulkan.VK10.*;
  */
 public class Shader extends VulkanObjectHandle {
     private final ByteBuffer shaderCode;
+
+    @Getter
     private final Vector3ic workgroupDimensions;
-    private final List<BindingInfo> bindingInfos;
+    @Getter
+    private final List<LayoutInfo> layoutInfos;
+    @Getter
     private final String functionName;
 
     private final Device device;
 
-    public Shader(ByteBuffer shaderCode, Vector3ic workgroupDimensions, List<BindingInfo> bindingInfos, String functionName, Device device) {
+    public Shader(ByteBuffer shaderCode, Vector3ic workgroupDimensions, List<LayoutInfo> layoutInfos, String functionName, Device device) {
         this.shaderCode = shaderCode;
         this.workgroupDimensions = workgroupDimensions;
-        this.bindingInfos = bindingInfos;
+        this.layoutInfos = layoutInfos;
         this.functionName = functionName;
         this.device = device;
         create();
@@ -58,25 +61,5 @@ public class Shader extends VulkanObjectHandle {
     @Override
     protected void close() {
         vkDestroyShaderModule(device.get(), handle, null);
-    }
-
-    public int getInputNumber(){
-        return (int) bindingInfos.stream().filter(bindingInfo -> bindingInfo.getType() == BINDING_TYPE_INPUT).count();
-    }
-
-    public int getOutputNumber(){
-        return bindingInfos.size() - getInputNumber();
-    }
-
-    public Vector3ic getWorkgroupDimensions() {
-        return workgroupDimensions;
-    }
-
-    public List<BindingInfo> getBindingInfos() {
-        return bindingInfos;
-    }
-
-    public String getFunctionName() {
-        return functionName;
     }
 }
