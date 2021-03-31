@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test;
 class VulkanContextTest {
 
     @Test
-    public void initializingContextWithNoArguments() {
+    void initializingContextWithNoArguments() {
         VulkanContext context = new VulkanContext();
         context.destroy();
     }
 
     @Test
-    public void initializingContextWithValidationLayers(){
+    void initializingContextWithValidationLayers() {
         VulkanContext context = new VulkanContext(true);
         context.destroy();
     }

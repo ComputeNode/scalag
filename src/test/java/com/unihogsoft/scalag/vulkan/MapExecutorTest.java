@@ -6,9 +6,7 @@ import com.unihogsoft.scalag.vulkan.executor.BufferAction;
 import com.unihogsoft.scalag.vulkan.executor.MapExecutor;
 import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
 import org.joml.Vector3i;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryUtil;
 
@@ -29,36 +27,25 @@ import static org.lwjgl.system.MemoryUtil.memFree;
  */
 class MapExecutorTest {
 
-    private static VulkanContext context;
+    private VulkanContext context;
 
     private final static int bufferLength = 1024;
     private final static int bufferSize = 4 * bufferLength;
 
-    @BeforeAll
-    static void setUp() {
+    @BeforeEach
+    void setUp() {
         context = new VulkanContext(true);
     }
 
-    @AfterAll
-    static void tearDown() {
+    @AfterEach
+    void tearDown() {
         context.destroy();
     }
 
     @Test
     void copyRandomDataFromOneBufferToAnother() {
-        ByteBuffer shaderCode;
-        try {
-            ClassLoader classLoader = getClass().getClassLoader();
-            File file = new File(Objects.requireNonNull(classLoader.getResource("copy.spv")).getFile());
-            FileInputStream fis = new FileInputStream(file);
-            FileChannel fc = fis.getChannel();
-            shaderCode = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
         Shader shader = new Shader(
-                shaderCode,
+                ShaderUtils.loadShader("copy.spv"),
                 new Vector3i(128, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),
@@ -106,19 +93,8 @@ class MapExecutorTest {
 
     @Test
     void copyRandomDataBetweenFourBuffersAndTwoSets() {
-        ByteBuffer shaderCode;
-        try {
-            ClassLoader classLoader = getClass().getClassLoader();
-            File file = new File(Objects.requireNonNull(classLoader.getResource("two_copy.spv")).getFile());
-            FileInputStream fis = new FileInputStream(file);
-            FileChannel fc = fis.getChannel();
-            shaderCode = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
         Shader shader = new Shader(
-                shaderCode,
+                ShaderUtils.loadShader("two_copy.spv"),
                 new Vector3i(128, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),
