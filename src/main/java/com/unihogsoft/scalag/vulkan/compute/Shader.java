@@ -45,6 +45,10 @@ public class Shader extends VulkanObjectHandle {
         return layoutInfos.stream().filter(x -> x.getSet() == a).collect(Collectors.toList());
     }
 
+    public List<List<LayoutInfo>> getLayoutsBySets(){
+        return layoutInfos.stream().mapToInt(LayoutInfo::getSet).distinct().sorted().mapToObj(this::getLayoutsBySets).collect(Collectors.toList());
+    }
+
     @Override
     protected void init() {
         try (MemoryStack stack = stackPush()) {

@@ -8,10 +8,10 @@ layout (binding = 0, set = 0) buffer InputBuffer0 {
 layout (binding = 1, set = 0) buffer InputBuffer1 {
     int inArray2[];
 };
-layout (binding = 2, set = 0) buffer OutputBuffer0 {
+layout (binding = 0, set = 1) buffer OutputBuffer0 {
     int outArray1[];
 };
-layout (binding = 3, set = 0) buffer OutputBuffer1 {
+layout (binding = 1, set = 1) buffer OutputBuffer1 {
     int outArray2[];
 };
 

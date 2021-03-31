@@ -41,12 +41,7 @@ public class ComputePipeline extends VulkanObjectHandle {
     @Override
     protected void init() {
         try (MemoryStack stack = stackPush()) {
-            List<List<LayoutInfo>> layoutInfos = computeShader.getLayoutInfos().stream()
-                    .collect(groupingBy(LayoutInfo::getSet))
-                    .entrySet().stream()
-                    .sorted()
-                    .map(Map.Entry::getValue)
-                    .collect(Collectors.toList());
+            List<List<LayoutInfo>> layoutInfos = computeShader.getLayoutsBySets();
             descriptorSetLayouts = layoutInfos.stream().mapToLong(this::createDescriptorSetLayout).toArray();
 
             VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = VkPipelineLayoutCreateInfo.callocStack()

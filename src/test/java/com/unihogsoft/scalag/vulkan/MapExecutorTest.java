@@ -6,7 +6,6 @@ import com.unihogsoft.scalag.vulkan.executor.BufferAction;
 import com.unihogsoft.scalag.vulkan.executor.MapExecutor;
 import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
 import org.joml.Vector3i;
-import org.joml.Vector3ic;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -63,7 +62,7 @@ class MapExecutorTest {
                 new Vector3i(128, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),
-                        new LayoutInfo(0, 1, 4)
+                        new LayoutInfo(1, 0, 4)
                 ),
                 "main",
                 context.getDevice()
@@ -106,7 +105,7 @@ class MapExecutorTest {
     private static final int n = 2;
 
     @Test
-    void copyRandomDataBetweenFourBuffers() {
+    void copyRandomDataBetweenFourBuffersAndTwoSets() {
         ByteBuffer shaderCode;
         try {
             ClassLoader classLoader = getClass().getClassLoader();
@@ -124,8 +123,8 @@ class MapExecutorTest {
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),
                         new LayoutInfo(0, 1, 4),
-                        new LayoutInfo(0, 2, 4),
-                        new LayoutInfo(0, 3, 4)
+                        new LayoutInfo(1, 0, 4),
+                        new LayoutInfo(1, 1, 4)
                 ),
                 "main",
                 context.getDevice()
