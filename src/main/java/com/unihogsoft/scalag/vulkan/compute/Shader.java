@@ -11,6 +11,7 @@ import org.lwjgl.vulkan.VkShaderModuleCreateInfo;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
@@ -38,6 +39,10 @@ public class Shader extends VulkanObjectHandle {
         this.functionName = functionName;
         this.device = device;
         create();
+    }
+
+    public List<LayoutInfo> getLayoutsBySets(int a) {
+        return layoutInfos.stream().filter(x -> x.getSet() == a).collect(Collectors.toList());
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.unihogsoft.scalag.vulkan;
 
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.Shader;
+import com.unihogsoft.scalag.vulkan.executor.BufferAction;
 import com.unihogsoft.scalag.vulkan.executor.MapExecutor;
 import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
 import org.joml.Vector3i;
@@ -9,6 +10,7 @@ import org.joml.Vector3ic;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
@@ -56,38 +58,47 @@ class MapExecutorTest {
             throw new RuntimeException(e);
         }
 
-        List<LayoutInfo> layoutInfos = new ArrayList<>(2);
-        layoutInfos.add(new LayoutInfo(0, 0, 4, BINDING_TYPE_INPUT));
-        layoutInfos.add(new LayoutInfo(0, 1, 4, BINDING_TYPE_OUTPUT));
+        Shader shader = new Shader(
+                shaderCode,
+                new Vector3i(128, 1, 1),
+                Arrays.asList(
+                        new LayoutInfo(0, 0, 4),
+                        new LayoutInfo(0, 1, 4)
+                ),
+                "main",
+                context.getDevice()
+        );
 
-        Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
 
-        Shader shader = new Shader(shaderCode, workgroupDimensions, layoutInfos, "main", context.getDevice());
         ComputePipeline pipeline = new ComputePipeline(shader, context);
 
-        MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
+        MapExecutor executor = new MapExecutor(
+                bufferLength,
+                Arrays.asList(
+                        new BufferAction(BufferAction.LOAD_INTO),
+                        new BufferAction(BufferAction.LOAD_FROM)
+                ),
+                pipeline,
+                context
+        );
 
         Random rand = new Random(System.currentTimeMillis());
         byte[] randData = new byte[bufferSize];
         rand.nextBytes(randData);
-        ByteBuffer inputBuffer = MemoryUtil.memAlloc(bufferSize);
+        ByteBuffer inputBuffer = BufferUtils.createByteBuffer(bufferSize);
         inputBuffer.put(randData).flip();
-        ByteBuffer[] input = new ByteBuffer[1];
-        input[0] = inputBuffer;
+        var input = Collections.singletonList(inputBuffer);
 
-        ByteBuffer[] output = executor.execute(input);
+        List<ByteBuffer> output = executor.execute(input);
 
         executor.destroy();
         pipeline.destroy();
         shader.destroy();
 
-        byte[] in = new byte[input[0].remaining()];
-        byte[] out = new byte[output[0].remaining()];
-        input[0].get(in);
-        output[0].get(out);
-
-        memFree(input[0]);
-        memFree(output[0]);
+        byte[] in = new byte[input.get(0).remaining()];
+        byte[] out = new byte[output.get(0).remaining()];
+        input.get(0).get(in);
+        output.get(0).get(out);
 
         assertArrayEquals(in, out);
     }
@@ -95,7 +106,7 @@ class MapExecutorTest {
     private static final int n = 2;
 
     @Test
-    void copyRandomDataBetweenFourBuffers(){
+    void copyRandomDataBetweenFourBuffers() {
         ByteBuffer shaderCode;
         try {
             ClassLoader classLoader = getClass().getClassLoader();
@@ -107,46 +118,56 @@ class MapExecutorTest {
             throw new RuntimeException(e);
         }
 
-        List<LayoutInfo> layoutInfos = new ArrayList<>(4);
-        layoutInfos.add(new LayoutInfo(0, 0, 4, BINDING_TYPE_INPUT));
-        layoutInfos.add(new LayoutInfo(0, 1, 4, BINDING_TYPE_INPUT));
-        layoutInfos.add(new LayoutInfo(0, 2, 4, BINDING_TYPE_OUTPUT));
-        layoutInfos.add(new LayoutInfo(0, 3, 4, BINDING_TYPE_OUTPUT));
+        Shader shader = new Shader(
+                shaderCode,
+                new Vector3i(128, 1, 1),
+                Arrays.asList(
+                        new LayoutInfo(0, 0, 4),
+                        new LayoutInfo(0, 1, 4),
+                        new LayoutInfo(0, 2, 4),
+                        new LayoutInfo(0, 3, 4)
+                ),
+                "main",
+                context.getDevice()
+        );
 
-        Vector3ic workgroupDimensions = new Vector3i(128, 1, 1);
-
-        Shader shader = new Shader(shaderCode, workgroupDimensions, layoutInfos, "main", context.getDevice());
         ComputePipeline pipeline = new ComputePipeline(shader, context);
 
-        MapExecutor executor = new MapExecutor(bufferLength, pipeline, context);
+        MapExecutor executor = new MapExecutor(
+                bufferLength,
+                Arrays.asList(
+                        new BufferAction(BufferAction.LOAD_INTO),
+                        new BufferAction(BufferAction.LOAD_INTO),
+                        new BufferAction(BufferAction.LOAD_FROM),
+                        new BufferAction(BufferAction.LOAD_FROM)
+                ),
+                pipeline,
+                context
+        );
 
         Random rand = new Random(System.currentTimeMillis());
         byte[][] randData = new byte[n][bufferSize];
-        ByteBuffer[] input = new ByteBuffer[n];
-        for(int i = 0; i<n; i++){
+        ByteBuffer[] inputArray = new ByteBuffer[n];
+        for (int i = 0; i < n; i++) {
             rand.nextBytes(randData[i]);
-            input[i] = MemoryUtil.memAlloc(bufferSize);
-            input[i].put(randData[i]).flip();
+            inputArray[i] = MemoryUtil.memAlloc(bufferSize);
+            inputArray[i].put(randData[i]).flip();
         }
 
-        ByteBuffer[] output = executor.execute(input);
+        List<ByteBuffer> input = Arrays.asList(inputArray.clone());
+
+        List<ByteBuffer> output = executor.execute(input);
 
         executor.destroy();
         pipeline.destroy();
         shader.destroy();
 
-        byte[][] out = new byte[n][bufferSize];
-        for(int i = 0; i<n; i++){
-            output[i].get(out[i]);
-        }
-
-        for(int i = 0; i<n; i++){
-            memFree(input[i]);
-            memFree(output[i]);
-        }
-
-        for(int i = 0; i<n; i++){
-            assertArrayEquals(randData[i], out[i]);
+        for (int i = 0; i < 2; i++) {
+            byte[] in = new byte[input.get(i).remaining()];
+            byte[] out = new byte[output.get(i).remaining()];
+            input.get(i).get(in);
+            output.get(i).get(out);
+            assertArrayEquals(in, out);
         }
     }
 }

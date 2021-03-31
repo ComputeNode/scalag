@@ -24,7 +24,6 @@ public class SortPipelines {
         this.keyPipeline = keyPipeline;
         this.sortPipeline = sortPipeline;
         this.copyPipeline = copyPipeline;
-        verify();
     }
 
     public List<DescriptorSet> createDescriptorSets(List<Buffer> buffer, DescriptorPool descriptorPool, Device device) {
@@ -36,46 +35,36 @@ public class SortPipelines {
     }
 
     private DescriptorSet bindTo(ComputePipeline pipeline, List<Buffer> buffers, DescriptorPool descriptorPool, Device device) {
-        DescriptorSet descriptorSet = new DescriptorSet(device, pipeline.getDescriptorSetLayouts().get(0), descriptorPool);
-
-        List<LayoutInfo> layoutInfos = pipeline.getComputeShader().getBindingInfos();
-        try (MemoryStack stack = stackPush()) {
-            VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(buffers.size());
-
-            for (int i = 0; i < writeDescriptorSet.capacity(); i++) {
-                VkDescriptorBufferInfo.Buffer descriptorBufferInfo = VkDescriptorBufferInfo.callocStack(1)
-                        .buffer(buffers.get(i).get())
-                        .offset(0)
-                        .range(VK_WHOLE_SIZE);
-
-                writeDescriptorSet.get(i)
-                        .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
-                        .dstSet(descriptorSet.get())
-                        .dstBinding(layoutInfos.get(i).getBinding())
-                        .descriptorCount(1)
-                        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                        .pBufferInfo(descriptorBufferInfo);
-            }
-
-            vkUpdateDescriptorSets(device.get(), writeDescriptorSet, null);
-        }
-        return descriptorSet;
-    }
-
-
-    private void verify() {
-        verifyShader(keyPipeline.getComputeShader(), 1, 2);
-        verifyShader(copyPipeline.getComputeShader(), 2, 1);
-        verifyShader(sortPipeline.getComputeShader(), 1, 1);
-    }
-
-    private void verifyShader(Shader shader, int in, int out) {
-        if (shader.getInputNumber() != in || shader.getOutputNumber() != out)
-            throw new IllegalArgumentException();
+//        DescriptorSet descriptorSet = new DescriptorSet(device, pipeline.getDescriptorSetLayouts().get(0), descriptorPool);
+//
+//        List<LayoutInfo> layoutInfos = pipeline.getComputeShader().getBindingInfos();
+//        try (MemoryStack stack = stackPush()) {
+//            VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(buffers.size());
+//
+//            for (int i = 0; i < writeDescriptorSet.capacity(); i++) {
+//                VkDescriptorBufferInfo.Buffer descriptorBufferInfo = VkDescriptorBufferInfo.callocStack(1)
+//                        .buffer(buffers.get(i).get())
+//                        .offset(0)
+//                        .range(VK_WHOLE_SIZE);
+//
+//                writeDescriptorSet.get(i)
+//                        .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+//                        .dstSet(descriptorSet.get())
+//                        .dstBinding(layoutInfos.get(i).getBinding())
+//                        .descriptorCount(1)
+//                        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+//                        .pBufferInfo(descriptorBufferInfo);
+//            }
+//
+//            vkUpdateDescriptorSets(device.get(), writeDescriptorSet, null);
+//        }
+//        return descriptorSet;
+        return null;
     }
 
     public int getDataSize() {
-        return keyPipeline.getComputeShader().getBindingInfos().get(0).getSize();
+//        return keyPipeline.getComputeShader().getBindingInfos().get(0).getSize();
+        return 0;
     }
 
     public List<ComputePipeline> getPipelines() {
