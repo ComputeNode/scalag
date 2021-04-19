@@ -41,7 +41,7 @@ class BasicSortTest {
         int n = 64;
 
         Shader shader = new Shader(
-                ShaderUtils.loadShader("sort.spv"),
+                Shader.loadShader("sort.spv", this.getClass().getClassLoader()),
                 new Vector3i(n, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),
@@ -84,6 +84,7 @@ class BasicSortTest {
 
         Arrays.sort(values);
 
+        log.info(Arrays.toString(result));
         assertArrayEquals(values, result);
     }
 }

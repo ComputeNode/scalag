@@ -8,9 +8,14 @@ import org.joml.Vector3ic;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
+import java.nio.channels.FileChannel;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
@@ -70,5 +75,21 @@ public class Shader extends VulkanObjectHandle {
     @Override
     protected void close() {
         vkDestroyShaderModule(device.get(), handle, null);
+    }
+
+
+    public static ByteBuffer loadShader(String path) {
+        return loadShader(path, Shader.class.getClassLoader());
+    }
+
+    public static ByteBuffer loadShader(String path, ClassLoader classLoader) {
+        try {
+            File file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile());
+            FileInputStream fis = new FileInputStream(file);
+            FileChannel fc = fis.getChannel();
+            return fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

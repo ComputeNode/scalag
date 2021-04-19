@@ -15,9 +15,7 @@ import com.unihogsoft.scalag.vulkan.utility.VulkanObject;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
-import org.lwjgl.vulkan.VkSubmitInfo;
+import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -131,6 +129,30 @@ public abstract class AbstractExecutor {
         }
         stagingBuffer.destroy();
         return output;
+    }
+
+    protected DescriptorSet createUpdatedDescriptorSet(long descriptorSetLayout, List<Buffer> buffers) {
+        var descriptorSet = new DescriptorSet(device, descriptorSetLayout, descriptorPool);
+
+        VkWriteDescriptorSet.Buffer writeDescriptorSet = VkWriteDescriptorSet.callocStack(buffers.size());
+
+        for (int i = 0; i < writeDescriptorSet.capacity(); i++) {
+            VkDescriptorBufferInfo.Buffer descriptorBufferInfo = VkDescriptorBufferInfo.callocStack(1)
+                    .buffer(buffers.get(i).get())
+                    .offset(0)
+                    .range(VK_WHOLE_SIZE);
+
+            writeDescriptorSet.get(i)
+                    .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+                    .dstSet(descriptorSet.get())
+                    .dstBinding(i)
+                    .descriptorCount(1)
+                    .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                    .pBufferInfo(descriptorBufferInfo);
+        }
+
+        vkUpdateDescriptorSets(device.get(), writeDescriptorSet, null);
+        return descriptorSet;
     }
 
     public void destroy() {

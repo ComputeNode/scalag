@@ -45,7 +45,7 @@ class MapExecutorTest {
     @Test
     void copyRandomDataFromOneBufferToAnother() {
         Shader shader = new Shader(
-                ShaderUtils.loadShader("copy.spv"),
+                Shader.loadShader("copy.spv", this.getClass().getClassLoader()),
                 new Vector3i(128, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),
@@ -94,7 +94,7 @@ class MapExecutorTest {
     @Test
     void copyRandomDataBetweenFourBuffersAndTwoSets() {
         Shader shader = new Shader(
-                ShaderUtils.loadShader("two_copy.spv"),
+                Shader.loadShader("two_copy.spv", this.getClass().getClassLoader()),
                 new Vector3i(128, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),
