@@ -1,175 +1,162 @@
 package com.unihogsoft.scalag.vulkan.executor;
 
 import com.unihogsoft.scalag.vulkan.VulkanContext;
-import com.unihogsoft.scalag.vulkan.command.CommandPool;
-import com.unihogsoft.scalag.vulkan.command.Fence;
-import com.unihogsoft.scalag.vulkan.command.Queue;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
-import com.unihogsoft.scalag.vulkan.compute.SortPipelines;
-import com.unihogsoft.scalag.vulkan.core.Device;
-import com.unihogsoft.scalag.vulkan.memory.*;
-import com.unihogsoft.scalag.vulkan.utility.VulkanAssertionError;
+import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
+import com.unihogsoft.scalag.vulkan.compute.Shader;
+import com.unihogsoft.scalag.vulkan.memory.Buffer;
+import com.unihogsoft.scalag.vulkan.memory.DescriptorSet;
+import com.unihogsoft.scalag.vulkan.utility.VulkanObjectHandle;
+import org.joml.Vector3i;
 import org.joml.Vector3ic;
-import org.lwjgl.BufferUtils;
-import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkCommandBufferBeginInfo;
-import org.lwjgl.vulkan.VkSubmitInfo;
+import org.lwjgl.vulkan.VkDescriptorBufferInfo;
+import org.lwjgl.vulkan.VkWriteDescriptorSet;
 
-import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-import static java.lang.Math.max;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_ONLY;
-import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_UNKNOWN;
 import static org.lwjgl.vulkan.VK10.*;
 
-public class SortByKeyExecutor {
-    private List<Buffer> buffers;
-    private VkCommandBuffer commandBuffer;
-    private Fence fence;
-    private List<DescriptorSet> descriptorSets;
+public class SortByKeyExecutor extends AbstractExecutor {
+    private final Shader keyShader;
 
-    private final int groupCount;
-    private final SortPipelines sortPipelines;
+    private final ComputePipeline keyPipeline;
+    private final ComputePipeline sortPipeline;
+    private final ComputePipeline copyPipeline;
 
-    private final Device device;
-    private final Queue queue;
-    private final Allocator allocator;
-    private final DescriptorPool descriptorPool;
-    private final CommandPool commandPool;
-
-    public SortByKeyExecutor(int groupCount, SortPipelines sortPipelines, VulkanContext context) {
-        this.groupCount = groupCount;
-        this.sortPipelines = sortPipelines;
-        this.device = context.getDevice();
-        this.allocator = context.getAllocator();
-        this.descriptorPool = context.getDescriptorPool();
-        this.commandPool = context.getCommandPool();
-        this.queue = context.getComputeQueue();
+    public SortByKeyExecutor(int dataLength, ComputePipeline keyPipeline, VulkanContext context) {
+        super(dataLength, createBufferActions(), context);
+        this.keyPipeline = keyPipeline;
+        this.keyShader = keyPipeline.getComputeShader();
+        this.copyPipeline = createCopyPipeline(context);
+        this.sortPipeline = createSortPipeline(context);
         setup();
     }
 
-    private void setup() {
-        try (MemoryStack stack = stackPush()) {
-            buffers = new ArrayList<>(4);
+    @Override
+    protected void setupBuffers() {
+        List<LayoutInfo> layoutInfos = keyShader.getLayoutInfos();
+
+        int[] sizes = {layoutInfos.get(0).getSize(), 4, 4, layoutInfos.get(0).getSize()};
+        for (int i = 0; i < layoutInfos.size(); i++) {
             buffers.add(
                     new Buffer(
-                            sortPipelines.getDataSize() * groupCount,
-                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                            sizes[i] * dataLength,
+                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | bufferActions.get(i).getAction(),
                             0,
                             VMA_MEMORY_USAGE_GPU_ONLY,
                             allocator
                     )
             );
-            for (int i = 0; i < 2; i++) {
-                buffers.add(
-                        new Buffer(
-                                sortPipelines.getDataSize() * 4,
-                                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                0,
-                                VMA_MEMORY_USAGE_GPU_ONLY,
-                                allocator
-                        )
-                );
-            }
+        }
+
+        for (int i = 0; i < 2; i++) {
             buffers.add(
                     new Buffer(
-                            sortPipelines.getDataSize() * groupCount,
-                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                            4,
+                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                             0,
                             VMA_MEMORY_USAGE_GPU_ONLY,
                             allocator
                     )
             );
-
-
-            descriptorSets = sortPipelines.createDescriptorSets(buffers, descriptorPool, device);
-
-            VkCommandBuffer commandBuffer = commandPool.createCommandBuffer();
-
-            VkCommandBufferBeginInfo commandBufferBeginInfo = VkCommandBufferBeginInfo.callocStack()
-                    .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO)
-                    .flags(0);
-
-            int err = vkBeginCommandBuffer(commandBuffer, commandBufferBeginInfo);
-            if (err != VK_SUCCESS) {
-                throw new VulkanAssertionError("Failed to begin recording command buffer", err);
-            }
-            List<ComputePipeline> pipelines = sortPipelines.getPipelines();
-            for (int i = 0; i < 3; i++) {
-                dispatchPipeline(commandBuffer, pipelines.get(i), descriptorSets.get(i));
-            }
-
-            err = vkEndCommandBuffer(commandBuffer);
-            if (err != VK_SUCCESS) {
-                throw new VulkanAssertionError("Failed to finish recording command buffer", err);
-            }
-            this.commandBuffer = commandBuffer;
-
-            this.fence = new Fence(device);
         }
+
+        List<DescriptorSet> descriptorSets = Arrays.asList(
+                createUpdatedDescriptorSet(keyPipeline.getDescriptorSetLayouts()[0], buffers.subList(0, 2)),
+                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[0], buffers.subList(1, 3)),
+                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[1], buffers.subList(4, 6)),
+                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[1], Arrays.asList(buffers.get(5), buffers.get(4))),
+                createUpdatedDescriptorSet(copyPipeline.getDescriptorSetLayouts()[0], Arrays.asList(buffers.get(0), buffers.get(4)))
+
+        );
+        this.descriptorSets.addAll(descriptorSets);
     }
 
-    private void dispatchPipeline(VkCommandBuffer commandBuffer, ComputePipeline pipeline, DescriptorSet set) {
+    @Override
+    protected void recordCommandBuffer(VkCommandBuffer commandBuffer) {
         try (MemoryStack stack = stackPush()) {
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get());
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, keyPipeline.get());
 
-            LongBuffer pDescriptorSet = stack.callocLong(1).put(0, set.get());
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.getPipelineLayout(), 0, pDescriptorSet, null);
+            LongBuffer pDescriptorSets = stack.longs(descriptorSets.get(0).get());
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, keyPipeline.getPipelineLayout(), 0, pDescriptorSets, null);
 
-            Vector3ic workgroup = pipeline.getComputeShader().getWorkgroupDimensions();
-            vkCmdDispatch(commandBuffer, groupCount / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
+            Vector3ic workgroup = keyShader.getWorkgroupDimensions();
+            vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
+
+
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, sortPipeline.get());
+
+            int oddIteration = 1;
+            for (int k = 2; k <= dataLength; k = 2 * k) {
+                oddIteration = 1 - oddIteration;
+                pDescriptorSets = stack.longs(descriptorSets.get(1).get(), descriptorSets.get(3 + oddIteration).get());
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, sortPipeline.getPipelineLayout(), 0, pDescriptorSets, null);
+
+                workgroup = sortPipeline.getComputeShader().getWorkgroupDimensions();
+                vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
+            }
+
+
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, copyPipeline.get());
+
+            pDescriptorSets = stack.longs(descriptorSets.get(2).get());
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, copyPipeline.getPipelineLayout(), 0, pDescriptorSets, null);
+
+            workgroup = copyPipeline.getComputeShader().getWorkgroupDimensions();
+            vkCmdDispatch(commandBuffer, (dataLength * getBiggestTransportData()) / (4 * workgroup.x()), 1 / workgroup.y(), 1 / workgroup.z());
         }
     }
 
+    @Override
+    protected int getBiggestTransportData() {
+        return keyShader.getLayoutInfos().get(0).getSize();
+    }
 
-    public ByteBuffer execute(ByteBuffer input) {
-        int bufferSize = Math.max(sortPipelines.getDataSize() * groupCount, 4);
-        Buffer stagingBuffer = new Buffer(
-                bufferSize,
-                VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-                VMA_MEMORY_USAGE_UNKNOWN,
-                allocator
+    private static ComputePipeline createCopyPipeline(VulkanContext context) {
+        Shader shader = new Shader(
+                Shader.loadShader("copy.spv"),
+                new Vector3i(1024, 1, 1),
+                Arrays.asList(
+                        new LayoutInfo(0, 0, 4),
+                        new LayoutInfo(0, 1, 4)
+                ),
+                "main",
+                context.getDevice()
         );
 
-        Buffer.copyBuffer(input, stagingBuffer, input.remaining());
-        Buffer.copyBuffer(stagingBuffer, buffers.get(0), input.remaining(), commandPool).block().destroy();
-
-        try (MemoryStack stack = stackPush()) {
-            PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
-            VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
-                    .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
-                    .pCommandBuffers(pCommandBuffer);
-
-            int err = vkQueueSubmit(queue.get(), submitInfo, fence.get());
-            if (err != VK_SUCCESS) {
-                throw new VulkanAssertionError("Failed to submit command buffer to queue", err);
-            }
-            fence.block().reset();
-        }
-
-
-        Buffer outputBuffer = buffers.get(3);
-        Fence fence = Buffer.copyBuffer(outputBuffer, stagingBuffer, outputBuffer.getSize(), commandPool);
-        ByteBuffer output = MemoryUtil.memAlloc(outputBuffer.getSize());
-        fence.block().destroy();
-        Buffer.copyBuffer(stagingBuffer, output, output.remaining());
-
-        stagingBuffer.destroy();
-        return output;
+        return new ComputePipeline(shader, context);
     }
 
-    public void destroy() {
-        fence.destroy();
-        commandPool.freeCommandBuffer(commandBuffer);
-        descriptorSets.forEach(DescriptorSet::destroy);
-        buffers.forEach(Buffer::destroy);
+    private static ComputePipeline createSortPipeline(VulkanContext context) {
+        Shader shader = new Shader(
+                Shader.loadShader("sort.spv"),
+                new Vector3i(1024, 1, 1),
+                Arrays.asList(
+                        new LayoutInfo(0, 0, 4),
+                        new LayoutInfo(0, 1, 4),
+                        new LayoutInfo(1, 0, 4),
+                        new LayoutInfo(2, 0, 4)
+                ),
+                "main",
+                context.getDevice()
+        );
+
+        return new ComputePipeline(shader, context);
+    }
+
+    private static List<BufferAction> createBufferActions() {
+        int[] actions = {VK_BUFFER_USAGE_TRANSFER_DST_BIT, 0, 0, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0, 0};
+        return IntStream.of(actions).mapToObj(BufferAction::new).collect(Collectors.toList());
     }
 }
