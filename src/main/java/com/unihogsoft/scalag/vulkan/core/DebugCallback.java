@@ -27,7 +27,7 @@ public class DebugCallback extends VulkanObjectHandle {
                     VK_DEBUG_REPORT_WARNING_BIT_EXT |
                     VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 
-    private Instance instance;
+    private final Instance instance;
 
     public DebugCallback(Instance instance) {
         this.instance = instance;
@@ -47,7 +47,7 @@ public class DebugCallback extends VulkanObjectHandle {
                         logger.debug(decodedMessage);
                         break;
                     case VK_DEBUG_REPORT_ERROR_BIT_EXT:
-                        logger.error(decodedMessage);
+                        logger.error(decodedMessage, new RuntimeException());
                         break;
                     case VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT:
                     case VK_DEBUG_REPORT_WARNING_BIT_EXT:

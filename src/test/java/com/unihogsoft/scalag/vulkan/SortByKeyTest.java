@@ -40,7 +40,7 @@ public class SortByKeyTest {
     @Test
     void sortBySimpleKey() {
         Shader shader = new Shader(
-                Shader.loadShader("simple_key.comp", this.getClass().getClassLoader()),
+                Shader.loadShader("simple_key.spv", this.getClass().getClassLoader()),
                 new Vector3i(128, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),

@@ -28,7 +28,7 @@ public class Device extends VulkanObject {
 
     private VkPhysicalDevice physicalDevice;
 
-    private Instance instance;
+    private final Instance instance;
     private int computeQueueFamily;
 
     public Device(boolean enableValidationLayers, Instance instance) {

@@ -50,7 +50,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
         List<LayoutInfo> layoutInfos = keyShader.getLayoutInfos();
 
         int[] sizes = {layoutInfos.get(0).getSize(), 4, 4, layoutInfos.get(0).getSize()};
-        for (int i = 0; i < layoutInfos.size(); i++) {
+        for (int i = 0; i < sizes.length; i++) {
             buffers.add(
                     new Buffer(
                             sizes[i] * dataLength,
@@ -157,7 +157,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
                         new LayoutInfo(0, 0, 4),
                         new LayoutInfo(0, 1, 4),
                         new LayoutInfo(1, 0, 4),
-                        new LayoutInfo(2, 0, 4)
+                        new LayoutInfo(1, 1, 4)
                 ),
                 "main",
                 context.getDevice()
