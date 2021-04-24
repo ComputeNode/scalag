@@ -76,9 +76,10 @@ public class SortByKeyTest {
 
         float[] outData = new float[bufferLength];
         output.asFloatBuffer().get(outData);
-        for (int i = 0; i < outData.length - 1; i++) {
-            assertTrue(outData[i] <= outData[i + 1]);
-        }
+
+        Arrays.sort(randData);
+
+        assertArrayEquals(randData, outData);
     }
 
     static class FloatDummy implements Comparable<FloatDummy> {

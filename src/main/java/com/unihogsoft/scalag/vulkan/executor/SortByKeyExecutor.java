@@ -185,4 +185,14 @@ public class SortByKeyExecutor extends AbstractExecutor {
         int[] actions = {VK_BUFFER_USAGE_TRANSFER_DST_BIT, 0, 0, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0, 0};
         return IntStream.of(actions).mapToObj(BufferAction::new).collect(Collectors.toList());
     }
+
+    @Override
+    public void destroy() {
+        Stream.of(preparePipeline, copyPipeline, sortPipeline).forEach(pipeline -> {
+            pipeline.getComputeShader().destroy();
+            pipeline.destroy();
+        });
+
+        super.destroy();
+    }
 }
