@@ -3,11 +3,11 @@
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 layout (set = 0, binding = 0) buffer InputBuffer {
-    uint inArray[];
+    float inArray[];
 };
 
 layout (set = 0, binding = 1) buffer OutputBuffer {
-    uint outArray[];
+    float outArray[];
 };
 
 layout (set = 0, binding = 2) buffer OrderBuffer {
@@ -22,7 +22,9 @@ void main(void){
     uint idx = gl_GlobalInvocationID.x;
     uint ido = order[idx];
 
-    for(uint i = 0; i<size; i++){
-        outArray[ido + i] = inArray[idx + i];
-    }
+    //    for(uint i = 0; i<size; i++){
+    //        outArray[ido + i] = inArray[idx + i];
+    //    }
+
+    outArray[idx] = inArray[order[idx]];
 }

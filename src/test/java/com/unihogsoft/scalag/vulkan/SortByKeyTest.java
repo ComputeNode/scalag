@@ -58,14 +58,13 @@ public class SortByKeyTest {
                 pipeline,
                 context
         );
-
-        Random rand = new Random(System.currentTimeMillis());
-        float[] randData = new float[bufferLength];
-        for (int i = 0; i < randData.length; i++) {
-            randData[i] = 200 * rand.nextFloat() - 100;
+        float[] testData = new float[bufferLength];
+        for (int i = 0; i < testData.length; i++) {
+            testData[i] = (float)testData.length - i;
         }
+
         ByteBuffer inputBuffer = BufferUtils.createByteBuffer(bufferSize);
-        inputBuffer.asFloatBuffer().put(randData).flip();
+        inputBuffer.asFloatBuffer().put(testData).flip();
         var input = Collections.singletonList(inputBuffer);
 
         ByteBuffer output = executor.execute(input).get(0);
@@ -77,9 +76,9 @@ public class SortByKeyTest {
         float[] outData = new float[bufferLength];
         output.asFloatBuffer().get(outData);
 
-        Arrays.sort(randData);
+        Arrays.sort(testData);
 
-        assertArrayEquals(randData, outData);
+        assertArrayEquals(testData, outData);
     }
 
     static class FloatDummy implements Comparable<FloatDummy> {

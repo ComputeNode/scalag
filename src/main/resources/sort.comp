@@ -2,23 +2,23 @@
 
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
-layout (binding = 0, set = 0) buffer KeysBuffer {
+layout (set = 0, binding = 0) buffer KeysBuffer {
     float keys[];
 };
-layout (binding = 1, set = 0) buffer OrderBuffer {
+layout (set = 0, binding = 1) buffer OrderBuffer {
     uint order[];
 };
 
-layout (binding = 2, set = 0) buffer NextOrderBuffer {
+layout (set = 0, binding = 2) buffer NextOrderBuffer {
     uint n_order[];
 };
 
-layout (binding = 3, set = 0) buffer ThisExecution {
+layout (set = 0, binding = 3) buffer ThisExecution {
     uint l;
     uint p;
 };
 
-layout (binding = 4, set = 0) buffer NextExecution {
+layout (set = 0, binding = 4) buffer NextExecution {
     uint n_l;
     uint n_p;
 };
