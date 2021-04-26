@@ -59,8 +59,9 @@ public class SortByKeyTest {
                 context
         );
         float[] testData = new float[bufferLength];
+        Random rand = new Random(System.currentTimeMillis());
         for (int i = 0; i < testData.length; i++) {
-            testData[i] = (float)testData.length - i;
+            testData[i] = 200*rand.nextFloat()-100;
         }
 
         ByteBuffer inputBuffer = BufferUtils.createByteBuffer(bufferSize);

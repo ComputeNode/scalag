@@ -53,7 +53,7 @@ void main(void){
             n_p = pn;
             n_l = l;
         } else {
-            n_p = 0;
+            n_p = 1;
             n_l = l+1;
         }
 
