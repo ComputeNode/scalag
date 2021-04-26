@@ -3,44 +3,59 @@
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 layout (binding = 0, set = 0) buffer KeysBuffer {
-    int keys[];
+    float keys[];
 };
 layout (binding = 1, set = 0) buffer OrderBuffer {
     uint order[];
 };
 
-layout (binding = 0, set = 1) buffer ThisExecution {
-    uint K;
+layout (binding = 2, set = 0) buffer NextOrderBuffer {
+    uint n_order[];
 };
 
-layout (binding = 1, set = 1) buffer NextExecution {
-    uint k_n;
+layout (binding = 3, set = 0) buffer ThisExecution {
+    uint l;
+    uint p;
 };
 
-int get_value(uint index){
-    return keys[order[index]];
-}
+layout (binding = 4, set = 0) buffer NextExecution {
+    uint n_l;
+    uint n_p;
+};
 
-void swap(uint a, uint b){
-    uint t = order[a];
-    order[a] = order[b];
-    order[b] = t;
+int partner(int n, int l, int p){
+    if (p == 1){
+        return n ^ (1 << (l - 1));
+    } else {
+        int scale = 1 << (l - p), box = 1 << p;
+        int sn = n / scale - (n / scale / box) * box;
+
+        return n + (((sn % 2) * 2 - 1) * scale) * int(sn != 0) * int(sn != box - 1);
+    }
 }
 
 void main(void){
-    uint N = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
     uint gi = gl_GlobalInvocationID.x;
 
-    uint j, k=K, i = gi;
-    for (j=k>>1;j>0;j=j>>1) {
-        uint ixj=i^j;
-        if ((ixj)>i) {
-            if ((i&k)==0 && get_value(i)>get_value(ixj)) swap(i, ixj);
-            if ((i&k)!=0 && get_value(i)<get_value(ixj)) swap(i, ixj);
-        }
+    uint partnerId = uint(partner(int(gi), int(l), int(p)));
+    uint a = order[gi], b = order[partnerId];
+
+    float direction = float(int(gi < partnerId) * 2 - 1);
+
+    if (!(direction * keys[a] < direction * keys[b])){
+        a = b;
     }
+    n_order[gi] = a;
 
     if (gi == 0){
-        k_n = k+1;
+        uint pn = p+1;
+        if (pn <= l){
+            n_p = pn;
+            n_l = l;
+        } else {
+            n_p = 0;
+            n_l = l+1;
+        }
+
     }
 }

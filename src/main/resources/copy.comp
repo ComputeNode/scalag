@@ -5,11 +5,24 @@ layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 layout (set = 0, binding = 0) buffer InputBuffer {
     uint inArray[];
 };
+
 layout (set = 0, binding = 1) buffer OutputBuffer {
     uint outArray[];
 };
 
+layout (set = 0, binding = 2) buffer OrderBuffer {
+    uint order[];
+};
+
+layout (set = 0, binding = 3) buffer SizeBuffer {
+    uint size;
+};
+
 void main(void){
-    uint index = gl_GlobalInvocationID.x;
-    outArray[index] = inArray[index];
+    uint idx = gl_GlobalInvocationID.x;
+    uint ido = order[idx];
+
+    for(uint i = 0; i<size; i++){
+        outArray[ido + i] = inArray[idx + i];
+    }
 }

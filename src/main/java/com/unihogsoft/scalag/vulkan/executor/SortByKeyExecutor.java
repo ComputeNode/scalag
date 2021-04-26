@@ -1,5 +1,6 @@
 package com.unihogsoft.scalag.vulkan.executor;
 
+import com.unihogsoft.scalag.dsl.Array;
 import com.unihogsoft.scalag.vulkan.VulkanContext;
 import com.unihogsoft.scalag.vulkan.compute.ComputePipeline;
 import com.unihogsoft.scalag.vulkan.compute.LayoutInfo;
@@ -28,6 +29,8 @@ import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_ONLY;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class SortByKeyExecutor extends AbstractExecutor {
+    private final int sortPasses;
+
     private final Shader keyShader;
 
     private final ComputePipeline keyPipeline;
@@ -42,6 +45,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
         this.preparePipeline = createPreparePipeline(context);
         this.copyPipeline = createCopyPipeline(context);
         this.sortPipeline = createSortPipeline(context);
+        this.sortPasses = (int) Math.pow(Math.log(dataLength), 2);
         setup();
     }
 
@@ -49,7 +53,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
     protected void setupBuffers() {
         List<LayoutInfo> layoutInfos = keyShader.getLayoutInfos();
 
-        int[] sizes = {layoutInfos.get(0).getSize(), 4, 4, layoutInfos.get(0).getSize()};
+        int[] sizes = {layoutInfos.get(0).getSize(), layoutInfos.get(0).getSize(), 4, 4, 4};
         for (int i = 0; i < sizes.length; i++) {
             buffers.add(
                     new Buffer(
@@ -62,10 +66,10 @@ public class SortByKeyExecutor extends AbstractExecutor {
             );
         }
 
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 3; i++) {
             buffers.add(
                     new Buffer(
-                            4,
+                            8,
                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                             0,
                             VMA_MEMORY_USAGE_GPU_ONLY,
@@ -74,13 +78,23 @@ public class SortByKeyExecutor extends AbstractExecutor {
             );
         }
 
+        Buffer in = buffers.get(0);
+        Buffer out = buffers.get(1);
+        Buffer keys = buffers.get(2);
+        Buffer order1 = buffers.get(3);
+        Buffer order2 = buffers.get(4);
+        Buffer data1 = buffers.get(5);
+        Buffer data2 = buffers.get(6);
+        Buffer size = buffers.get(7);
+
+        Buffer outOrder = (sortPasses % 2 == 0) ? order1 : order2;
+
         List<DescriptorSet> descriptorSets = Arrays.asList(
-                createUpdatedDescriptorSet(keyPipeline.getDescriptorSetLayouts()[0], buffers.subList(0, 2)),
-                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[0], buffers.subList(1, 3)),
-                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[1], buffers.subList(4, 6)),
-                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[1], Arrays.asList(buffers.get(5), buffers.get(4))),
-                createUpdatedDescriptorSet(copyPipeline.getDescriptorSetLayouts()[0], Arrays.asList(buffers.get(0), buffers.get(4))),
-                createUpdatedDescriptorSet(preparePipeline.getDescriptorSetLayouts()[0], Arrays.asList(buffers.get(2), buffers.get(4)))
+                createUpdatedDescriptorSet(keyPipeline.getDescriptorSetLayouts()[0], Arrays.asList(in, keys)),
+                createUpdatedDescriptorSet(preparePipeline.getDescriptorSetLayouts()[0], Arrays.asList(order1, data1)),
+                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[0], Arrays.asList(keys, order1, order2, data1, data2)),
+                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[0], Arrays.asList(keys, order2, order1, data2, data1)),
+                createUpdatedDescriptorSet(copyPipeline.getDescriptorSetLayouts()[0], Arrays.asList(in, out, outOrder, size))
         );
         this.descriptorSets.addAll(descriptorSets);
     }

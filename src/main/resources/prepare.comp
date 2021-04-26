@@ -7,7 +7,8 @@ layout (binding = 0, set = 0) buffer OrderBuffer {
 };
 
 layout (binding = 1, set = 0) buffer ThisExecution {
-    uint K;
+    uint l;
+    uint p;
 };
 
 void main(void){
@@ -15,6 +16,7 @@ void main(void){
     order[gi] = gi;
 
     if (gi == 0){
-        K = 2;
+        l = 0;
+        p = 0;
     }
 }
