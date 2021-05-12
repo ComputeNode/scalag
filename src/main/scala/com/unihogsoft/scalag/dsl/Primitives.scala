@@ -2,6 +2,8 @@ package com.unihogsoft.scalag.dsl
 
 import com.unihogsoft.scalag.dsl.DSL._
 
+import scala.language.implicitConversions
+
 trait Primitives {
 
   trait Converter[T, R <: ScalarType] {
@@ -17,6 +19,4 @@ trait Primitives {
   implicit def intToFloat64(i: Int): Float64 = Float64(Const[Float64, Int](i))
   implicit def intToInt32(i: Int): Int32 = Int32(Const[Int32, Int](i))
   implicit def intToInt64(i: Int): Int64 = Int64(Const[Int64, Int](i))
-
-
 }

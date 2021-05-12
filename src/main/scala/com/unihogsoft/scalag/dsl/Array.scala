@@ -1,16 +1,13 @@
 package com.unihogsoft.scalag.dsl
 
-import java.lang.invoke.{MethodHandle, MethodHandles, MethodType}
-
 import com.unihogsoft.scalag.dsl.DSL._
 
+import java.lang.invoke.{MethodHandle, MethodHandles}
 import scala.reflect.runtime.universe.TypeTag
-import scala.reflect.runtime._
+
 trait Array {
-
-
   val m = scala.reflect.runtime.currentMirror
-  private def getExprConstr[H : TypeTag]: MethodHandle = { //todo find a better way, maybe some typeclass :)
+  private def getExprConstr[H : TypeTag]: MethodHandle = {
     val ct = implicitly[TypeTag[H]]
     val mirror = ct.mirror
     val constr = mirror.runtimeClass(ct.tpe).getConstructors.head

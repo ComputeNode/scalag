@@ -45,7 +45,7 @@ class MapExecutorTest {
     @Test
     void copyRandomDataFromOneBufferToAnother() {
         Shader shader = new Shader(
-                Shader.loadShader("copy.spv", this.getClass().getClassLoader()),
+                Shader.loadShader("copy_test.spv", this.getClass().getClassLoader()),
                 new Vector3i(128, 1, 1),
                 Arrays.asList(
                         new LayoutInfo(0, 0, 4),

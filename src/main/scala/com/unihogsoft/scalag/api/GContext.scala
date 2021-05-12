@@ -7,9 +7,12 @@ import shapeless.HList
 import shapeless.ops.hlist.{HKernelAux, Length}
 import com.unihogsoft.scalag.dsl.DSL._
 import com.unihogsoft.scalag.vulkan.VulkanContext
-import com.unihogsoft.scalag.vulkan.compute.ComputePipeline
+import com.unihogsoft.scalag.vulkan.compute.{ComputePipeline, LayoutInfo, Shader}
+import com.unihogsoft.scalag.vulkan.executor.{MapExecutor, SortByKeyExecutor}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.SeqHasAsJava
+import scala.language.postfixOps
 import scala.reflect.runtime.universe.TypeTag
 
 trait Executable[H <: ValType, R <: ValType] {
@@ -17,27 +20,24 @@ trait Executable[H <: ValType, R <: ValType] {
 }
 
 trait GContext {
-  def compile[H <: ValType : TypeTag, R <: ValType : TypeTag](map: GMap[H, R]): Executable[H, R]
+  val vkContext = new VulkanContext(true)
+  def compile[H <: ValType : TypeTag, R <: ValType : TypeTag](map: GFunction[H, R]): ComputePipeline
 }
 
 object WorkerIndex extends Int32(Dynamic("worker_index"))
 
 class MVPContext extends GContext {
   implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
-
-  val vkContext = new VulkanContext(true)
   val compiler: DSLCompiler = new DSLCompiler
 
-  override def compile[H <: DSL.ValType : TypeTag, R <: DSL.ValType : TypeTag](map: GMap[H, R]): Executable[H, R] = {
-    val tree = map.fn.apply(WorkerIndex, GArray(0))
-    val shader = compiler.compile(tree, map.arrayInputs, map.arrayOutputs)
-//    val pipeline = new MapPipeline(shader, vkContext)
-    (input: GMem[H], output: WritableGMem[R]) => Future {
-//      val executor = new MapExecutor(input.getSize(), output.getSize(), output.getSize() / 128, pipeline, vkContext)
-//      val result = executor.execute(input.getData(0))
-//      output.write(0, result)
-      ()
-    }
+  override def compile[H <: DSL.ValType : TypeTag, R <: DSL.ValType : TypeTag](function: GFunction[H, R]): ComputePipeline = {
+    val tree = function.fn.apply(GArray(0).at(WorkerIndex))
+    val shaderCode = compiler.compile(tree, function.arrayInputs, function.arrayOutputs)
+
+    val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, 4)) toList
+    val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos.asJava, "main", vkContext.getDevice)
+
+    new ComputePipeline(shader, vkContext)
   }
 
 

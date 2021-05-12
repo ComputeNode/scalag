@@ -6,6 +6,7 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
@@ -23,6 +24,7 @@ import static org.lwjgl.vulkan.VK10.*;
 public class Device extends VulkanObject {
     private static final String[] DEVICE_EXTENSIONS = {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME};
     private final boolean enableValidationLayers;
+    private final String vk_khr_portability_subset = "VK_KHR_portability_subset";
 
     private VkDevice device;
 
@@ -57,6 +59,22 @@ public class Device extends VulkanObject {
             }
 
             physicalDevice = new VkPhysicalDevice(pPhysicalDevices.get(), instance.get());
+
+            IntBuffer pPropertiesCount = stack.callocInt(1);
+            err = vkEnumerateDeviceExtensionProperties(physicalDevice, (ByteBuffer) null, pPropertiesCount, null);
+            if (err != VK_SUCCESS) {
+                throw new AssertionError("Failed to get number of properties extension");
+            }
+            int propertiesCount = pPropertiesCount.get(0);
+
+            VkExtensionProperties.Buffer pProperties = VkExtensionProperties.callocStack(propertiesCount);
+            err = vkEnumerateDeviceExtensionProperties(physicalDevice, (ByteBuffer) null, pPropertiesCount, pProperties);
+            if (err != VK_SUCCESS) {
+                throw new VulkanAssertionError("Failed to extension properties", err);
+            }
+
+            boolean additionalExtension = pProperties.stream().anyMatch(x -> x.extensionNameString().equals(vk_khr_portability_subset));
+
             computeQueueFamily = getBestCompute(physicalDevice);
 
             FloatBuffer pQueuePriorities = stack.callocFloat(1).put(1.0f);
@@ -64,16 +82,18 @@ public class Device extends VulkanObject {
 
             VkDeviceQueueCreateInfo.Buffer pQueueCreateInfo = VkDeviceQueueCreateInfo.callocStack(1);
             pQueueCreateInfo.get(0)
-                            .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
-                            .pNext(0)
-                            .flags(0)
-                            .queueFamilyIndex(computeQueueFamily)
-                            .pQueuePriorities(pQueuePriorities);
+                    .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
+                    .pNext(0)
+                    .flags(0)
+                    .queueFamilyIndex(computeQueueFamily)
+                    .pQueuePriorities(pQueuePriorities);
 
-            PointerBuffer ppExtensionNames = stack.callocPointer(DEVICE_EXTENSIONS.length);
+            PointerBuffer ppExtensionNames = stack.callocPointer(DEVICE_EXTENSIONS.length+1);
             for (String extension : DEVICE_EXTENSIONS) {
                 ppExtensionNames.put(stack.ASCII(extension));
             }
+            if (additionalExtension)
+                ppExtensionNames.put(stack.ASCII(vk_khr_portability_subset));
             ppExtensionNames.flip();
 
             VkPhysicalDeviceFeatures deviceFeatures = VkPhysicalDeviceFeatures.callocStack();
