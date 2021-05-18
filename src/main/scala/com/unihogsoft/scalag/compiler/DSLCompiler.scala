@@ -1,16 +1,17 @@
 package com.unihogsoft.scalag.compiler
 
 import java.nio.ByteBuffer
-
 import shapeless.HList
 import com.unihogsoft.scalag.dsl.DSL._
 import org.lwjgl.BufferUtils
 import Opcodes.{Instruction, _}
+import better.files.File
 import com.unihogsoft.scalag.compiler.Digest.DigestedExpression
 
 import scala.reflect.runtime.universe._
 import scala.runtime.IntRef
 import scala.util.hashing.MurmurHash3
+
 class DSLCompiler {
 
   val localSizeX = 128
@@ -29,7 +30,7 @@ class DSLCompiler {
 
   val scalarTypeDefInsn = Map[Type, Instruction](
     typeOf[Int32] -> Instruction(Op.OpTypeInt, List(WordVariable("result"), IntWord(32), IntWord(1))),
-    typeOf[Float32] -> Instruction(Op.OpTypeFloat, List(WordVariable("result"), IntWord(32), IntWord(0)))
+    typeOf[Float32] -> Instruction(Op.OpTypeFloat, List(WordVariable("result"), IntWord(32)))
   )
 
   val typeStride = Map[Type, Int](
@@ -39,61 +40,61 @@ class DSLCompiler {
 
   def headers(): List[Words] = {
     Word(Array(0x03, 0x02, 0x23, 0x07)) :: // SPIR-V
-    Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 1.0
-    Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Generator: null
-    WordVariable(BOUND_VARIABLE) :: // Bound: To be calculated
-    Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Schema: 0
-    Instruction(Op.OpCapability, List(Capability.Shader)) :: // OpCapability Shader
-    Instruction(Op.OpExtInstImport, List(ResultRef(GLSL_EXT_REF), Text(GLSL_EXT_NAME))) :: // OpExtInstImport "GLSL.std.450"
-    Instruction(Op.OpMemoryModel, List(AddressingModel.Logical, MemoryModel.GLSL450)) :: // OpMemoryModel Logical GLSL450
-    Instruction(Op.OpEntryPoint, List(
-      ExecutionModel.GLCompute, ResultRef(MAIN_FUNC_REF), Text("main"), ResultRef(GL_GLOBAL_INVOCATION_ID_REF)
-    )) :: // OpEntryPoint GLCompute %MAIN_FUNC_REF "main" %GL_GLOBAL_INVOCATION_ID_REF
-    Instruction(Op.OpExecutionMode, List(
-      ResultRef(MAIN_FUNC_REF), ExecutionMode.LocalSize, IntWord(128), IntWord(1), IntWord(1)
-    )) :: // OpExecutionMode %4 LocalSize 128 1 1
-    Instruction(Op.OpSource, List(SourceLanguage.GLSL, IntWord(450))) :: // OpSource GLSL 450
-    Instruction(Op.OpDecorate, List(
-      ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
-    )) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
-    Instruction(Op.OpDecorate, List(
-      ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
-    )) ::
-    Nil
+      Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 1.0
+      Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Generator: null
+      WordVariable(BOUND_VARIABLE) :: // Bound: To be calculated
+      Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Schema: 0
+      Instruction(Op.OpCapability, List(Capability.Shader)) :: // OpCapability Shader
+      Instruction(Op.OpExtInstImport, List(ResultRef(GLSL_EXT_REF), Text(GLSL_EXT_NAME))) :: // OpExtInstImport "GLSL.std.450"
+      Instruction(Op.OpMemoryModel, List(AddressingModel.Logical, MemoryModel.GLSL450)) :: // OpMemoryModel Logical GLSL450
+      Instruction(Op.OpEntryPoint, List(
+        ExecutionModel.GLCompute, ResultRef(MAIN_FUNC_REF), Text("main"), ResultRef(GL_GLOBAL_INVOCATION_ID_REF)
+      )) :: // OpEntryPoint GLCompute %MAIN_FUNC_REF "main" %GL_GLOBAL_INVOCATION_ID_REF
+      Instruction(Op.OpExecutionMode, List(
+        ResultRef(MAIN_FUNC_REF), ExecutionMode.LocalSize, IntWord(128), IntWord(1), IntWord(1)
+      )) :: // OpExecutionMode %4 LocalSize 128 1 1
+      Instruction(Op.OpSource, List(SourceLanguage.GLSL, IntWord(450))) :: // OpSource GLSL 450
+      Instruction(Op.OpDecorate, List(
+        ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
+      )) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
+      Instruction(Op.OpDecorate, List(
+        ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
+      )) ::
+      Nil
   }
 
   case class ArrayBufferBlock(
-    structTypeRef: Int, // %BufferX
-    blockVarRef: Int, // %__X
-    blockPointerRef: Int, // _ptr_Uniform_OutputBufferX
-    memberArrayTypeRef: Int, // %_runtimearr_float_X
-    binding: Int
-  )
+                               structTypeRef: Int, // %BufferX
+                               blockVarRef: Int, // %__X
+                               blockPointerRef: Int, // _ptr_Uniform_OutputBufferX
+                               memberArrayTypeRef: Int, // %_runtimearr_float_X
+                               binding: Int
+                             )
 
   case class Context(
-    scalarTypeMap: Map[Type, Int] = Map(),
-    funPointerTypeMap: Map[Int, Int] = Map(),
-    uniformPointerMap: Map[Int, Int] = Map(),
-    inputPointerMap: Map[Int, Int] = Map(),
-    vectorTypeMap: Map[(Type, Int), Int] = Map(),
-    funVecPointerTypeMap: Map[Int, Int] = Map(),
-    uniformVecPointerMap: Map[Int, Int] = Map(),
-    inputVecPointerMap: Map[Int, Int] = Map(),
-    voidTypeRef: Int = -1,
-    voidFuncTypeRef: Int = -1,
+                      scalarTypeMap: Map[Type, Int] = Map(),
+                      funPointerTypeMap: Map[Int, Int] = Map(),
+                      uniformPointerMap: Map[Int, Int] = Map(),
+                      inputPointerMap: Map[Int, Int] = Map(),
+                      vectorTypeMap: Map[(Type, Int), Int] = Map(),
+                      funVecPointerTypeMap: Map[Int, Int] = Map(),
+                      uniformVecPointerMap: Map[Int, Int] = Map(),
+                      inputVecPointerMap: Map[Int, Int] = Map(),
+                      voidTypeRef: Int = -1,
+                      voidFuncTypeRef: Int = -1,
 
-    constRefs: Map[(Type, Any), Int] = Map(),
-    exprRefs: Map[String, Int] = Map(),
-    inBufferBlocks: List[ArrayBufferBlock] = List(),
-    outBufferBlocks: List[ArrayBufferBlock] = List(),
-    nextResultId: Int = HEADER_REFS_TOP,
-    nextBinding: Int = 0,
-  )
+                      constRefs: Map[(Type, Any), Int] = Map(),
+                      exprRefs: Map[String, Int] = Map(),
+                      inBufferBlocks: List[ArrayBufferBlock] = List(),
+                      outBufferBlocks: List[ArrayBufferBlock] = List(),
+                      nextResultId: Int = HEADER_REFS_TOP,
+                      nextBinding: Int = 0,
+                    )
 
-  def initialContext: Context  = Context()
+  def initialContext: Context = Context()
 
   def defineTypes(types: List[Type]): (List[Words], Context) = {
-    val basicTypes = List(typeOf[Int32])
+    val basicTypes = List(typeOf[Int32], typeOf[Float32])
     (basicTypes ::: types).distinct.foldLeft((List[Words](), initialContext)) {
       case ((words, ctx), valType) =>
         val typeDefIndex = ctx.nextResultId
@@ -176,20 +177,20 @@ class DSLCompiler {
           ResultRef(block.structTypeRef)
         )), // %_ptr_Uniform_BufferX= OpTypePointer Uniform %BufferX
         Instruction(Op.OpVariable, List(
-          ResultRef(block.blockVarRef),
           ResultRef(block.blockPointerRef),
+          ResultRef(block.blockVarRef),
           StorageClass.Uniform,
         )), // %_X = OpVariable %_ptr_Uniform_X Uniform
       )
 
-      val contextWithBlock = if(in) ctx.copy(
+      val contextWithBlock = if (in) ctx.copy(
         inBufferBlocks = block :: ctx.inBufferBlocks
       ) else ctx.copy(
         outBufferBlocks = block :: ctx.outBufferBlocks
       )
       (decAcc ::: decorationInstructions, insnAcc ::: definitionInstructions, contextWithBlock.copy(
         nextResultId = contextWithBlock.nextResultId + 5,
-        nextBinding =  contextWithBlock.nextBinding + 1
+        nextBinding = contextWithBlock.nextBinding + 1
       ))
     })
     (decoration, definition, newContext)
@@ -202,12 +203,13 @@ class DSLCompiler {
     )
     val ctxWithVoid = context.copy(
       voidTypeRef = context.nextResultId,
-      voidFuncTypeRef = context.nextResultId + 1
+      voidFuncTypeRef = context.nextResultId + 1,
+      nextResultId = context.nextResultId + 2
     )
     (voidDef, ctxWithVoid)
   }
 
-  def initAndDecorateUniforms(ins: List[Type], outs: List[Type], context: Context): (List[Words], List[Words], Context)  = {
+  def initAndDecorateUniforms(ins: List[Type], outs: List[Type], context: Context): (List[Words], List[Words], Context) = {
     val (inDecor, inDef, inCtx) = createAndInitBlocks(ins, in = true, context)
     val (outDecor, outDef, outCtx) = createAndInitBlocks(outs, in = false, inCtx)
     val (voidsDef, voidCtx) = defineVoids(outCtx)
@@ -216,20 +218,18 @@ class DSLCompiler {
 
   def createInvocationId(context: Context): (List[Words], Context) = {
     val definitionInstructions = List(
-      Instruction(Op.OpConstant, List(ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
-      Instruction(Op.OpConstant, List(ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
-      Instruction(Op.OpConstant, List(ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
-      Instruction(Op.OpTypeVector, List(
-        ResultRef(context.nextResultId + 3),
-        ResultRef(context.scalarTypeMap(typeOf[Int32])),
-        IntWord(3)
-      )),
+      Instruction(Op.OpConstant, List(IntWord(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
+      Instruction(Op.OpConstant, List(IntWord(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
+      Instruction(Op.OpConstant, List(IntWord(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
       Instruction(Op.OpConstantComposite, List(
+        IntWord(context.vectorTypeMap(typeOf[Int32], 3)),
         ResultRef(GL_WORKGROUP_SIZE_REF),
-        ResultRef(context.vectorTypeMap((typeOf[Int32], 3))),
+        ResultRef(context.nextResultId + 0),
+        ResultRef(context.nextResultId + 1),
+        ResultRef(context.nextResultId + 2)
       )),
     )
-    (definitionInstructions, context)
+    (definitionInstructions, context.copy(nextResultId = context.nextResultId + 3))
   }
 
   def toWord(tpe: Type, value: Any): Words = tpe match {
@@ -238,6 +238,7 @@ class DSLCompiler {
     case t if t == typeOf[Float32] =>
       val ib: Int = value match {
         case fl: Float => java.lang.Float.floatToIntBits(fl)
+        case dl: Double => java.lang.Float.floatToIntBits(dl.toFloat)
         case il: Int => il
       }
       Word(intToBytes(ib).toArray)
@@ -251,8 +252,8 @@ class DSLCompiler {
     consts.foldLeft((List[Words](), ctx)) {
       case ((instructions, context), const) =>
         val insn = Instruction(Op.OpConstant, List(
-          ResultRef(context.nextResultId),
           IntWord(context.scalarTypeMap(const._1)),
+          ResultRef(context.nextResultId),
           (toWord _).tupled(const)
         ))
         val ctx = context.copy(
@@ -265,7 +266,7 @@ class DSLCompiler {
 
   def compileTree(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
     def compileExpressions(exprs: List[DigestedExpression], ctx: Context, acc: List[Words]): (List[Words], Context) = {
-      if(exprs.isEmpty) (acc, ctx)
+      if (exprs.isEmpty) (acc, ctx)
       else {
         val expr = exprs.head
         val (instructions, updatedCtx) = expr.expr match {
@@ -278,14 +279,14 @@ class DSLCompiler {
           case d@Dynamic("worker_index") =>
             val instructions = List(
               Instruction(Op.OpAccessChain, List(
+                ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(d.valTypeTag.tpe.dealias))),
                 ResultRef(ctx.nextResultId),
-                IntWord(ctx.inputPointerMap(ctx.scalarTypeMap(d.valTypeTag.tpe.dealias))),
-                IntWord(GL_GLOBAL_INVOCATION_ID_REF),
-                IntWord(0)
+                ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
+                ResultRef(ctx.constRefs(typeOf[Int32], 0))
               )),
               Instruction(Op.OpLoad, List(
-                ResultRef(ctx.nextResultId + 1),
                 IntWord(ctx.scalarTypeMap(d.valTypeTag.tpe.dealias)),
+                ResultRef(ctx.nextResultId + 1),
                 ResultRef(ctx.nextResultId)
               ))
             )
@@ -295,14 +296,17 @@ class DSLCompiler {
             )
             (instructions, updatedContext)
           case diff@Diff(a, b) =>
-            val addOpcode = a.valTypeTag.tpe.dealias match {
+            val tpe = a.valTypeTag.tpe.dealias
+            val typeRef = ctx.scalarTypeMap(tpe)
+            val subOpcode = tpe match {
               case f if f <:< typeOf[FloatType] =>
                 Op.OpFSub
               case i if i <:< typeOf[IntegerType] =>
                 Op.OpISub
             }
             val instructions = List(
-              Instruction(addOpcode, List(
+              Instruction(subOpcode, List(
+                ResultRef(typeRef),
                 ResultRef(ctx.nextResultId),
                 ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                 ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
@@ -314,7 +318,9 @@ class DSLCompiler {
             )
             (instructions, updatedContext)
           case sum@Sum(a, b) =>
-            val addOpcode = a.valTypeTag.tpe.dealias match {
+            val tpe = a.valTypeTag.tpe.dealias
+            val typeRef = ctx.scalarTypeMap(tpe)
+            val addOpcode = tpe match {
               case f if f <:< typeOf[FloatType] =>
                 Op.OpFAdd
               case i if i <:< typeOf[IntegerType] =>
@@ -322,6 +328,7 @@ class DSLCompiler {
             }
             val instructions = List(
               Instruction(addOpcode, List(
+                ResultRef(typeRef),
                 ResultRef(ctx.nextResultId),
                 ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                 ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
@@ -334,14 +341,17 @@ class DSLCompiler {
             (instructions, updatedContext)
 
           case mul@Mul(a, b) =>
-            val addOpcode = a.valTypeTag.tpe.dealias match {
+            val tpe = a.valTypeTag.tpe.dealias
+            val typeRef = ctx.scalarTypeMap(tpe)
+            val mulOpcode = tpe match {
               case f if f <:< typeOf[FloatType] =>
                 Op.OpFMul
               case i if i <:< typeOf[IntegerType] =>
                 Op.OpIMul
             }
             val instructions = List(
-              Instruction(addOpcode, List(
+              Instruction(mulOpcode, List(
+                ResultRef(typeRef),
                 ResultRef(ctx.nextResultId),
                 ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                 ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
@@ -354,14 +364,17 @@ class DSLCompiler {
             (instructions, updatedContext)
 
           case div@Div(a, b) =>
-            val addOpcode = a.valTypeTag.tpe.dealias match {
+            val tpe = a.valTypeTag.tpe.dealias
+            val typeRef = ctx.scalarTypeMap(tpe)
+            val divOpCode = tpe match {
               case f if f <:< typeOf[FloatType] =>
                 Op.OpFDiv
               case i if i <:< typeOf[IntegerType] =>
                 Op.OpSDiv
             }
             val instructions = List(
-              Instruction(addOpcode, List(
+              Instruction(divOpCode, List(
+                ResultRef(typeRef),
                 ResultRef(ctx.nextResultId),
                 ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                 ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
@@ -376,15 +389,16 @@ class DSLCompiler {
           case ga@GArrayElem(index, i) =>
             val instructions = List(
               Instruction(Op.OpAccessChain, List(
+                ResultRef(ctx.uniformPointerMap(ctx.scalarTypeMap(typeOf[Float32]))),
                 ResultRef(ctx.nextResultId),
-                ResultRef(ctx.inBufferBlocks(index).blockPointerRef),
+                //ResultRef(ctx.inBufferBlocks(index).blockPointerRef),
                 ResultRef(ctx.inBufferBlocks(index).blockVarRef),
                 ResultRef(ctx.constRefs((typeOf[Int32], 0))),
                 ResultRef(ctx.exprRefs(expr.dependencies.head.digest))
               )),
               Instruction(Op.OpLoad, List(
-                ResultRef(ctx.nextResultId + 1),
                 IntWord(ctx.scalarTypeMap(ga.valTypeTag.tpe.dealias)),
+                ResultRef(ctx.nextResultId + 1),
                 ResultRef(ctx.nextResultId)
               ))
             )
@@ -398,14 +412,15 @@ class DSLCompiler {
         compileExpressions(exprs.tail, updatedCtx, acc ::: instructions)
       }
     }
+
     compileExpressions(sortedTree, ctx, List())
   }
 
-  def compileMain(sortedTree: List[DigestedExpression], ctx: Context): List[Words] = {
+  def compileMain(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
     val init = List(
       Instruction(Op.OpFunction, List(
-        ResultRef(MAIN_FUNC_REF),
         ResultRef(ctx.voidTypeRef),
+        ResultRef(MAIN_FUNC_REF),
         SamplerAddressingMode.None,
         ResultRef(VOID_FUNC_TYPE_REF)
       ))
@@ -415,8 +430,9 @@ class DSLCompiler {
 
     val end = List(
       Instruction(Op.OpAccessChain, List(
+        ResultRef(codeCtx.uniformPointerMap(codeCtx.scalarTypeMap(typeOf[Float32]))),
         ResultRef(codeCtx.nextResultId),
-        ResultRef(codeCtx.outBufferBlocks(0).blockPointerRef),
+        //ResultRef(codeCtx.outBufferBlocks(0).blockPointerRef),
         ResultRef(codeCtx.outBufferBlocks(0).blockVarRef),
         ResultRef(codeCtx.constRefs((typeOf[Int32], 0))),
         ResultRef(codeCtx.exprRefs(sortedTree.last.digest))
@@ -428,18 +444,17 @@ class DSLCompiler {
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List())
     )
-    init ::: body ::: end
+    (init ::: body ::: end, codeCtx)
   }
 
-  def compile[T<: ValType](returnVal: T, inTypes: List[Type], outTypes: List[Type]): ByteBuffer = {
+  def compile[T <: ValType](returnVal: T, inTypes: List[Type], outTypes: List[Type]): ByteBuffer = {
     val tree = returnVal.tree
     val (digestTree, hash) = Digest.digest(tree)
     val sorted = TopologicalSort.sortTree(digestTree)
     println(Digest.formatTreeWithDigest(digestTree))
-    println()
-    println(sorted.mkString("\n"))
+    //println()
+    //println(sorted.mkString("\n"))
 
-    ???
     val insnWithHeader = headers()
     val typesInCode = sorted.map(_.expr.valTypeTag.tpe.dealias)
     val allTypes = (typesInCode ::: inTypes ::: outTypes)
@@ -448,10 +463,10 @@ class DSLCompiler {
     val (inputDefs, inputContext) = createInvocationId(uniformContext)
     val (constDefs, constCtx) = defineConstants(sorted, inputContext)
     println("preC")
-    val main = compileMain(sorted, constCtx)
+    val (main, finalCtx) = compileMain(sorted, constCtx)
 
-    val code =
-        insnWithHeader :::
+    val code: List[Words] =
+      insnWithHeader :::
         decorations :::
         typeDefs :::
         uniformDefs :::
@@ -459,11 +474,32 @@ class DSLCompiler {
         constDefs :::
         main
 
-    println("XD")
-    hexDumpCode(code)
-    dumpCode(code)
+    //hexDumpCode(code)
+    val fullCode = code.map {
+      case WordVariable(name) if name == BOUND_VARIABLE => IntWord(finalCtx.nextResultId)
+      case x => x
+    }
+    //dumpCode(fullCode)
     println(inputContext)
-    BufferUtils.createByteBuffer(1)
+
+    val bytes = fullCode.flatMap(_.toWords).toArray
+
+    dumpCode(
+      fullCode,
+      File("/Users/mzlakowski/Projects/IdeaProjects/scalag/target.txt")
+        .createIfNotExists()
+        .clear()
+        .write(_)
+    )
+
+    File("/Users/mzlakowski/Projects/IdeaProjects/scalag/out.spv")
+      .createIfNotExists()
+      .clear()
+      .writeByteArray(bytes)
+
+    System.exit(0)
+
+    BufferUtils.createByteBuffer(bytes.length).put(bytes).rewind()
   }
 
   def hexDumpCode(code: List[Words]): Unit = {
@@ -472,7 +508,11 @@ class DSLCompiler {
       .mkString(" ")).mkString("\n"))
   }
 
+  def dumpCode(code: List[Words], fn: String => ()): Unit = {
+    fn(code.map(_.toString).mkString("\n"))
+  }
+
   def dumpCode(code: List[Words]): Unit = {
-    println(code.map(_.toString).mkString("\n"));
+    dumpCode(code, x => println(x))
   }
 }

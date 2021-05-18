@@ -6,7 +6,7 @@ object Opcodes {
 
 
   def intToBytes(i: Int): List[Byte] = {
-    List[Byte] (
+    List[Byte](
       (i >>> 24).asInstanceOf[Byte],
       (i >>> 16).asInstanceOf[Byte],
       (i >>> 8).asInstanceOf[Byte],
@@ -16,11 +16,13 @@ object Opcodes {
 
   trait Words {
     def toWords: List[Byte]
+
     def length: Int
   }
 
   case class Word(bytes: Array[Byte]) extends Words {
     def toWords: List[Byte] = bytes.toList
+
     def length = 1
   }
 
@@ -28,6 +30,7 @@ object Opcodes {
     def toWords: List[Byte] = {
       List(-1, -1, -1, -1)
     }
+
     def length = 1
   }
 
@@ -35,14 +38,14 @@ object Opcodes {
   case class Instruction(code: Code, operands: List[Words]) extends Words {
     override def toWords: List[Byte] =
       code.toWords.take(2) :::
-      intToBytes(length).reverse.take(2) :::
-      operands.flatMap(_.toWords)
+        intToBytes(length).reverse.take(2) :::
+        operands.flatMap(_.toWords)
 
     def length = 1 + operands.map(_.length).sum
 
     def replaceVar(name: String, value: Int): Instruction = {
       this.copy(operands = operands.map {
-        case WordVariable(name) => IntWord(value)
+        case WordVariable(varName) if name == varName => IntWord(value)
         case any => any
       })
     }
@@ -50,6 +53,7 @@ object Opcodes {
 
   case class Code(mnemo: String, opcode: Int) extends Words {
     override def toWords: List[Byte] = intToBytes(opcode).reverse
+
     override def length: Int = 1
   }
 
@@ -75,7 +79,6 @@ object Opcodes {
 
     override def length: Int = 1
   }
-
 
 
   val MagicNumber = Code("MagicNumber", 0x07230203)

@@ -1,5 +1,7 @@
 package com.unihogsoft.scalag.api
 
+import better.files.File
+
 import java.util.concurrent.Executors
 import com.unihogsoft.scalag.compiler.DSLCompiler
 import com.unihogsoft.scalag.dsl.DSL
@@ -20,7 +22,8 @@ trait Executable[H <: ValType, R <: ValType] {
 }
 
 trait GContext {
-  val vkContext = new VulkanContext(true)
+  val vkContext = new VulkanContext(false)
+
   def compile[H <: ValType : TypeTag, R <: ValType : TypeTag](map: GFunction[H, R]): ComputePipeline
 }
 
@@ -31,7 +34,7 @@ class MVPContext extends GContext {
   val compiler: DSLCompiler = new DSLCompiler
 
   override def compile[H <: DSL.ValType : TypeTag, R <: DSL.ValType : TypeTag](function: GFunction[H, R]): ComputePipeline = {
-    val tree = function.fn.apply(GArray(0).at(WorkerIndex))
+    val tree = function.fn.apply(GArray[H](0).at(WorkerIndex))
     val shaderCode = compiler.compile(tree, function.arrayInputs, function.arrayOutputs)
 
     val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, 4)) toList

@@ -1,7 +1,7 @@
 package com.unihogsoft.scalag
 
 import com.unihogsoft.scalag.dsl.DSL._
-import com.unihogsoft.scalag.api.{FloatMem, GContext, GFunction, GMap, MVPContext}
+import com.unihogsoft.scalag.api.{FloatMem, GContext, GFunction, MVPContext}
 import com.unihogsoft.scalag.dsl.{Array, DSL}
 import shapeless._
 import shapeless.ops.hlist._
@@ -20,7 +20,7 @@ object Test extends App {
   val addOne: GFunction[DSL.Float32, DSL.Float32] = GFunction {
     (x: Float32) =>
       val a = x + 1.0
-      val b = x - 1.0
+      val b = x - 1.0 + 1000
       (a / 2) + ((b + 1) * 2)
   }
 
@@ -28,7 +28,7 @@ object Test extends App {
 
   data.map(addOne).map(r => {
     println("Output!")
-    println(r.getData(0).asFloatBuffer().array().mkString(", "))
+    println(r.getData().asFloatBuffer().array().mkString(", "))
   })
 
 }

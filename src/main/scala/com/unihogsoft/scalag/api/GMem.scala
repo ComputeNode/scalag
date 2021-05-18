@@ -15,11 +15,11 @@ import scala.language.postfixOps
 trait GMem[H <: ValType] {
   def getSize: Int
 
-  def getData(index: Int): ByteBuffer
+  def getData(): ByteBuffer
 }
 
 trait WritableGMem[T <: ValType] extends GMem[T] {
-  def getData(index: Int): ByteBuffer
+  def getData(): ByteBuffer
 
   def write(index: Int, data: ByteBuffer): Unit
 }
@@ -28,10 +28,7 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
 
   private val data = MemoryUtil.memAlloc(size * 4)
 
-  override def getData(index: Int): ByteBuffer = index match {
-    case 0 => data
-    case _ => throw new IndexOutOfBoundsException()
-  }
+  override def getData(): ByteBuffer = data
 
   override def write(index: Int, writeData: ByteBuffer): Unit = {
     data.rewind()
@@ -57,7 +54,7 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
     execute(new MapExecutor(getSize(), actions.asJava, fn.pipeline, context.vkContext))
   }
 
-  def write(index: Int, floats: Array[Float]): Unit = {
+  def write(floats: Array[Float]): Unit = {
     data.rewind()
     data.asFloatBuffer().put(floats)
     data.rewind()
@@ -67,7 +64,7 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
 object FloatMem {
   def apply(floats: Array[Float]): FloatMem = {
     val floatMem = new FloatMem(floats.length)
-    floatMem.write(0, floats)
+    floatMem.write(floats)
     floatMem
   }
 

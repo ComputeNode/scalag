@@ -48,6 +48,7 @@ dependencies {
     implementation group: 'org.scala-lang', name: 'scala-reflect', version: '2.13.1'
 
     implementation group: 'com.chuusai', name: 'shapeless_2.13', version: '2.3.3'
+    implementation 'com.github.pathikrit:better-files_2.13:3.9.1'
 
     // Use LWJGL
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
