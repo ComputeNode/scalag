@@ -29,7 +29,7 @@ class DSLCompiler {
   val HEADER_REFS_TOP = 7
 
   val scalarTypeDefInsn = Map[Type, Instruction](
-    typeOf[Int32] -> Instruction(Op.OpTypeInt, List(WordVariable("result"), IntWord(32), IntWord(1))),
+    typeOf[Int32] -> Instruction(Op.OpTypeInt, List(WordVariable("result"), IntWord(32), IntWord(0))),
     typeOf[Float32] -> Instruction(Op.OpTypeFloat, List(WordVariable("result"), IntWord(32)))
   )
 
@@ -58,7 +58,7 @@ class DSLCompiler {
         ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
       )) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
       Instruction(Op.OpDecorate, List(
-        ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
+        ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize
       )) ::
       Nil
   }
@@ -82,6 +82,7 @@ class DSLCompiler {
                       inputVecPointerMap: Map[Int, Int] = Map(),
                       voidTypeRef: Int = -1,
                       voidFuncTypeRef: Int = -1,
+                      workerIndexRef: Int = -1,
 
                       constRefs: Map[(Type, Any), Int] = Map(),
                       exprRefs: Map[String, Int] = Map(),
@@ -198,13 +199,12 @@ class DSLCompiler {
 
   def defineVoids(context: Context): (List[Words], Context) = {
     val voidDef = List[Words](
-      Instruction(Op.OpTypeVoid, List(ResultRef(context.nextResultId))),
-      Instruction(Op.OpTypeFunction, List(ResultRef(context.nextResultId + 1), ResultRef(context.nextResultId)))
+      Instruction(Op.OpTypeVoid, List(ResultRef(TYPE_VOID_REF))),
+      Instruction(Op.OpTypeFunction, List(ResultRef(VOID_FUNC_TYPE_REF), ResultRef(TYPE_VOID_REF)))
     )
     val ctxWithVoid = context.copy(
-      voidTypeRef = context.nextResultId,
-      voidFuncTypeRef = context.nextResultId + 1,
-      nextResultId = context.nextResultId + 2
+      voidTypeRef = TYPE_VOID_REF,
+      voidFuncTypeRef = VOID_FUNC_TYPE_REF,
     )
     (voidDef, ctxWithVoid)
   }
@@ -264,6 +264,20 @@ class DSLCompiler {
     }
   }
 
+
+  def defineVars(ctx: Context): (List[Words], Context) = {
+    (
+      List(Instruction(
+        Op.OpVariable,
+        List(
+          ResultRef(ctx.inputVecPointerMap(ctx.scalarTypeMap(typeOf[Int32]))),
+          ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
+          StorageClass.Input
+        ))),
+      ctx.copy()
+    )
+  }
+
   def compileTree(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
     def compileExpressions(exprs: List[DigestedExpression], ctx: Context, acc: List[Words]): (List[Words], Context) = {
       if (exprs.isEmpty) (acc, ctx)
@@ -292,7 +306,8 @@ class DSLCompiler {
             )
             val updatedContext = ctx.copy(
               exprRefs = ctx.exprRefs + (expr.digest -> (ctx.nextResultId + 1)),
-              nextResultId = ctx.nextResultId + 2
+              nextResultId = ctx.nextResultId + 2,
+              workerIndexRef = ctx.nextResultId + 1
             )
             (instructions, updatedContext)
           case diff@Diff(a, b) =>
@@ -423,10 +438,14 @@ class DSLCompiler {
         ResultRef(MAIN_FUNC_REF),
         SamplerAddressingMode.None,
         ResultRef(VOID_FUNC_TYPE_REF)
+      )),
+      Instruction(Op.OpLabel, List(
+        ResultRef(ctx.nextResultId)
       ))
+
     )
 
-    val (body, codeCtx) = compileTree(sortedTree, ctx)
+    val (body, codeCtx) = compileTree(sortedTree, ctx.copy(nextResultId = ctx.nextResultId + 1))
 
     val end = List(
       Instruction(Op.OpAccessChain, List(
@@ -435,16 +454,18 @@ class DSLCompiler {
         //ResultRef(codeCtx.outBufferBlocks(0).blockPointerRef),
         ResultRef(codeCtx.outBufferBlocks(0).blockVarRef),
         ResultRef(codeCtx.constRefs((typeOf[Int32], 0))),
-        ResultRef(codeCtx.exprRefs(sortedTree.last.digest))
+        //ResultRef(codeCtx.exprRefs(sortedTree.last.digest))
+        ResultRef(codeCtx.workerIndexRef)
       )),
+
       Instruction(Op.OpStore, List(
         ResultRef(codeCtx.nextResultId),
-        IntWord(codeCtx.scalarTypeMap(sortedTree.last.expr.valTypeTag.tpe.dealias))
+        ResultRef(codeCtx.exprRefs(sortedTree.last.digest))
       )),
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List())
     )
-    (init ::: body ::: end, codeCtx)
+    (init ::: body ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
   }
 
   def compile[T <: ValType](returnVal: T, inTypes: List[Type], outTypes: List[Type]): ByteBuffer = {
@@ -462,8 +483,9 @@ class DSLCompiler {
     val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, typedContext)
     val (inputDefs, inputContext) = createInvocationId(uniformContext)
     val (constDefs, constCtx) = defineConstants(sorted, inputContext)
+    val (varDefs, varCtx) = defineVars(constCtx)
     println("preC")
-    val (main, finalCtx) = compileMain(sorted, constCtx)
+    val (main, finalCtx) = compileMain(sorted, varCtx)
 
     val code: List[Words] =
       insnWithHeader :::
@@ -472,6 +494,7 @@ class DSLCompiler {
         uniformDefs :::
         inputDefs :::
         constDefs :::
+        varDefs :::
         main
 
     //hexDumpCode(code)
@@ -480,24 +503,24 @@ class DSLCompiler {
       case x => x
     }
     //dumpCode(fullCode)
-    println(inputContext)
+    //println(inputContext)
 
     val bytes = fullCode.flatMap(_.toWords).toArray
 
-    dumpCode(
-      fullCode,
-      File("/Users/mzlakowski/Projects/IdeaProjects/scalag/target.txt")
-        .createIfNotExists()
-        .clear()
-        .write(_)
-    )
-
+//    dumpCode(
+//      fullCode,
+//      File("/Users/mzlakowski/Projects/IdeaProjects/scalag/target.txt")
+//        .createIfNotExists()
+//        .clear()
+//        .write(_)
+//    )
+//
     File("/Users/mzlakowski/Projects/IdeaProjects/scalag/out.spv")
       .createIfNotExists()
       .clear()
       .writeByteArray(bytes)
 
-    System.exit(0)
+//    System.exit(0)
 
     BufferUtils.createByteBuffer(bytes.length).put(bytes).rewind()
   }
