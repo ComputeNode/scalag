@@ -12,7 +12,7 @@ import com.unihogsoft.scalag.vulkan.VulkanContext
 import com.unihogsoft.scalag.vulkan.compute.{ComputePipeline, LayoutInfo, Shader}
 import com.unihogsoft.scalag.vulkan.executor.{MapExecutor, SortByKeyExecutor}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.language.postfixOps
 import scala.reflect.runtime.universe.TypeTag
@@ -30,7 +30,7 @@ trait GContext {
 object WorkerIndex extends Int32(Dynamic("worker_index"))
 
 class MVPContext extends GContext {
-  implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
+  implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
   val compiler: DSLCompiler = new DSLCompiler
 
   override def compile[H <: DSL.ValType : TypeTag, R <: DSL.ValType : TypeTag](function: GFunction[H, R]): ComputePipeline = {

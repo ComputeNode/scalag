@@ -1,16 +1,13 @@
 package com.unihogsoft.scalag.compiler
 
-import java.nio.ByteBuffer
-import shapeless.HList
-import com.unihogsoft.scalag.dsl.DSL._
-import org.lwjgl.BufferUtils
-import Opcodes.{Instruction, _}
 import better.files.File
 import com.unihogsoft.scalag.compiler.Digest.DigestedExpression
+import com.unihogsoft.scalag.compiler.Opcodes.{Instruction, _}
+import com.unihogsoft.scalag.dsl.DSL._
+import org.lwjgl.BufferUtils
 
+import java.nio.ByteBuffer
 import scala.reflect.runtime.universe._
-import scala.runtime.IntRef
-import scala.util.hashing.MurmurHash3
 
 class DSLCompiler {
 
@@ -241,7 +238,7 @@ class DSLCompiler {
         case dl: Double => java.lang.Float.floatToIntBits(dl.toFloat)
         case il: Int => il
       }
-      Word(intToBytes(ib).toArray)
+      Word(intToBytes(ib).reverse.toArray)
   }
 
   def defineConstants(exprs: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
@@ -254,7 +251,7 @@ class DSLCompiler {
         val insn = Instruction(Op.OpConstant, List(
           IntWord(context.scalarTypeMap(const._1)),
           ResultRef(context.nextResultId),
-          (toWord _).tupled(const)
+          toWord(const._1, const._2)
         ))
         val ctx = context.copy(
           constRefs = context.constRefs + (const -> context.nextResultId),

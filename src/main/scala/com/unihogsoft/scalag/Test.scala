@@ -16,11 +16,10 @@ object Test extends App {
 
   val addOne: GFunction[DSL.Float32, DSL.Float32] = GFunction {
     (x: Float32) =>
-      val a = x + 1.0
-      a
+      x + 1.0
   }
 
-  val data = FloatMem(1 until 1024 map (_.toFloat) toArray)
+  val data = FloatMem(0 until 1024 map (_.toFloat) toArray)
 
   val fut = data.map(addOne)
 

@@ -36,7 +36,7 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
     data.rewind()
   }
 
-  override def getSize(): Int = size
+  override def getSize: Int = size
 
   private def execute[R <: ValType](executor: AbstractExecutor): Future[Array[Float]] = {
     Future {
@@ -47,12 +47,12 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
   }
 
   def sort[R <: ValType](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] = {
-    execute(new SortByKeyExecutor(getSize(), fn.pipeline, context.vkContext))
+    execute(new SortByKeyExecutor(size, fn.pipeline, context.vkContext))
   }
 
   def map[R <: ValType](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] = {
     val actions = List(new BufferAction(BufferAction.LOAD_INTO), new BufferAction(BufferAction.LOAD_FROM))
-    execute(new MapExecutor(getSize(), actions.asJava, fn.pipeline, context.vkContext))
+    execute(new MapExecutor(size, actions.asJava, fn.pipeline, context.vkContext))
   }
 
   def write(floats: Array[Float]): Unit = {
