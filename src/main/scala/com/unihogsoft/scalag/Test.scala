@@ -14,17 +14,14 @@ object Test extends App {
   implicit val gcontext: GContext = new MVPContext()
   implicit val econtext: ExecutionContext = Implicits.global
 
-  val addOne: GFunction[DSL.Float32, DSL.Float32] = GFunction {
+  val function: GFunction[DSL.Float32, DSL.Float32] = GFunction {
     (x: Float32) =>
-      x + 1.0
+      0 - x
   }
 
-  val data = FloatMem(0 until 1024 map (_.toFloat) toArray)
+  val input = 0 until 1024 map (_.toFloat) toArray
 
-  val fut = data.map(addOne)
+  val r = Await.result(FloatMem(input).sort(function), 10 seconds)
 
-  val r = Await.result(fut, 10 seconds)
-
-  println("Output!")
   println(r.mkString("Array(", ", ", ")"))
 }

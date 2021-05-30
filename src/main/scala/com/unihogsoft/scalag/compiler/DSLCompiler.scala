@@ -233,12 +233,12 @@ class DSLCompiler {
     case t if t == typeOf[Int32] =>
       Word(intToBytes(value.asInstanceOf[Int]).toArray)
     case t if t == typeOf[Float32] =>
-      val ib: Int = value match {
-        case fl: Float => java.lang.Float.floatToIntBits(fl)
-        case dl: Double => java.lang.Float.floatToIntBits(dl.toFloat)
-        case il: Int => il
+      val fl = value match {
+        case fl: Float => fl
+        case dl: Double => dl.toFloat
+        case il: Int => il.toFloat
       }
-      Word(intToBytes(ib).reverse.toArray)
+      Word(intToBytes(java.lang.Float.floatToIntBits(fl)).reverse.toArray)
   }
 
   def defineConstants(exprs: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
@@ -504,20 +504,20 @@ class DSLCompiler {
 
     val bytes = fullCode.flatMap(_.toWords).toArray
 
-//    dumpCode(
-//      fullCode,
-//      File("/Users/mzlakowski/Projects/IdeaProjects/scalag/target.txt")
-//        .createIfNotExists()
-//        .clear()
-//        .write(_)
-//    )
-//
+    //    dumpCode(
+    //      fullCode,
+    //      File("/Users/mzlakowski/Projects/IdeaProjects/scalag/target.txt")
+    //        .createIfNotExists()
+    //        .clear()
+    //        .write(_)
+    //    )
+    //
     File("/Users/mzlakowski/Projects/IdeaProjects/scalag/out.spv")
       .createIfNotExists()
       .clear()
       .writeByteArray(bytes)
 
-//    System.exit(0)
+    //    System.exit(0)
 
     BufferUtils.createByteBuffer(bytes.length).put(bytes).rewind()
   }
