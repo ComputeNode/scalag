@@ -42,6 +42,7 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
     Future {
       val out = executor.execute(List(data).asJava).asScala
       val res = out.head.asFloatBuffer()
+      executor.destroy()
       0 until size map res.get toArray
     }
   }

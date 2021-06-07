@@ -420,7 +420,7 @@ class DSLCompiler {
             )
             (instructions, updatedContext)
         }
-        println(ctx.exprRefs)
+//        println(ctx.exprRefs)
         compileExpressions(exprs.tail, updatedCtx, acc ::: instructions)
       }
     }
@@ -469,7 +469,7 @@ class DSLCompiler {
     val tree = returnVal.tree
     val (digestTree, hash) = Digest.digest(tree)
     val sorted = TopologicalSort.sortTree(digestTree)
-    println(Digest.formatTreeWithDigest(digestTree))
+//    println(Digest.formatTreeWithDigest(digestTree))
     //println()
     //println(sorted.mkString("\n"))
 
@@ -481,7 +481,7 @@ class DSLCompiler {
     val (inputDefs, inputContext) = createInvocationId(uniformContext)
     val (constDefs, constCtx) = defineConstants(sorted, inputContext)
     val (varDefs, varCtx) = defineVars(constCtx)
-    println("preC")
+//    println("preC")
     val (main, finalCtx) = compileMain(sorted, varCtx)
 
     val code: List[Words] =
@@ -512,10 +512,10 @@ class DSLCompiler {
     //        .write(_)
     //    )
     //
-    File("/Users/mzlakowski/Projects/IdeaProjects/scalag/out.spv")
-      .createIfNotExists()
-      .clear()
-      .writeByteArray(bytes)
+//    File("/Users/mzlakowski/Projects/IdeaProjects/scalag/out.spv")
+//      .createIfNotExists()
+//      .clear()
+//      .writeByteArray(bytes)
 
     //    System.exit(0)
 

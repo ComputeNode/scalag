@@ -16,12 +16,38 @@ object Test extends App {
 
   val function: GFunction[DSL.Float32, DSL.Float32] = GFunction {
     (x: Float32) =>
-      0 - x
+      x * x
   }
 
-  val input = 0 until 1024 map (_.toFloat) toArray
+//  val input = 0 until 1024 map (_.toFloat) toArray
+//
+//  val r = Await.result(FloatMem(input).sort(function), 10 seconds)
 
-  val r = Await.result(FloatMem(input).sort(function), 10 seconds)
+  def time(fun: () => Unit) = {
+    val start = System.currentTimeMillis()
+    fun.apply()
+    System.currentTimeMillis() - start
+  }
 
-  println(r.mkString("Array(", ", ", ")"))
+  def pow(a: Int, b: Int) = 0 until b map(_ => a) product
+
+  val datas = for {
+    i <- 10 to 20
+  } yield (0 until pow(2, i)).map(_.toFloat)
+
+  datas.foreach { l =>
+    val la = l.toArray
+    val timesG = for {
+      _ <- 0 until 100
+    } yield time(() => Await.result(FloatMem(la).sort(function), 10 seconds)).toDouble
+
+    val timesN = for {
+      _ <- 0 until 100
+    } yield time(() => l.sortBy(x => x * x)).toDouble
+
+    println(s"${l.length}, ${timesG.sum / timesG.length}, ${timesN.sum / timesN.length}")
+
+  }
+
+//  println(r.mkString("Array(", ", ", ")"))
 }
