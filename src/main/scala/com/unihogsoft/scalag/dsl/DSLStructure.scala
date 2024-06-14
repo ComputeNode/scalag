@@ -2,7 +2,7 @@ package com.unihogsoft.scalag.dsl
 
 import java.beans.Expression
 
-import scala.reflect.runtime.universe.TypeTag
+import scala.reflect.runtime.universe.WeakTypeTag
 
 trait DSLStructure {
   trait ValType {
@@ -17,8 +17,8 @@ trait DSLStructure {
 
   type ValInit[T <: ValType] = E[T] => T
 
-  abstract class Expression[T <: ValType : TypeTag] extends Product {
-    val valTypeTag: TypeTag[T] = implicitly[TypeTag[T]]
+  abstract class Expression[T <: ValType : WeakTypeTag] extends Product {
+    val valWeakTypeTag: WeakTypeTag[T] = implicitly[WeakTypeTag[T]]
   }
   type E[T <: ValType] = Expression[T]
 
@@ -40,8 +40,8 @@ trait DSLStructure {
             s"(${expr.productIterator.map(_.toString).mkString(", ")})"
           }
           val exprType = expr.getClass.getSimpleName
-          val mirror = expr.valTypeTag.mirror
-          val exprValType = mirror.runtimeClass(expr.valTypeTag.tpe).getSimpleName
+          val mirror = expr.valWeakTypeTag.mirror
+          val exprValType = mirror.runtimeClass(expr.valWeakTypeTag.tpe).getSimpleName
           val prodString = s"$indent- ${exprType} [${exprValType}] ${optNewline(hasExprChildren)}"
           prodString + childrenString + optNewline(!hasExprChildren)
         case any =>

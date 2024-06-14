@@ -47,11 +47,25 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
     }
   }
 
+  private def executeToI[R <: ValType](executor: AbstractExecutor): Future[Array[Int]] = {
+    Future {
+      val out = executor.execute(List(data).asJava).asScala
+      val res = out.head.asIntBuffer()
+      executor.destroy()
+      0 until size map res.get toArray
+    }
+  }
+
   def sort[R <: ValType](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] = {
     execute(new SortByKeyExecutor(size, fn.pipeline, context.vkContext))
   }
 
   def map[R <: ValType](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] = {
+    val actions = List(new BufferAction(BufferAction.LOAD_INTO), new BufferAction(BufferAction.LOAD_FROM))
+    execute(new MapExecutor(size, actions.asJava, fn.pipeline, context.vkContext))
+  }
+
+  def map[R <: ValType](fn: GArray2DFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] = {
     val actions = List(new BufferAction(BufferAction.LOAD_INTO), new BufferAction(BufferAction.LOAD_FROM))
     execute(new MapExecutor(size, actions.asJava, fn.pipeline, context.vkContext))
   }

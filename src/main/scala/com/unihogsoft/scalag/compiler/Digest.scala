@@ -33,9 +33,11 @@ object Digest {
           None
       }
     }).collect { case Some(expr) => expr }
-    val mirror = tree.valTypeTag.mirror
-    val typeBytes = mirror.runtimeClass(tree.valTypeTag.tpe).getSimpleName.getBytes()
+    val mirror = tree.valWeakTypeTag.mirror
+    val treeT = tree.getClass.getSimpleName.hashCode // TODO conflicts possible
+    val typeBytes = mirror.runtimeClass(tree.valWeakTypeTag.tpe).getSimpleName.getBytes()
     d.update(typeBytes)
+    d.update(BigInt(treeT).toByteArray)
     val digestBytes = d.digest()
     val b64 = Base64.getEncoder.encodeToString(digestBytes)
     (DigestedExpression(b64, tree, children), digestBytes)
@@ -60,8 +62,8 @@ object Digest {
             s"(${expr.productIterator.map(_.toString).mkString(", ")})"
           }
           val exprType = expr.getClass.getSimpleName
-          val mirror = expr.valTypeTag.mirror
-          val exprValType = mirror.runtimeClass(expr.valTypeTag.tpe).getSimpleName
+          val mirror = expr.valWeakTypeTag.mirror
+          val exprValType = mirror.runtimeClass(expr.valWeakTypeTag.tpe).getSimpleName
           val prodString = s"$indent- ${exprType} [${exprValType}] [##$hash] ${optNewline(hasExprChildren)}"
           prodString + childrenString + optNewline(!hasExprChildren)
         case any =>

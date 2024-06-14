@@ -44,8 +44,8 @@ test {
 
 dependencies {
     // Use Scala 2.13 in our library project
-    implementation 'org.scala-lang:scala-library:2.13.1'
-    implementation group: 'org.scala-lang', name: 'scala-reflect', version: '2.13.1'
+    implementation 'org.scala-lang:scala-library:2.13.14'
+    implementation group: 'org.scala-lang', name: 'scala-reflect', version: '2.13.14'
 
     implementation group: 'com.chuusai', name: 'shapeless_2.13', version: '2.3.3'
     implementation 'com.github.pathikrit:better-files_2.13:3.9.1'

@@ -25,14 +25,14 @@ class DSLCompiler {
   val GL_WORKGROUP_SIZE_REF = 6
   val HEADER_REFS_TOP = 7
 
-  val scalarTypeDefInsn = Map[Type, Instruction](
-    typeOf[Int32] -> Instruction(Op.OpTypeInt, List(WordVariable("result"), IntWord(32), IntWord(0))),
-    typeOf[Float32] -> Instruction(Op.OpTypeFloat, List(WordVariable("result"), IntWord(32)))
+  val scalarTypeDefInsn = Map[Symbol, Instruction](
+    typeOf[Int32].typeSymbol -> Instruction(Op.OpTypeInt, List(WordVariable("result"), IntWord(32), IntWord(0))),
+    typeOf[Float32].typeSymbol -> Instruction(Op.OpTypeFloat, List(WordVariable("result"), IntWord(32)))
   )
 
-  val typeStride = Map[Type, Int](
-    typeOf[Int32] -> 4,
-    typeOf[Float32] -> 4
+  val typeStride = Map[Symbol, Int](
+    typeOf[Int32].typeSymbol -> 4,
+    typeOf[Float32].typeSymbol -> 4
   )
 
   def headers(): List[Words] = {
@@ -97,7 +97,7 @@ class DSLCompiler {
       case ((words, ctx), valType) =>
         val typeDefIndex = ctx.nextResultId
         val code = List(
-          scalarTypeDefInsn(valType).replaceVar("result", typeDefIndex),
+          scalarTypeDefInsn(valType.typeSymbol).replaceVar("result", typeDefIndex),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 1), StorageClass.Function, IntWord(typeDefIndex))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 2), StorageClass.Uniform, IntWord(typeDefIndex))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 3), StorageClass.Input, IntWord(typeDefIndex))),
@@ -136,7 +136,7 @@ class DSLCompiler {
         Instruction(Op.OpDecorate, List(
           ResultRef(block.memberArrayTypeRef),
           Decoration.ArrayStride,
-          IntWord(typeStride(tpe))
+          IntWord(typeStride(tpe.typeSymbol))
         )), // OpDecorate %_runtimearr_X ArrayStride [typeStride(type)]
         Instruction(Op.OpMemberDecorate, List(
           ResultRef(block.structTypeRef),
@@ -215,9 +215,9 @@ class DSLCompiler {
 
   def createInvocationId(context: Context): (List[Words], Context) = {
     val definitionInstructions = List(
-      Instruction(Op.OpConstant, List(IntWord(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
-      Instruction(Op.OpConstant, List(IntWord(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
-      Instruction(Op.OpConstant, List(IntWord(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(typeOf[Int32])), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
       Instruction(Op.OpConstantComposite, List(
         IntWord(context.vectorTypeMap(typeOf[Int32], 3)),
         ResultRef(GL_WORKGROUP_SIZE_REF),
@@ -231,7 +231,7 @@ class DSLCompiler {
 
   def toWord(tpe: Type, value: Any): Words = tpe match {
     case t if t == typeOf[Int32] =>
-      Word(intToBytes(value.asInstanceOf[Int]).toArray)
+      IntWord(value.asInstanceOf[Int])
     case t if t == typeOf[Float32] =>
       val fl = value match {
         case fl: Float => fl
@@ -244,12 +244,12 @@ class DSLCompiler {
   def defineConstants(exprs: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
     val consts = exprs.collect {
       case DigestedExpression(_, c@Const(x), _) =>
-        (c.valTypeTag.tpe.dealias, x)
+        (c.valWeakTypeTag.tpe.dealias, x)
     } :+ ((typeOf[Int32], 0))
     consts.foldLeft((List[Words](), ctx)) {
       case ((instructions, context), const) =>
         val insn = Instruction(Op.OpConstant, List(
-          IntWord(context.scalarTypeMap(const._1)),
+          ResultRef(context.scalarTypeMap(const._1)),
           ResultRef(context.nextResultId),
           toWord(const._1, const._2)
         ))
@@ -282,7 +282,7 @@ class DSLCompiler {
         val expr = exprs.head
         val (instructions, updatedCtx) = expr.expr match {
           case c@Const(x) =>
-            val constRef = ctx.constRefs((c.valTypeTag.tpe.dealias, x))
+            val constRef = ctx.constRefs((c.valWeakTypeTag.tpe.dealias, x))
             val updatedContext = ctx.copy(
               exprRefs = ctx.exprRefs + (expr.digest -> constRef)
             )
@@ -290,13 +290,13 @@ class DSLCompiler {
           case d@Dynamic("worker_index") =>
             val instructions = List(
               Instruction(Op.OpAccessChain, List(
-                ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(d.valTypeTag.tpe.dealias))),
+                ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(d.valWeakTypeTag.tpe.dealias))),
                 ResultRef(ctx.nextResultId),
                 ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
                 ResultRef(ctx.constRefs(typeOf[Int32], 0))
               )),
               Instruction(Op.OpLoad, List(
-                IntWord(ctx.scalarTypeMap(d.valTypeTag.tpe.dealias)),
+                ResultRef(ctx.scalarTypeMap(d.valWeakTypeTag.tpe.dealias)),
                 ResultRef(ctx.nextResultId + 1),
                 ResultRef(ctx.nextResultId)
               ))
@@ -307,8 +307,41 @@ class DSLCompiler {
               workerIndexRef = ctx.nextResultId + 1
             )
             (instructions, updatedContext)
+
+          case tf@ToFloat32(a) =>
+            val tpe = implicitly[WeakTypeTag[Float32]].tpe
+            val typeRef = ctx.scalarTypeMap(tpe)
+            val tfOpcode = Op.OpConvertSToF
+            val instructions = List(
+              Instruction(tfOpcode, List(
+                ResultRef(typeRef),
+                ResultRef(ctx.nextResultId),
+                ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
+              )))
+            val updatedContext = ctx.copy(
+              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+              nextResultId = ctx.nextResultId + 1
+            )
+            (instructions, updatedContext)
+
+          case ti@ToInt32(a) =>
+            val tpe = implicitly[WeakTypeTag[Int32]].tpe
+            val typeRef = ctx.scalarTypeMap(tpe)
+            val tfOpcode = Op.OpConvertFToU
+            val instructions = List(
+              Instruction(tfOpcode, List(
+                ResultRef(typeRef),
+                ResultRef(ctx.nextResultId),
+                ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
+              )))
+            val updatedContext = ctx.copy(
+              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+              nextResultId = ctx.nextResultId + 1
+            )
+            (instructions, updatedContext)
+
           case diff@Diff(a, b) =>
-            val tpe = a.valTypeTag.tpe.dealias
+            val tpe = a.valWeakTypeTag.tpe.dealias
             val typeRef = ctx.scalarTypeMap(tpe)
             val subOpcode = tpe match {
               case f if f <:< typeOf[FloatType] =>
@@ -330,7 +363,7 @@ class DSLCompiler {
             )
             (instructions, updatedContext)
           case sum@Sum(a, b) =>
-            val tpe = a.valTypeTag.tpe.dealias
+            val tpe = a.valWeakTypeTag.tpe.dealias
             val typeRef = ctx.scalarTypeMap(tpe)
             val addOpcode = tpe match {
               case f if f <:< typeOf[FloatType] =>
@@ -353,7 +386,7 @@ class DSLCompiler {
             (instructions, updatedContext)
 
           case mul@Mul(a, b) =>
-            val tpe = a.valTypeTag.tpe.dealias
+            val tpe = a.valWeakTypeTag.tpe.dealias
             val typeRef = ctx.scalarTypeMap(tpe)
             val mulOpcode = tpe match {
               case f if f <:< typeOf[FloatType] =>
@@ -376,7 +409,7 @@ class DSLCompiler {
             (instructions, updatedContext)
 
           case div@Div(a, b) =>
-            val tpe = a.valTypeTag.tpe.dealias
+            val tpe = a.valWeakTypeTag.tpe.dealias
             val typeRef = ctx.scalarTypeMap(tpe)
             val divOpCode = tpe match {
               case f if f <:< typeOf[FloatType] =>
@@ -386,6 +419,29 @@ class DSLCompiler {
             }
             val instructions = List(
               Instruction(divOpCode, List(
+                ResultRef(typeRef),
+                ResultRef(ctx.nextResultId),
+                ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+              ))
+            )
+            val updatedContext = ctx.copy(
+              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+              nextResultId = ctx.nextResultId + 1
+            )
+            (instructions, updatedContext)
+
+          case mod@Mod(a, b) =>
+            val tpe = a.valWeakTypeTag.tpe.dealias
+            val typeRef = ctx.scalarTypeMap(tpe)
+            val modOpcode = tpe match {
+              case f if f <:< typeOf[FloatType] =>
+                Op.OpFMod
+              case i if i <:< typeOf[IntegerType] =>
+                Op.OpSMod
+            }
+            val instructions = List(
+              Instruction(modOpcode, List(
                 ResultRef(typeRef),
                 ResultRef(ctx.nextResultId),
                 ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
@@ -409,7 +465,7 @@ class DSLCompiler {
                 ResultRef(ctx.exprRefs(expr.dependencies.head.digest))
               )),
               Instruction(Op.OpLoad, List(
-                IntWord(ctx.scalarTypeMap(ga.valTypeTag.tpe.dealias)),
+                IntWord(ctx.scalarTypeMap(ga.valWeakTypeTag.tpe.dealias)),
                 ResultRef(ctx.nextResultId + 1),
                 ResultRef(ctx.nextResultId)
               ))
@@ -419,6 +475,7 @@ class DSLCompiler {
               nextResultId = ctx.nextResultId + 2
             )
             (instructions, updatedContext)
+
         }
 //        println(ctx.exprRefs)
         compileExpressions(exprs.tail, updatedCtx, acc ::: instructions)
@@ -467,14 +524,15 @@ class DSLCompiler {
 
   def compile[T <: ValType](returnVal: T, inTypes: List[Type], outTypes: List[Type]): ByteBuffer = {
     val tree = returnVal.tree
+    println("Compiling " + tree)
     val (digestTree, hash) = Digest.digest(tree)
     val sorted = TopologicalSort.sortTree(digestTree)
 //    println(Digest.formatTreeWithDigest(digestTree))
-    //println()
-    //println(sorted.mkString("\n"))
+//    println()
+//    println(sorted.mkString("\n"))
 
     val insnWithHeader = headers()
-    val typesInCode = sorted.map(_.expr.valTypeTag.tpe.dealias)
+    val typesInCode = sorted.map(_.expr.valWeakTypeTag.tpe.dealias)
     val allTypes = (typesInCode ::: inTypes ::: outTypes)
     val (typeDefs, typedContext) = defineTypes(allTypes)
     val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, typedContext)
@@ -499,7 +557,7 @@ class DSLCompiler {
       case WordVariable(name) if name == BOUND_VARIABLE => IntWord(finalCtx.nextResultId)
       case x => x
     }
-    //dumpCode(fullCode)
+    dumpCode(fullCode)
     //println(inputContext)
 
     val bytes = fullCode.flatMap(_.toWords).toArray
@@ -528,7 +586,7 @@ class DSLCompiler {
       .mkString(" ")).mkString("\n"))
   }
 
-  def dumpCode(code: List[Words], fn: String => ()): Unit = {
+  def dumpCode(code: List[Words], fn: String => Unit): Unit = {
     fn(code.map(_.toString).mkString("\n"))
   }
 

@@ -24,6 +24,8 @@ object Opcodes {
     def toWords: List[Byte] = bytes.toList
 
     def length = 1
+
+    override def toString = s"Word(${bytes.mkString(", ")}${if(bytes.length == 4) s" [i = ${BigInt(bytes).toInt}])" else ""}"
   }
 
   case class WordVariable(name: String) extends Words {

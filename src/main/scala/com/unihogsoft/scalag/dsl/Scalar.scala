@@ -1,13 +1,11 @@
 package com.unihogsoft.scalag.dsl
 
 import com.unihogsoft.scalag.dsl.DSL._
-import scala.reflect.runtime.universe.TypeTag
+import scala.reflect.runtime.universe.WeakTypeTag
 
 trait Scalar {
-
-
-
-  abstract class ScalarType extends ValType with Summable with Diffable with Divable with Mulable
+  self =>
+  abstract class ScalarType extends ValType with Summable with Diffable with Divable with Mulable with Modable
 
   trait FloatType extends ScalarType
   trait IntegerType extends ScalarType
@@ -37,6 +35,7 @@ trait Scalar {
   def int32(f: Int32): Int32 = f
   def int64(f: Int64): Int64 = f
 
-  case class Const[T <: ValType : TypeTag, R](r: R) extends E[T]
-  case class Dynamic[T <: ValType : TypeTag, R](source: String) extends E[T]
+  case class Const[T <: ValType : WeakTypeTag, R](r: R) extends E[T]
+  case class Dynamic[T <: ValType : WeakTypeTag, R](source: String) extends E[T]
+
 }
