@@ -15,7 +15,7 @@ val function: GArray2DFunction[DSL.Float32, DSL.Float32] = GArray2DFunction(dim,
         offsetX <- -radius to radius
         offsetY <- -radius to radius
       } yield sample(offsetX, offsetY)
-      val weight = 1.0f / ((2 * offset + 1) * (2 * offset + 1))
+      val weight = 1.0f / ((2 * radius + 1) * (2 * radius + 1))
       samples.reduce(_ + _) * weight
     }
     blur(10)
