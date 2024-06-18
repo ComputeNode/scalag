@@ -42,38 +42,33 @@ test {
     useJUnitPlatform()
 }
 
+ext {
+    scalaMajorVersion = '3'
+    scalaVersion = "$scalaMajorVersion.3.3"
+}
+
 dependencies {
-    // Use Scala 2.13 in our library project
-    implementation 'org.scala-lang:scala-library:2.13.14'
-    implementation group: 'org.scala-lang', name: 'scala-reflect', version: '2.13.14'
-
-    implementation group: 'com.chuusai', name: 'shapeless_2.13', version: '2.3.3'
-    implementation 'com.github.pathikrit:better-files_2.13:3.9.1'
-
-    // Use LWJGL
+    implementation "org.scala-lang:scala3-library_3:3.3.3"
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
     implementation "org.lwjgl:lwjgl"
     implementation "org.lwjgl:lwjgl-vulkan"
     implementation  "org.lwjgl:lwjgl-vma:${lwjglVersion}"
-    
+    implementation 'dev.zio:izumi-reflect_3:2.3.10'
+    implementation 'com.lihaoyi:pprint_3:0.9.0'
+
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-vma:${lwjglVersion}:${lwjglNatives}"
 
     implementation "org.joml:joml:${jomlVersion}"
 
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
-    testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
-
-
-
-    // Use Scalatest for testing our library
-    testImplementation 'junit:junit:4.12'
-    testImplementation 'org.scalatest:scalatest_2.13:3.1.0'
-    testImplementation 'org.scalatestplus:junit-4-12_2.13:3.1.0.0'
-
-    // Need scala-xml at test runtime
-    testRuntimeOnly 'org.scala-lang.modules:scala-xml_2.13:1.2.0'
+    testImplementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
 
     testImplementation('org.junit.jupiter:junit-jupiter:5.6.2')
-    testRuntime('org.junit.jupiter:junit-jupiter-engine:5.6.2')
+    testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.6.2')
+
+}
+
+scala {
+    zincVersion = '1.10.0'
 }
