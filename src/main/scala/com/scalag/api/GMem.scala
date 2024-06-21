@@ -48,15 +48,6 @@ class FloatMem(size: Int) extends WritableGMem[Float32] {
     }
   }
 
-  private def executeToI[R <: Value](executor: AbstractExecutor): Future[Array[Int]] = {
-    Future {
-      val out = executor.execute(List(data).asJava).asScala
-      val res = out.head.asIntBuffer()
-      executor.destroy()
-      0 until size map res.get toArray
-    }
-  }
-
   def sort[R <: Value](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] = {
     execute(new SortByKeyExecutor(size, fn.pipeline, context.vkContext))
   }

@@ -23,22 +23,26 @@ object Digest {
   def digest(tree: Expression[_]): (DigestedExpression, Array[Byte]) = {
     val d = MessageDigest.getInstance("MD5")
     val products = tree.productIterator.toList // non-lazy
-    val children = (for(elem <- products) yield {
-      elem match {
-        case x: Expression[_] =>
-          val (digestedChild, bytes) = digest(x)
-          d.update(bytes)
-          Some(digestedChild)
-        case x: Value =>
-          val (digestedChild, bytes) = digest(x.tree)
-          d.update(bytes)
-          Some(digestedChild)
-        case other =>
-          val hashBytes = hashToBytes(other)
-          d.update(hashBytes)
-          None
-      }
-    }).collect { case Some(expr) => expr }
+    def digestChildren(children: List[Any]): List[DigestedExpression] =
+      (for (elem <- children) yield {
+        elem match {
+          case x: Expression[_] =>
+            val (digestedChild, bytes) = digest(x)
+            d.update(bytes)
+            Some(digestedChild)
+          case x: Value =>
+            val (digestedChild, bytes) = digest(x.tree)
+            d.update(bytes)
+            Some(digestedChild)
+          case list: List[Any] =>
+            digestChildren(list.filter(_.isInstanceOf[Value]).map(_.asInstanceOf[Value].tree))
+          case other =>
+            val hashBytes = hashToBytes(other)
+            d.update(hashBytes)
+            None
+        }
+      }).flatMap(_.iterator.toList)
+    val children = digestChildren(products)
     val treeT = tree.getClass.getSimpleName.hashCode // TODO conflicts possible
     val typeBytes = tree.tag.tag.shortName.getBytes()
     d.update(typeBytes)

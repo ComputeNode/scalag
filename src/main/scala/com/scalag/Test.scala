@@ -14,6 +14,7 @@ import Algebra.given
 import scala.concurrent.duration.DurationInt
 import com.scalag.api.{FloatMem, GArray2DFunction, GContext, MVPContext}
 import ImageDrawer.*
+import Functions.*
 
 @main
 def main =
@@ -21,19 +22,20 @@ def main =
   implicit val gcontext: GContext = new MVPContext()
   implicit val econtext: ExecutionContext = Implicits.global
 
-  val dim = 2048
-  val max = 1300000
+  val dim = 4096
+  val max = 1
 
   val function: GArray2DFunction[Float32, Float32] = GArray2DFunction(dim, dim, {
-    case ((x: Int32, y: Int32), _) =>
-      val xSquared = (x - (dim / 2)) * (x - (dim / 2))
-      val ySquared = (y - (dim / 2)) * (y - (dim / 2))
-      xSquared.asFloat + ySquared.asFloat
+    case ((xi: Int32, yi: Int32), _) =>
+      val x = (xi - (dim / 2)).asFloat / dim.toFloat
+      val y = (yi - (dim / 2)).asFloat / dim.toFloat
+
+      sin(1f/x)*sin(1f/y)
   })
 
 
   val data = (0 until dim * dim).map(_.toFloat).toArray
-  val r = Await.result(FloatMem(data).map(function), 10.seconds)
+  val r = Await.result(FloatMem(data).map(function), 10.seconds).map(f => Math.abs(f))
 
   ImageDrawer.draw(r.map(c => interpolateColor(c.min(max), max)), dim, "pow.png")
 
@@ -60,9 +62,9 @@ object ImageDrawer {
   def interpolateColor(value: Float, maxX: Float): Int = {
     val scaledValue = value / maxX
 
-    val c1 = (76, 3, 84)
-    val c2 = (1, 162, 128)
-    val c3 = (139, 219, 58)
+    val c1 = (45, 15, 65)
+    val c2 = (219, 80, 135)
+    val c3 = (249, 205, 172)
 
     val interpolatedColor = interpolateRGB(c1, c2, c3, scaledValue)
 

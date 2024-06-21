@@ -55,8 +55,7 @@ object Algebra:
   
   extension (i32: Int32)
     def asFloat: Float32 = Float32(ToFloat32(i32))
-    
-
+  
   trait VectorSummable[V <: Vec[_] : FromExpr : Tag]:
     def sum(a: V, b: V): V = summon[FromExpr[V]].fromExpr(Sum(a, b))
   extension[V <: Vec[_] : VectorSummable : Tag](a: V)
@@ -101,16 +100,41 @@ object Algebra:
   given Conversion[Int, Int32] = i => Int32(ConstInt32(i))
   
   given Conversion[(Float, Float), Vec2[Float32]] = {
-    case (x, y) => Vec2(ConstVec2((Float32(ConstFloat32(x)), Float32(ConstFloat32(y)))))
+    case (x, y) => Vec2(ComposeVec2(Float32(ConstFloat32(x)), Float32(ConstFloat32(y))))
   }
   
   given Conversion[(Int, Int), Vec2[Int32]] = {
-    case (x, y) => Vec2(ConstVec2((Int32(ConstInt32(x)), Int32(ConstInt32(y)))))
+    case (x, y) => Vec2(ComposeVec2(Int32(ConstInt32(x)), Int32(ConstInt32(y))))
   }
-  given Conversion[(Float, Float, Float), Vec3[Float32]] = {
-    case (x, y, z) => Vec3(ConstVec3((Float32(ConstFloat32(x)), Float32(ConstFloat32(y)), Float32(ConstFloat32(z)))))
-  }
-  given Conversion[(Int, Int, Int), Vec3[Int32]] = {
-    case (x, y, z) => Vec3(ConstVec3((Int32(ConstInt32(x)), Int32(ConstInt32(y)), Int32(ConstInt32(z)))))
+
+  given Conversion[(Int32, Int32), Vec2[Int32]] = {
+    case (x, y) => Vec2(ComposeVec2(x, y))
   }
   
+  given Conversion[(Float32, Float32), Vec2[Float32]] = {
+    case (x, y) => Vec2(ComposeVec2(x, y))
+  }
+  
+  given Conversion[(Int32, Int32, Int32), Vec3[Int32]] = {
+    case (x, y, z) => Vec3(ComposeVec3(x, y, z))
+  }
+  
+  given Conversion[(Float32, Float32, Float32), Vec3[Float32]] = {
+    case (x, y, z) => Vec3(ComposeVec3(x, y, z))
+  }
+  
+  given Conversion[(Float, Float, Float), Vec3[Float32]] = {
+    case (x, y, z) => Vec3(ComposeVec3(Float32(ConstFloat32(x)), Float32(ConstFloat32(y)), Float32(ConstFloat32(z))))
+  }
+  given Conversion[(Int, Int, Int), Vec3[Int32]] = {
+    case (x, y, z) => Vec3(ComposeVec3(Int32(ConstInt32(x)), Int32(ConstInt32(y)), Int32(ConstInt32(z))))
+  }
+  
+  extension [T <: Scalar: FromExpr: Tag] (v2: Vec2[T])
+    def x: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v2, Int32(ConstInt32(0))))
+    def y: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v2, Int32(ConstInt32(1))))
+    
+  extension [T <: Scalar: FromExpr: Tag] (v3: Vec3[T])
+    def x: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(0))))
+    def y: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(1))))
+    def z: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(2))))

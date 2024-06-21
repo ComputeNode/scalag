@@ -18,3 +18,5 @@ bin
 .vscode/
 
 *.spv
+gradlew
+gradlew/wrapper
