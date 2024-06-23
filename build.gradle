@@ -7,7 +7,7 @@ plugins {
     id 'java-library'
 
     id 'org.hidetake.ssh' version '2.10.1'
-    id "io.freefair.lombok" version "5.3.0"
+    id "io.freefair.lombok" version "8.6"
     id 'idea'
 }
 import org.gradle.internal.os.OperatingSystem
@@ -40,6 +40,7 @@ apply plugin: 'java'
 test {
     if (lwjglNatives.equals("natives-macos")) jvmArgs "-Dorg.lwjgl.vulkan.libname=${System.getenv("VULKAN_SDK")}/lib/libvulkan.dylib"
     useJUnitPlatform()
+    jvmArgs = ['-Xmx2048m']
 }
 
 ext {
@@ -55,17 +56,20 @@ dependencies {
     implementation  "org.lwjgl:lwjgl-vma:${lwjglVersion}"
     implementation 'dev.zio:izumi-reflect_3:2.3.10'
     implementation 'com.lihaoyi:pprint_3:0.9.0'
+    implementation group: 'com.diogonunes', name: 'JColor', version: '5.5.1'
 
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-vma:${lwjglVersion}:${lwjglNatives}"
 
     implementation "org.joml:joml:${jomlVersion}"
-
+    implementation group: 'commons-io', name: 'commons-io', version: '2.16.1'
     implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.30'
     testImplementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
 
+    testImplementation group: 'org.scalameta', name: 'munit_3', version: '1.0.0'
     testImplementation('org.junit.jupiter:junit-jupiter:5.6.2')
-    testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.6.2')
+
+    testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.7.2')
 
 }
 

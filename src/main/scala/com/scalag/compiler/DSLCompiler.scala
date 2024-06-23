@@ -16,6 +16,7 @@ import scala.annotation.tailrec
 import scala.runtime.stdLibPatches.Predef.summon
 
 object DSLCompiler {
+  val scalagVendorId: Byte = 44 // https://github.com/KhronosGroup/SPIRV-Headers/blob/main/include/spirv/spir-v.xml#L52
 
   val localSizeX = 128
   val localSizeY = 1
@@ -50,8 +51,8 @@ object DSLCompiler {
 
   def headers(): List[Words] = {
     Word(Array(0x03, 0x02, 0x23, 0x07)) :: // SPIR-V
-      Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 1.0
-      Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Generator: null
+      Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 0.1.0
+      Word(Array(scalagVendorId, 0x00, 0x01, 0x00)) :: // Generator: Scalag; 1
       WordVariable(BOUND_VARIABLE) :: // Bound: To be calculated
       Word(Array(0x00, 0x00, 0x00, 0x00)) :: // Schema: 0
       Instruction(Op.OpCapability, List(Capability.Shader)) :: // OpCapability Shader
@@ -856,7 +857,6 @@ object DSLCompiler {
 
   def compile[T <: Value](returnVal: T, inTypes: List[Tag[_]], outTypes: List[Tag[_]]): ByteBuffer = {
     val tree = returnVal.tree
-    println("Compiling " + tree)
     val (digestTree, hash) = Digest.digest(tree)
     val sorted = BlockBuilder.buildBlock(digestTree)
     def getAllBlocksExprs(root: DigestedExpression): List[DigestedExpression] = List(root).flatMap {
@@ -888,13 +888,11 @@ object DSLCompiler {
         varDefs :::
         main
 
-    //hexDumpCode(code)
     val fullCode = code.map {
       case WordVariable(name) if name == BOUND_VARIABLE => IntWord(finalCtx.nextResultId)
       case x => x
     }
-    dumpCode(fullCode)
-    //println(inputContext)
+    //dumpCode(fullCode)
 
     val bytes = fullCode.flatMap(_.toWords).toArray
 

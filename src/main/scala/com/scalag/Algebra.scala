@@ -128,8 +128,13 @@ object Algebra:
   given Conversion[Float, Float32] = f => Float32(ConstFloat32(f))
   given Conversion[Int, Int32] = i => Int32(ConstInt32(i))
   
-  given Conversion[(Float, Float), Vec2[Float32]] = {
-    case (x, y) => Vec2(ComposeVec2(Float32(ConstFloat32(x)), Float32(ConstFloat32(y))))
+  type FloatOrFloat32 = Float | Float32
+  
+  def toFloat32(f: FloatOrFloat32): Float32 = f match
+    case f: Float => Float32(ConstFloat32(f))
+    case f: Float32 => f
+  given Conversion[(FloatOrFloat32, FloatOrFloat32), Vec2[Float32]] = {
+    case (x, y) => Vec2(ComposeVec2(toFloat32(x), toFloat32(y)))
   }
   
   given Conversion[(Int, Int), Vec2[Int32]] = {
@@ -140,21 +145,14 @@ object Algebra:
     case (x, y) => Vec2(ComposeVec2(x, y))
   }
   
-  given Conversion[(Float32, Float32), Vec2[Float32]] = {
-    case (x, y) => Vec2(ComposeVec2(x, y))
-  }
-  
   given Conversion[(Int32, Int32, Int32), Vec3[Int32]] = {
     case (x, y, z) => Vec3(ComposeVec3(x, y, z))
   }
   
-  given Conversion[(Float32, Float32, Float32), Vec3[Float32]] = {
-    case (x, y, z) => Vec3(ComposeVec3(x, y, z))
+  given Conversion[(FloatOrFloat32, FloatOrFloat32, FloatOrFloat32), Vec3[Float32]] = {
+    case (x, y, z) => Vec3(ComposeVec3(toFloat32(x), toFloat32(y), toFloat32(z)))
   }
-
-  given Conversion[(Float, Float, Float), Vec3[Float32]] = {
-    case (x, y, z) => Vec3(ComposeVec3(Float32(ConstFloat32(x)), Float32(ConstFloat32(y)), Float32(ConstFloat32(z))))
-  }
+  
   given Conversion[(Int, Int, Int), Vec3[Int32]] = {
     case (x, y, z) => Vec3(ComposeVec3(Int32(ConstInt32(x)), Int32(ConstInt32(y)), Int32(ConstInt32(z))))
   }
@@ -162,8 +160,8 @@ object Algebra:
   given Conversion[(Int32, Int32, Int32, Int32), Vec4[Int32]] = {
     case (x, y, z, w) => Vec4(ComposeVec4(x, y, z, w))
   }
-  given Conversion[(Float32, Float32, Float32, Float32), Vec4[Float32]] = {
-    case (x, y, z, w) => Vec4(ComposeVec4(x, y, z, w))
+  given Conversion[(FloatOrFloat32, FloatOrFloat32, FloatOrFloat32, FloatOrFloat32), Vec4[Float32]] = {
+    case (x, y, z, w) => Vec4(ComposeVec4(toFloat32(x), toFloat32(y), toFloat32(z), toFloat32(w)))
   }
   
   extension [T <: Scalar: FromExpr: Tag] (v2: Vec2[T])

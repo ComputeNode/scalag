@@ -14,38 +14,47 @@ import Algebra.given
 
 import scala.concurrent.duration.DurationInt
 import com.scalag.api.*
-import ImageDrawer.*
 import Functions.*
 import Control.*
 
+import java.nio.file.Paths
+
+given GContext = new MVPContext()
+given ExecutionContext = Implicits.global
+
 @main
 def main =
-
-  given GContext = new MVPContext()
-  given ExecutionContext = Implicits.global
-
-  val dim = 4096 * 2
+  val dim = 4096
   val max = 1
   val RECURSION_LIMIT = 1000
   val const = (0.355f, 0.355f)
+
   val function: GArray2DFunction[Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
     case ((xi: Int32, yi: Int32), _) =>
-      val x = 6.0f * (xi - (dim / 2)).asFloat / dim.toFloat
-      val y = 6.0f * (yi - (dim / 2)).asFloat / dim.toFloat
+      val x = 3.0f * (xi - (dim / 2)).asFloat / dim.toFloat
+      val y = 3.0f * (yi - (dim / 2)).asFloat / dim.toFloat
       val uv = (x, y)
-      val len = length((x,y)) * 1000f
+      val len = length((x, y)) * 1000f
 
-      def juliaSet(uv: Vec2[Float32]): Int32 = {
+      def juliaSet(uv: Vec2[Float32]): Int32 =
         GSeq.gen(uv, next = v => {
-          ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) +  const
+          ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const
         }).limit(RECURSION_LIMIT).map(length).takeUntil(_ < 2.0f).count
-      }
 
-      def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] = {
+      def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] =
         val newXAxis = (cos(angle), sin(angle))
         val newYAxis = (-newXAxis.y, newXAxis.x)
         (uv dot newXAxis, uv dot newYAxis) * 0.9f
-      }
+
+
+      def interpolateColor(f: Float32): Vec3[Float32] =
+        val c1 = (8f, 22f, 104f) * (1 / 255f)
+        val c2 = (62f, 82f, 199f) * (1 / 255f)
+        val c3 = (221f, 233f, 255f) * (1 / 255f)
+        val ratio1 = (1f - f) * (1f - f)
+        val ratio2 = 2f * f * (1f - f)
+        val ratio3 = f * f
+        c1 * ratio1 + c2 * ratio2 + c3 * ratio3
 
       val angle = Math.PI.toFloat / 3.0f
       val rotatedUv = rotate(uv, angle)
@@ -53,31 +62,19 @@ def main =
       val recursionCount = juliaSet(rotatedUv)
 
       val f = recursionCount.asFloat / 100f
-      (f,f,f,Float32(ConstFloat32(1.0f)))
+      val ff = when(f > 1f)(1f).otherwise(f)
+
+      when(recursionCount > 20):
+        val color = interpolateColor(ff)
+        (
+          color.r,
+          color.g,
+          color.b,
+          1.0f
+        )
+      .otherwise:
+        (8f / 255f, 22f / 255f, 104f / 255f, 1.0f)
   })
 
-  val r = Await.result(Vec4FloatMem(dim*dim).map(function), 10.hours)
-
-  ImageDrawer.draw(r, dim, "pow.png")
-
-
-object ImageDrawer {
-
-  def draw(arr: Array[(Float, Float, Float, Float)], n: Int, name: String): Unit = {
-
-    val image = new BufferedImage(n, n, BufferedImage.TYPE_INT_RGB)
-
-    for (y <- 0 until n) {
-      for (x <- 0 until n) {
-        val (r,g,b, _) = arr(y * n + x)
-        val (iR, iG, iB) = ((r * 255).toInt, (g * 255).toInt, (b * 255).toInt)
-        image.setRGB(x, y, (iR << 16) | (iG << 8) | iB)
-      }
-    }
-
-    val output = new File(name)
-    ImageIO.write(image, "png", output)
-    println(s"Image saved to ${output.getAbsolutePath}")
-  }
-
-}
+  val r = Await.result(Vec4FloatMem(dim * dim).map(function), 10.hours)
+  ImageUtility.renderToImage(r, dim, Paths.get("julia.png"))

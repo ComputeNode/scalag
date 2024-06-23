@@ -42,7 +42,6 @@ class MVPContext extends GContext {
 
   override def compile[H <: Value : Tag : FromExpr, R <: Value : Tag](function: GFunction[H, R]): ComputePipeline = {
     val tree = function.fn.apply(GArray[H](0).at(WorkerIndex))
-    println("TREE: " + tree)
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
 
     val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, DSLCompiler.typeStride(summon[Tag[H]]))) toList
@@ -53,7 +52,6 @@ class MVPContext extends GContext {
 
   override def compile[H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GArray2DFunction[H, R]): ComputePipeline = {
     val tree = function.fn.apply((WorkerIndex mod function.width, WorkerIndex / function.width), new GArray2D(function.width, function.height, GArray[H](0)))
-    println("TREE: " + pprint.apply(tree))
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
     // dump spv to file
     val fc: FileChannel = new FileOutputStream("program.spv").getChannel
