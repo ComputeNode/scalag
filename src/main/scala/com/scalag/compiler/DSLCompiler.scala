@@ -6,6 +6,7 @@ import com.scalag.Value
 import com.scalag.Value.*
 import com.scalag.Expression.*
 import com.scalag.*
+import com.scalag.Control.*
 import org.lwjgl.BufferUtils
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
@@ -13,7 +14,7 @@ import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
 
-class DSLCompiler {
+object DSLCompiler {
 
   val localSizeX = 128
   val localSizeY = 1
@@ -30,9 +31,9 @@ class DSLCompiler {
   val HEADER_REFS_TOP = 7
 
   def scalarTypeDefInsn(tag: Tag[_], typeDefIndex: Int) = tag match {
-    case t if t == summon[Tag[Int32]] => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(0)))
+    case t if t == summon[Tag[Int32]] => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(1)))
     case t if t == summon[Tag[Float32]] => Instruction(Op.OpTypeFloat, List(ResultRef(typeDefIndex), IntWord(32)))
-    case t if t == summon[Tag[Bool]] => Instruction(Op.OpTypeBool, List(ResultRef(typeDefIndex)))
+    case t if t == summon[Tag[GBoolean]] => Instruction(Op.OpTypeBool, List(ResultRef(typeDefIndex)))
   }
 
   val typeStride = Map[Tag[_], Int](
@@ -66,33 +67,38 @@ class DSLCompiler {
   }
 
   case class ArrayBufferBlock(
-                               structTypeRef: Int, // %BufferX
-                               blockVarRef: Int, // %__X
-                               blockPointerRef: Int, // _ptr_Uniform_OutputBufferX
-                               memberArrayTypeRef: Int, // %_runtimearr_float_X
-                               binding: Int
-                             )
+     structTypeRef: Int, // %BufferX
+     blockVarRef: Int, // %__X
+     blockPointerRef: Int, // _ptr_Uniform_OutputBufferX
+     memberArrayTypeRef: Int, // %_runtimearr_float_X
+     binding: Int
+   )
 
   case class Context(
-                      scalarTypeMap: Map[Tag[_], Int] = Map(),
-                      funPointerTypeMap: Map[Int, Int] = Map(),
-                      uniformPointerMap: Map[Int, Int] = Map(),
-                      inputPointerMap: Map[Int, Int] = Map(),
-                      vectorTypeMap: Map[LightTypeTag, Int] = Map(),
-                      funVecPointerTypeMap: Map[Int, Int] = Map(),
-                      uniformVecPointerMap: Map[Int, Int] = Map(),
-                      inputVecPointerMap: Map[Int, Int] = Map(),
-                      voidTypeRef: Int = -1,
-                      voidFuncTypeRef: Int = -1,
-                      workerIndexRef: Int = -1,
+    valueTypeMap: Map[LightTypeTag, Int] = Map(),
+    scalarTypeMap: Map[Tag[_], Int] = Map(),
+    funPointerTypeMap: Map[Int, Int] = Map(),
+    uniformPointerMap: Map[Int, Int] = Map(),
+    inputPointerMap: Map[Int, Int] = Map(),
+    vectorTypeMap: Map[LightTypeTag, Int] = Map(),
+    funVecPointerTypeMap: Map[Int, Int] = Map(),
+    uniformVecPointerMap: Map[Int, Int] = Map(),
+    inputVecPointerMap: Map[Int, Int] = Map(),
+    voidTypeRef: Int = -1,
+    voidFuncTypeRef: Int = -1,
+    workerIndexRef: Int = -1,
 
-                      constRefs: Map[(Tag[_], Any), Int] = Map(),
-                      exprRefs: Map[String, Int] = Map(),
-                      inBufferBlocks: List[ArrayBufferBlock] = List(),
-                      outBufferBlocks: List[ArrayBufferBlock] = List(),
-                      nextResultId: Int = HEADER_REFS_TOP,
-                      nextBinding: Int = 0,
-                    )
+    constRefs: Map[(Tag[_], Any), Int] = Map(), // todo not sure about float eq on this one (but is the same so?)
+    exprRefs: Map[String, Int] = Map(),
+    inBufferBlocks: List[ArrayBufferBlock] = List(),
+    outBufferBlocks: List[ArrayBufferBlock] = List(),
+    nextResultId: Int = HEADER_REFS_TOP,
+    nextBinding: Int = 0,
+  ):
+    def nested: Context = this.copy()
+
+    def joinNested(ctx: Context): Context =
+      this.copy(nextResultId = ctx.nextResultId)
 
   def initialContext: Context = Context()
   type Vec2C[T <: Value] = Vec2[T]
@@ -112,20 +118,34 @@ class DSLCompiler {
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 6), StorageClass.Function, IntWord(typeDefIndex + 4))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 7), StorageClass.Uniform, IntWord(typeDefIndex + 4))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 8), StorageClass.Input, IntWord(typeDefIndex + 4))),
+          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 9), StorageClass.Function, IntWord(typeDefIndex + 4))),
         )
         (code ::: words,
           ctx.copy(
+            valueTypeMap = ctx.valueTypeMap ++ Map(
+              valType.tag -> typeDefIndex,
+              (summon[LTag[Vec2C]].tag.combine(valType.tag)) -> (typeDefIndex + 4),
+              (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5)
+            ),
             scalarTypeMap = ctx.scalarTypeMap + (valType -> typeDefIndex),
-            funPointerTypeMap = ctx.funPointerTypeMap + (typeDefIndex -> (typeDefIndex + 1)),
+            funPointerTypeMap = ctx.funPointerTypeMap ++ Map(
+              typeDefIndex -> (typeDefIndex + 1),
+              (typeDefIndex + 4) -> (typeDefIndex + 6),
+              (typeDefIndex + 5) -> (typeDefIndex + 9)
+            ),
             uniformPointerMap = ctx.uniformPointerMap + (typeDefIndex -> (typeDefIndex + 2)),
             inputPointerMap = ctx.inputPointerMap + (typeDefIndex -> (typeDefIndex + 3)),
             vectorTypeMap = ctx.vectorTypeMap ++ Map(
               (summon[LTag[Vec2C]].tag.combine(valType.tag)) -> (typeDefIndex + 4),
               (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5)),
-            funVecPointerTypeMap = ctx.funVecPointerTypeMap + (typeDefIndex -> (typeDefIndex + 6)),
+            funVecPointerTypeMap = ctx.funVecPointerTypeMap ++ Map(
+              typeDefIndex -> (typeDefIndex + 6),
+              (typeDefIndex + 4) -> (typeDefIndex + 6),
+              (typeDefIndex + 5) -> (typeDefIndex + 9)
+            ),
             uniformVecPointerMap = ctx.uniformVecPointerMap + (typeDefIndex -> (typeDefIndex + 7)),
             inputVecPointerMap = ctx.inputVecPointerMap + (typeDefIndex -> (typeDefIndex + 8)),
-            nextResultId = ctx.nextResultId + 9
+            nextResultId = ctx.nextResultId + 10
           )
         )
     }
@@ -259,10 +279,10 @@ class DSLCompiler {
 
   def defineConstants(exprs: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
     val consts = exprs.collect {
-      case DigestedExpression(_, c@Const(x), _) =>
+      case DigestedExpression(_, c@Const(x), _, _) =>
         (c.tag, x)
     } :+ ((summon[Tag[Int32]], 0))
-    consts.foldLeft((List[Words](), ctx)) {
+    val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {
       case ((instructions, context), const) =>
         val insn = Instruction(Op.OpConstant, List(
           ResultRef(context.scalarTypeMap(const._1)),
@@ -275,8 +295,24 @@ class DSLCompiler {
         )
         (instructions :+ insn, ctx)
     }
+    val withBool = insns ::: List(
+      Instruction(Op.OpConstantTrue, List(
+        ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+        ResultRef(newC.nextResultId)
+      )),
+      Instruction(Op.OpConstantFalse, List(
+        ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+        ResultRef(newC.nextResultId + 1)
+      ))
+    )
+    (withBool, newC.copy(
+      nextResultId = newC.nextResultId + 2,
+      constRefs = newC.constRefs ++ Map(
+        (summon[Tag[GBoolean]], true) -> (newC.nextResultId),
+        (summon[Tag[GBoolean]], false) -> (newC.nextResultId + 1)
+      )
+    ))
   }
-
 
   def defineVars(ctx: Context): (List[Words], Context) = {
     (
@@ -300,11 +336,13 @@ class DSLCompiler {
 
   private def compileBinaryOpExpression(expr: DigestedExpression, bexpr: BinaryOpExpression[_], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
-    val typeRef = ctx.scalarTypeMap(tpe)
+    val typeRef = ctx.valueTypeMap(tpe.tag)
     val subOpcode = tpe match {
-      case i if i.tag <:< summon[Tag[IntType]].tag =>
+      case i if i.tag <:< summon[Tag[IntType]].tag
+         || (i.tag <:< summon[Tag[Vec[_]]].tag && i.tag.typeArgs.head <:< summon[Tag[IntType]].tag) =>
         binaryOpOpcode(bexpr)._1
-      case f if f.tag <:< summon[Tag[FloatType]].tag =>
+      case f if f.tag <:< summon[Tag[FloatType]].tag
+         || (f.tag <:< summon[Tag[Vec[_]]].tag && f.tag.typeArgs.head <:< summon[Tag[FloatType]].tag) =>
         binaryOpOpcode(bexpr)._2
     }
     val instructions = List(
@@ -371,168 +409,356 @@ class DSLCompiler {
     )
     (instructions, updatedContext)
 
+  def comparisonOp(comparisonOpExpression: ComparisonOpExpression[_]) =
+    comparisonOpExpression match
+      case _: GreaterThan[_] => (Op.OpSGreaterThan, Op.OpFOrdGreaterThan)
+      case _: LessThan[_] => (Op.OpSLessThan, Op.OpFOrdLessThan)
+      case _: GreaterThanEqual[_] => (Op.OpSGreaterThanEqual, Op.OpFOrdGreaterThanEqual)
+      case _: LessThanEqual[_] => (Op.OpSLessThanEqual, Op.OpFOrdLessThanEqual)
+      case _: Equal[_] => (Op.OpIEqual, Op.OpFOrdEqual)
 
-
-  def compileTree(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
+  def compileBlock(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
     @tailrec
     def compileExpressions(exprs: List[DigestedExpression], ctx: Context, acc: List[Words]): (List[Words], Context) = {
       if (exprs.isEmpty) (acc, ctx)
       else {
         val expr = exprs.head
-        val (instructions, updatedCtx) = expr.expr match {
-          case c@Const(x) =>
-            val constRef = ctx.constRefs((c.tag, x))
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> constRef)
-            )
-            (List(), updatedContext)
+        if(ctx.exprRefs.contains(expr.digest)) {
+          compileExpressions(exprs.tail, ctx, acc)
+        } else {
+          val (instructions, updatedCtx) = expr.expr match {
+            case c@Const(x) =>
+              val constRef = ctx.constRefs((c.tag, x))
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> constRef)
+              )
+              (List(), updatedContext)
 
-          case d@Dynamic("worker_index") =>
-            val instructions = List(
-              Instruction(Op.OpAccessChain, List(
-                ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(d.tag))),
-                ResultRef(ctx.nextResultId),
-                ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
-                ResultRef(ctx.constRefs(summon[Tag[Int32]], 0))
-              )),
-              Instruction(Op.OpLoad, List(
-                ResultRef(ctx.scalarTypeMap(d.tag)),
-                ResultRef(ctx.nextResultId + 1),
-                ResultRef(ctx.nextResultId)
+            case d@Dynamic("worker_index") =>
+              (Nil, ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.workerIndexRef),
               ))
-            )
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> (ctx.nextResultId + 1)),
-              nextResultId = ctx.nextResultId + 2,
-              workerIndexRef = ctx.nextResultId + 1
-            )
-            (instructions, updatedContext)
 
-          case c: ConvertExpression[_] =>
-            compileConvertExpression(expr, c, ctx)
+            case c: ConvertExpression[_] =>
+              compileConvertExpression(expr, c, ctx)
 
-          case b: BinaryOpExpression[_] =>
-            compileBinaryOpExpression(expr, b, ctx)
+            case b: BinaryOpExpression[_] =>
+              compileBinaryOpExpression(expr, b, ctx)
 
-          case sp: ScalarProd[_, _] =>
-            val instructions = List(
-              Instruction(Op.OpVectorTimesScalar, List(
-                ResultRef(ctx.vectorTypeMap(sp.tag.tag)),
-                ResultRef(ctx.nextResultId),
-                ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                ResultRef(ctx.exprRefs(expr.dependencies(1).digest)))
-              ))
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
-              nextResultId = ctx.nextResultId + 1
-            )
-            (instructions, updatedContext)
+            case negate: Negate[_] =>
+              val op = if (negate.tag.tag <:< summon[Tag[FloatType]].tag) Op.OpFNegate else Op.OpSNegate
+              val instructions = List(
+                Instruction(op, List(
+                  ResultRef(ctx.scalarTypeMap(negate.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
 
-          case dp: DotProd[_, _] =>
-            val instructions = List(
-              Instruction(Op.OpDot, List(
-                ResultRef(ctx.scalarTypeMap(dp.tag)),
-                ResultRef(ctx.nextResultId),
-                ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
-              ))
-            )
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
-              nextResultId = ctx.nextResultId + 1
-            )
-            (instructions, updatedContext)
+            case and: And =>
+              val instructions = List(
+                Instruction(Op.OpLogicalAnd, List(
+                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
 
-          case cp: CrossProd[_] =>
-            val instructions = List(
-              Instruction(GlslOp.Cross, List(
-                ResultRef(ctx.vectorTypeMap(cp.tag.tag)),
-                ResultRef(ctx.nextResultId),
-                ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
-              ))
-            )
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
-              nextResultId = ctx.nextResultId + 1
-            )
-            (instructions, updatedContext)
+            case or: Or =>
+              val instructions = List(
+                Instruction(Op.OpLogicalOr, List(
+                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
 
-          case e: ExtractScalar[_, _] =>
-            val instructions = List(
-              Instruction(Op.OpVectorExtractDynamic, List(
-                ResultRef(ctx.scalarTypeMap(e.tag)),
-                ResultRef(ctx.nextResultId),
-                ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
-              ))
-            )
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
-              nextResultId = ctx.nextResultId + 1
-            )
-            (instructions, updatedContext)
+            case not: Not =>
+              val instructions = List(
+                Instruction(Op.OpLogicalNot, List(
+                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
 
-          case composeVec2: ComposeVec2[_] =>
-            val instructions = List(
-              Instruction(Op.OpCompositeConstruct, List(
-                ResultRef(ctx.vectorTypeMap(composeVec2.tag.tag)),
-                ResultRef(ctx.nextResultId),
-                ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
-              ))
-            )
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
-              nextResultId = ctx.nextResultId + 1
-            )
-            (instructions, updatedContext)
+            case sp: ScalarProd[_, _] =>
+              val instructions = List(
+                Instruction(Op.OpVectorTimesScalar, List(
+                  ResultRef(ctx.vectorTypeMap(sp.tag.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest)))
+                ))
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
 
-          case composeVec2: ComposeVec3[_] =>
-            val instructions = List(
-              Instruction(Op.OpCompositeConstruct, List(
-                ResultRef(ctx.vectorTypeMap(composeVec2.tag.tag)),
-                ResultRef(ctx.nextResultId),
-                ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                ResultRef(ctx.exprRefs(expr.dependencies(1).digest)),
-                ResultRef(ctx.exprRefs(expr.dependencies(2).digest))
-              ))
-            )
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
-              nextResultId = ctx.nextResultId + 1
-            )
-            (instructions, updatedContext)
+            case dp: DotProd[_, _] =>
+              val instructions = List(
+                Instruction(Op.OpDot, List(
+                  ResultRef(ctx.scalarTypeMap(dp.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
 
-          case fc: FunctionCall[_] =>
-            compileFunctionCall(expr, fc, ctx)
+            case cp: CrossProd[_] =>
+              val instructions = List(
+                Instruction(GlslOp.Cross, List(
+                  ResultRef(ctx.vectorTypeMap(cp.tag.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
 
-          case ga@GArrayElem(index, i) =>
-            val instructions = List(
-              Instruction(Op.OpAccessChain, List(
-                ResultRef(ctx.uniformPointerMap(ctx.scalarTypeMap(summon[Tag[Float32]]))),
-                ResultRef(ctx.nextResultId),
-                ResultRef(ctx.inBufferBlocks(index).blockVarRef),
-                ResultRef(ctx.constRefs((summon[Tag[Int32]], 0))),
-                ResultRef(ctx.exprRefs(expr.dependencies.head.digest))
-              )),
-              Instruction(Op.OpLoad, List(
-                IntWord(ctx.scalarTypeMap(ga.tag)),
-                ResultRef(ctx.nextResultId + 1),
-                ResultRef(ctx.nextResultId)
-              ))
-            )
-            val updatedContext = ctx.copy(
-              exprRefs = ctx.exprRefs + (expr.digest -> (ctx.nextResultId + 1)),
-              nextResultId = ctx.nextResultId + 2
-            )
-            (instructions, updatedContext)
+            case co: ComparisonOpExpression[_] =>
+              val (intOp, floatOp) = comparisonOp(co)
+              val op = if (co.operandTag.tag <:< summon[Tag[FloatType]].tag) floatOp else intOp
+              val instructions = List(
+                Instruction(op, List(
+                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
+
+
+            case e: ExtractScalar[_, _] =>
+              val instructions = List(
+                Instruction(Op.OpVectorExtractDynamic, List(
+                  ResultRef(ctx.scalarTypeMap(e.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
+
+            case composeVec2: ComposeVec2[_] =>
+              val instructions = List(
+                Instruction(Op.OpCompositeConstruct, List(
+                  ResultRef(ctx.vectorTypeMap(composeVec2.tag.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
+
+            case composeVec2: ComposeVec3[_] =>
+              val instructions = List(
+                Instruction(Op.OpCompositeConstruct, List(
+                  ResultRef(ctx.vectorTypeMap(composeVec2.tag.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(2).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
+
+            case fc: FunctionCall[_] =>
+              compileFunctionCall(expr, fc, ctx)
+
+            case ga@GArrayElem(index, i) =>
+              val instructions = List(
+                Instruction(Op.OpAccessChain, List(
+                  ResultRef(ctx.uniformPointerMap(ctx.scalarTypeMap(summon[Tag[Float32]]))),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.inBufferBlocks(index).blockVarRef),
+                  ResultRef(ctx.constRefs((summon[Tag[Int32]], 0))),
+                  ResultRef(ctx.exprRefs(expr.dependencies.head.digest))
+                )),
+                Instruction(Op.OpLoad, List(
+                  IntWord(ctx.scalarTypeMap(ga.tag)),
+                  ResultRef(ctx.nextResultId + 1),
+                  ResultRef(ctx.nextResultId)
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> (ctx.nextResultId + 1)),
+                nextResultId = ctx.nextResultId + 2
+              )
+              (instructions, updatedContext)
+
+            case when: WhenExpr[_] =>
+              compileWhen(expr, when, ctx)
+
+            case fd: GSeq.FoldSeq[_, _] =>
+              GSeqCompiler.compileFold(expr, fd, ctx)
+
+            case ph: PhantomExpression[_] => (List(), ctx)
+          }
+          compileExpressions(exprs.tail, updatedCtx, acc ::: instructions)
         }
-        compileExpressions(exprs.tail, updatedCtx, acc ::: instructions)
       }
     }
+    compileExpressions(sortedTree, ctx, Nil)
+  }
 
-    compileExpressions(sortedTree, ctx, List())
+  def compileWhen(expr: DigestedExpression, when: WhenExpr[_], ctx: Context): (List[Words], Context) = {
+    def compileCases(
+      ctx: Context,
+      resultVar: Int,
+      conditions: List[DigestedExpression],
+      thenCodes: List[DigestedExpression],
+      elseCode: DigestedExpression
+    ): (List[Words], Context) = (conditions, thenCodes) match {
+      case (Nil, Nil) =>
+        val (elseInstructions, elseCtx) = compileBlock(
+          BlockBuilder.buildBlock(elseCode),
+          ctx
+        )
+        val elseWithStore = elseInstructions :+ Instruction(Op.OpStore, List(
+          ResultRef(resultVar),
+          ResultRef(elseCtx.exprRefs(elseCode.digest))
+        ))
+        (elseWithStore, elseCtx)
+      case (caseWhen :: cTail, tCode :: tTail) =>
+        val (whenInstructions, whenCtx) = compileBlock(
+          BlockBuilder.buildBlock(caseWhen),
+          ctx
+        )
+        val (thenInstructions, thenCtx) = compileBlock(
+          BlockBuilder.buildBlock(tCode),
+          whenCtx.nested
+        )
+        val thenWithStore = thenInstructions :+ Instruction(Op.OpStore, List(
+          ResultRef(resultVar),
+          ResultRef(thenCtx.exprRefs(tCode.digest))
+        ))
+        val postCtx = whenCtx.joinNested(thenCtx)
+        val endIfLabel = postCtx.nextResultId
+        val thenLabel = postCtx.nextResultId + 1
+        val elseLabel = postCtx.nextResultId + 2
+        val contextForNextIter = postCtx.copy(nextResultId = postCtx.nextResultId + 3)
+        val (elseInstructions, elseCtx) = compileCases(
+          contextForNextIter,
+          resultVar,
+          cTail,
+          tTail,
+          elseCode
+        )
+        (
+          whenInstructions ::: List(
+            Instruction(Op.OpSelectionMerge, List(
+              ResultRef(endIfLabel),
+              SelectionControlMask.MaskNone
+            )),
+            Instruction(Op.OpBranchConditional, List(
+              ResultRef(postCtx.exprRefs(caseWhen.digest)),
+              ResultRef(thenLabel),
+              ResultRef(elseLabel)
+            )),
+            Instruction(Op.OpLabel, List(ResultRef(thenLabel))) // then
+          ) ::: thenWithStore ::: List(
+            Instruction(Op.OpBranch, List(ResultRef(endIfLabel))),
+            Instruction(Op.OpLabel, List(ResultRef(elseLabel))) // else
+          ) ::: elseInstructions ::: List(
+            Instruction(Op.OpBranch, List(ResultRef(endIfLabel))),
+            Instruction(Op.OpLabel, List(ResultRef(endIfLabel))) // end
+          ),
+          postCtx.copy(nextResultId = elseCtx.nextResultId)
+        )
+    }
+
+    val resultVar = ctx.nextResultId
+    val resultLoaded = ctx.nextResultId + 1
+    val resultTypeTag = if(when.tag.tag <:< summon[Tag[Vec[_]]].tag.withoutArgs) {
+      ctx.vectorTypeMap(when.tag.tag)
+    } else {
+      ctx.scalarTypeMap(when.tag)
+    }
+    val contextForCases = ctx.copy(nextResultId = ctx.nextResultId + 2)
+
+
+    val blockDeps = expr.blockDeps
+    val thenCode = blockDeps.head
+    val elseCode = blockDeps.last
+    val (conds, thenCodes) = blockDeps.tail.init.splitAt(when.otherConds.length)
+    val (caseInstructions, caseCtx) = compileCases(
+      contextForCases,
+      resultVar,
+      expr.dependencies.head :: conds,
+      thenCode :: thenCodes,
+      elseCode
+    )
+    val instructions = List(
+      Instruction(Op.OpVariable, List(
+        ResultRef(ctx.funPointerTypeMap(resultTypeTag)),
+        ResultRef(resultVar),
+        StorageClass.Function
+      ))) ::: caseInstructions ::: List(
+        Instruction(Op.OpLoad, List(
+          ResultRef(resultTypeTag),
+          ResultRef(resultLoaded),
+          ResultRef(resultVar)
+        ))
+      )
+    (instructions, caseCtx.copy(exprRefs = caseCtx.exprRefs + (expr.digest -> resultLoaded)))
+  }
+
+  def bubbleUpVars(exprs: List[Words]) = {
+    val (vars, notVars) = exprs.partition {
+      case Instruction(Op.OpVariable, _) => true
+      case _ => false
+    }
+    vars ::: notVars
   }
 
   def compileMain(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
@@ -545,11 +771,29 @@ class DSLCompiler {
       )),
       Instruction(Op.OpLabel, List(
         ResultRef(ctx.nextResultId)
-      ))
-
+      )),
     )
 
-    val (body, codeCtx) = compileTree(sortedTree, ctx.copy(nextResultId = ctx.nextResultId + 1))
+    val initWorkerIndex = List(
+      Instruction(Op.OpAccessChain, List(
+        ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(summon[Tag[Int32]]))),
+        ResultRef(ctx.nextResultId + 1),
+        ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
+        ResultRef(ctx.constRefs(summon[Tag[Int32]], 0))
+      )),
+      Instruction(Op.OpLoad, List(
+        ResultRef(ctx.scalarTypeMap(summon[Tag[Int32]])),
+        ResultRef(ctx.nextResultId + 2),
+        ResultRef(ctx.nextResultId + 1)
+      ))
+    )
+
+    val (body, codeCtx) = compileBlock(sortedTree, ctx.copy(
+      nextResultId = ctx.nextResultId + 3,
+      workerIndexRef = ctx.nextResultId + 2
+    ))
+
+    val bubbledBody = bubbleUpVars(initWorkerIndex ::: body)
 
     val end = List(
       Instruction(Op.OpAccessChain, List(
@@ -569,34 +813,28 @@ class DSLCompiler {
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List())
     )
-    (init ::: body ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
+    (init ::: bubbledBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
   }
 
   def compile[T <: Value](returnVal: T, inTypes: List[Tag[_]], outTypes: List[Tag[_]]): ByteBuffer = {
     val tree = returnVal.tree
     println("Compiling " + tree)
     val (digestTree, hash) = Digest.digest(tree)
-    val sorted = TopologicalSort.sortTree(digestTree)
-//    println(Digest.formatTreeWithDigest(digestTree))
-//    println()
-    println("SORTED: ")
-//    println(sorted.map(e => {
-//      def toSS(d: DigestedExpression): String = d.expr.getClass.getSimpleName + "[" + e.expr.valWeakTypeTag.tpe.typeSymbol.name.toString + "]" + "#" + d.digest.take(5)
-//      val expr = e.expr.getClass.getSimpleName + "[" + e.expr.valWeakTypeTag.tpe.typeSymbol.name.toString + "]"
-//      val digest = "#" + e.digest.take(5)
-//      val deps = e.dependencies.map(toSS).mkString("(", ", ", ")")
-//      s"$expr$digest depending on: $deps"
-//    }).mkString("\n"))
-    println()
+    val sorted = BlockBuilder.buildBlock(digestTree)
+    def getAllBlocksExprs(root: DigestedExpression): List[DigestedExpression] = List(root).flatMap {
+      case d@DigestedExpression(_, _, deps, blockDeps) =>
+        d :: deps.flatMap(getAllBlocksExprs) ::: blockDeps.flatMap(getAllBlocksExprs)
+    }
+    val allBlockExprs = getAllBlocksExprs(digestTree)
 
     val insnWithHeader = headers()
-    val typesInCode = sorted.map(_.expr.tag)
+    val typesInCode = allBlockExprs.map(_.expr.tag)
     val allTypes = (typesInCode ::: inTypes ::: outTypes)
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes)
     val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, typedContext)
     val (inputDefs, inputContext) = createInvocationId(uniformContext)
-    val (constDefs, constCtx) = defineConstants(sorted, inputContext)
+    val (constDefs, constCtx) = defineConstants(allBlockExprs, inputContext)
     val (varDefs, varCtx) = defineVars(constCtx)
 //    println("preC")
     val (main, finalCtx) = compileMain(sorted, varCtx)

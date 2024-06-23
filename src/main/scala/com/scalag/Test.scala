@@ -15,6 +15,7 @@ import scala.concurrent.duration.DurationInt
 import com.scalag.api.{FloatMem, GArray2DFunction, GContext, MVPContext}
 import ImageDrawer.*
 import Functions.*
+import Control.*
 
 @main
 def main =
@@ -22,20 +23,41 @@ def main =
   implicit val gcontext: GContext = new MVPContext()
   implicit val econtext: ExecutionContext = Implicits.global
 
-  val dim = 4096
+  val dim = 4096 * 2
   val max = 1
-
+  val RECURSION_LIMIT = 1000
+  val const = (0.355f, 0.355f)
   val function: GArray2DFunction[Float32, Float32] = GArray2DFunction(dim, dim, {
     case ((xi: Int32, yi: Int32), _) =>
-      val x = (xi - (dim / 2)).asFloat / dim.toFloat
-      val y = (yi - (dim / 2)).asFloat / dim.toFloat
+      val x = 6.0f * (xi - (dim / 2)).asFloat / dim.toFloat
+      val y = 6.0f * (yi - (dim / 2)).asFloat / dim.toFloat
+      val uv = (x, y)
+      val len = length((x,y)) * 1000f
 
-      sin(1f/x)*sin(1f/y)
+      def juliaSet(uv: Vec2[Float32]): Int32 = {
+        GSeq.gen(uv, next = v => {
+          ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) +  const
+        }).limit(RECURSION_LIMIT).map(length).takeUntil(_ < 2.0f).count
+      }
+
+      def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] = {
+        val newXAxis = (cos(angle), sin(angle))
+        val newYAxis = (-newXAxis.y, newXAxis.x)
+        (uv dot newXAxis, uv dot newYAxis) * 0.9f
+      }
+
+      val angle = Math.PI.toFloat / 3.0f
+      val rotatedUv = rotate(uv, angle)
+
+      val recursionCount = juliaSet(rotatedUv)
+
+      val f = recursionCount.asFloat / 50f
+      f
   })
 
 
   val data = (0 until dim * dim).map(_.toFloat).toArray
-  val r = Await.result(FloatMem(data).map(function), 10.seconds).map(f => Math.abs(f))
+  val r = Await.result(FloatMem(data).map(function), 10.hours).map(f => Math.abs(f))
 
   ImageDrawer.draw(r.map(c => interpolateColor(c.min(max), max)), dim, "pow.png")
 

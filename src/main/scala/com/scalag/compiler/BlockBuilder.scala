@@ -2,8 +2,8 @@ package com.scalag.compiler
 
 import com.scalag.compiler.Digest.DigestedExpression
 
-object TopologicalSort {
-  def sortTree(tree: DigestedExpression): List[DigestedExpression] = {
+object BlockBuilder {
+  def buildBlock(tree: DigestedExpression): List[DigestedExpression] = {
     def bfsAcc(curr: List[DigestedExpression], visited: Set[String], acc: List[DigestedExpression]): List[DigestedExpression] = {
       val children = curr.flatMap(_.dependencies)
       if(children.isEmpty) acc
@@ -11,7 +11,7 @@ object TopologicalSort {
         bfsAcc(
           children,
           children.map(_.digest).toSet ++ visited,
-          acc ++ children
+          acc ++ children 
         )
       }
     }

@@ -20,6 +20,10 @@ import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.language.postfixOps
 import com.scalag.Algebra.*
 
+import java.io.FileOutputStream
+import java.nio.channels.FileChannel
+import java.nio.file.{Files, Paths}
+
 trait Executable[H <: Value, R <: Value] {
   def execute(input: GMem[H], output: WritableGMem[R]): Future[Unit]
 }
@@ -35,12 +39,11 @@ val WorkerIndex: Int32 = Int32(Dynamic("worker_index"))
 
 class MVPContext extends GContext {
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
-  val compiler: DSLCompiler = new DSLCompiler
 
   override def compile[H <: Value : Tag : FromExpr, R <: Value : Tag](function: GFunction[H, R]): ComputePipeline = {
     val tree = function.fn.apply(GArray[H](0).at(WorkerIndex))
     println("TREE: " + tree)
-    val shaderCode = compiler.compile(tree, function.arrayInputs, function.arrayOutputs)
+    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
 
     val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, 4)) toList
     val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos.asJava, "main", vkContext.getDevice)
@@ -51,8 +54,12 @@ class MVPContext extends GContext {
   override def compile[H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GArray2DFunction[H, R]): ComputePipeline = {
     val tree = function.fn.apply((WorkerIndex mod function.width, WorkerIndex / function.width), new GArray2D(function.width, function.height, GArray[H](0)))
     println("TREE: " + pprint.apply(tree))
-    val shaderCode = compiler.compile(tree, function.arrayInputs, function.arrayOutputs)
-
+    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
+    // dump spv to file
+    val fc: FileChannel = new FileOutputStream("program.spv").getChannel
+    fc.write(shaderCode)
+    fc.close()
+    shaderCode.rewind()
     val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, 4)) toList
     val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos.asJava, "main", vkContext.getDevice)
 

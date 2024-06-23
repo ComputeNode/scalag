@@ -38,17 +38,38 @@ object Algebra:
     @targetName("div")
     def /(b: T): T = summon[ScalarDivable[T]].div(a, b)
     
+  trait ScalarNegatable[T <: Scalar : FromExpr : Tag]:
+    def negate(a: T): T = summon[FromExpr[T]].fromExpr(Negate(a))
+  extension [T <: Scalar : ScalarNegatable : Tag](a: T)
+    @targetName("negate")
+    def unary_- : T = summon[ScalarNegatable[T]].negate(a)
+    
   trait ScalarModable[T <: Scalar : FromExpr : Tag]:
     def mod(a: T, b: T): T = summon[FromExpr[T]].fromExpr(Mod(a, b))
   extension [T <: Scalar : ScalarModable : Tag](a: T)
     def mod(b: T): T = summon[ScalarModable[T]].mod(a, b)
+    
+  trait Comparable[T <: Scalar : FromExpr : Tag]:
+    def greaterThan(a: T, b: T): GBoolean = GBoolean(GreaterThan(a, b))
+    def lessThan(a: T, b: T): GBoolean = GBoolean(LessThan(a, b))
+    def greaterThanEqual(a: T, b: T): GBoolean = GBoolean(GreaterThanEqual(a, b))
+    def lessThanEqual(a: T, b: T): GBoolean = GBoolean(LessThanEqual(a, b))
+    def equal(a: T, b: T): GBoolean = GBoolean(Equal(a, b))
+  extension [T <: Scalar : Comparable : Tag](a: T)
+    def >(b: T): GBoolean = summon[Comparable[T]].greaterThan(a, b)
+    def <(b: T): GBoolean = summon[Comparable[T]].lessThan(a, b)
+    def >=(b: T): GBoolean = summon[Comparable[T]].greaterThanEqual(a, b)
+    def <=(b: T): GBoolean = summon[Comparable[T]].lessThanEqual(a, b)
+    def ===(b: T): GBoolean = summon[Comparable[T]].equal(a, b)
 
   trait BasicScalarAlgebra[T <: Scalar : FromExpr : Tag] 
     extends ScalarSummable[T]
       with ScalarDiffable[T] 
       with ScalarMulable[T] 
       with ScalarDivable[T]
-      with ScalarModable[T] 
+      with ScalarModable[T]
+      with Comparable[T] 
+      with ScalarNegatable[T]
   
   extension (f32: Float32)
     def asInt: Int32 = Int32(ToInt32(f32))
@@ -82,6 +103,12 @@ object Algebra:
     def mul(a: V, b: S): V = summon[FromExpr[V]].fromExpr(ScalarProd[S, V](a, b))
   extension[S <: Scalar : Tag, V <: Vec[S] : Tag](a: V)(using VectorScalarMulable[S, V])
     def *(b: S): V = summon[VectorScalarMulable[S, V]].mul(a, b)
+    
+  trait VectorNegatable[V <: Vec[_] : FromExpr : Tag]:
+    def negate(a: V): V = summon[FromExpr[V]].fromExpr(Negate(a))
+  extension[V <: Vec[_] : VectorNegatable : Tag](a: V)
+    @targetName("negateVector")
+    def unary_- : V = summon[VectorNegatable[V]].negate(a)
 
   trait BasicVectorAlgebra[S <: Scalar, V <: Vec[S] : FromExpr : Tag]
     extends VectorSummable[V]
@@ -89,6 +116,7 @@ object Algebra:
       with VectorDotable[S, V]
       with VectorCrossable[V]
       with VectorScalarMulable[S, V]
+      with VectorNegatable[V]
 
   given BasicScalarAlgebra[Float32] = new BasicScalarAlgebra[Float32] {}
   given BasicScalarAlgebra[Int32] = new BasicScalarAlgebra[Int32] {}
@@ -138,3 +166,8 @@ object Algebra:
     def x: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(0))))
     def y: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(1))))
     def z: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(2))))
+  
+  extension (b: GBoolean)
+    def &&(other: GBoolean): GBoolean = GBoolean(And(b, other))
+    def ||(other: GBoolean): GBoolean = GBoolean(Or(b, other))
+    def unary_! : GBoolean = GBoolean(Not(b))

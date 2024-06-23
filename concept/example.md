@@ -5,8 +5,8 @@
 @main
 def main = {
   val RECURSION_LIMIT = 10000
-  val juliaSet: GArray2DFunction[Vec2[Float32], Float32, Vec3[Float32]] = GArray2DFunction:
-    case (coords @ Vec2(x: Int32, y: Int32), param: Vec2[Float32], in: GArray2D[Float32]) =>
+  val dim = 1024
+  val juliaSet: GArray2DFunction[Vec2[Float32], Float32, Vec3[Float32]] = GArray2DFunction(dim, dim)
   
       def juliaSet(uv: Vec2[Float32]): Int32 = {
         GStream.gen(init = uv, next = v => {
@@ -17,10 +17,10 @@ def main = {
       def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] = {
         val newXAxis = (cos(angle), sin(angle))
         val newYAxis = (-newXAxis.y, newXAxis.x)
-        (dot(uv, newXAxis), dot(uv, newYAxis)) * 0.9
+        (uv dot newXAxis, uv dot newYAxis) * 0.9
       }
   
-      val uv = 2.0 * (coords - 0.5 * in.dimensions) / in.dimensions.y
+      val uv = 2.0 * (coords - 0.5 * dim) / dim
       val angle = PI / 3.0
       val rotatedUv = rotate(uv, angle)
 

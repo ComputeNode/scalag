@@ -17,10 +17,10 @@ object Functions:
   def cos(v: Float32): Float32 = Float32(FunctionCall(Cos, List(v)))
 
   case object Len2 extends FunctionSpec
-  def len[T <: Scalar : Tag](v: Vec2[T]): Float32 = Float32(FunctionCall(Len2, List(v)))
+  def length[T <: Scalar : Tag](v: Vec2[T]): Float32 = Float32(FunctionCall(Len2, List(v)))
 
   case object Len3 extends FunctionSpec
-  def len[T <: Scalar : Tag](v: Vec3[T]): Float32 = Float32(FunctionCall(Len3, List(v)))
+  def length[T <: Scalar : Tag](v: Vec3[T]): Float32 = Float32(FunctionCall(Len3, List(v)))
 
   case object PowF extends FunctionSpec
   def pow(v: Float32, p: Float32): Float32 = Float32(FunctionCall(PowF, List(v, p)))

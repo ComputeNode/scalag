@@ -21,9 +21,9 @@ object Value {
   given FromExpr[Int32] with
     def fromExpr(f: E[Int32]) = Int32(f)
     
-  case class Bool(tree: E[Bool]) extends Scalar
-  given FromExpr[Bool] with
-    def fromExpr(f: E[Bool]) = Bool(f)
+  case class GBoolean(tree: E[GBoolean]) extends Scalar
+  given FromExpr[GBoolean] with
+    def fromExpr(f: E[GBoolean]) = GBoolean(f)
 
   sealed trait Vec[T <: Value] extends Value
 
