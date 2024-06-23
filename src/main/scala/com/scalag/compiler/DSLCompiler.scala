@@ -13,6 +13,7 @@ import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
+import scala.runtime.stdLibPatches.Predef.summon
 
 object DSLCompiler {
 
@@ -38,7 +39,13 @@ object DSLCompiler {
 
   val typeStride = Map[Tag[_], Int](
     summon[Tag[Int32]] -> 4,
-    summon[Tag[Float32]] -> 4
+    summon[Tag[Float32]] -> 4,
+    summon[Tag[Vec2[Float32]]] -> 8,
+    summon[Tag[Vec2[Int32]]] -> 8,
+    summon[Tag[Vec3[Float32]]] -> 12,
+    summon[Tag[Vec3[Int32]]] -> 12,
+    summon[Tag[Vec4[Float32]]] -> 16,
+    summon[Tag[Vec4[Int32]]] -> 16
   )
 
   def headers(): List[Words] = {
@@ -103,6 +110,7 @@ object DSLCompiler {
   def initialContext: Context = Context()
   type Vec2C[T <: Value] = Vec2[T]
   type Vec3C[T <: Value] = Vec3[T]
+  type Vec4C[T <: Value] = Vec4[T]
   def defineScalarTypes(types: List[Tag[_]]): (List[Words], Context) = {
     val basicTypes = List(summon[Tag[Int32]], summon[Tag[Float32]])
     (basicTypes ::: types).distinct.foldLeft((List[Words](), initialContext)) {
@@ -118,34 +126,49 @@ object DSLCompiler {
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 6), StorageClass.Function, IntWord(typeDefIndex + 4))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 7), StorageClass.Uniform, IntWord(typeDefIndex + 4))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 8), StorageClass.Input, IntWord(typeDefIndex + 4))),
-          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 9), StorageClass.Function, IntWord(typeDefIndex + 4))),
+          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 9), StorageClass.Function, IntWord(typeDefIndex + 5))),
+          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 10), StorageClass.Uniform, IntWord(typeDefIndex + 5))),
+          Instruction(Op.OpTypeVector, List(ResultRef(typeDefIndex + 11), ResultRef(typeDefIndex), IntWord(4))),
+          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 12), StorageClass.Function, IntWord(typeDefIndex + 11))),
+          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 13), StorageClass.Uniform, IntWord(typeDefIndex + 11))),
+          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 14), StorageClass.Input, IntWord(typeDefIndex + 11))),
         )
         (code ::: words,
           ctx.copy(
             valueTypeMap = ctx.valueTypeMap ++ Map(
               valType.tag -> typeDefIndex,
               (summon[LTag[Vec2C]].tag.combine(valType.tag)) -> (typeDefIndex + 4),
-              (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5)
+              (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5),
+              (summon[LTag[Vec4C]].tag.combine(valType.tag)) -> (typeDefIndex + 11)
             ),
             scalarTypeMap = ctx.scalarTypeMap + (valType -> typeDefIndex),
             funPointerTypeMap = ctx.funPointerTypeMap ++ Map(
               typeDefIndex -> (typeDefIndex + 1),
               (typeDefIndex + 4) -> (typeDefIndex + 6),
-              (typeDefIndex + 5) -> (typeDefIndex + 9)
+              (typeDefIndex + 5) -> (typeDefIndex + 9),
+              (typeDefIndex + 11) -> (typeDefIndex + 12)
             ),
-            uniformPointerMap = ctx.uniformPointerMap + (typeDefIndex -> (typeDefIndex + 2)),
+            uniformPointerMap = ctx.uniformPointerMap + (
+              typeDefIndex -> (typeDefIndex + 2),
+              (typeDefIndex + 4) -> (typeDefIndex + 7),
+              (typeDefIndex + 5) -> (typeDefIndex + 10),
+              (typeDefIndex + 11) -> (typeDefIndex + 13)
+            ),
             inputPointerMap = ctx.inputPointerMap + (typeDefIndex -> (typeDefIndex + 3)),
             vectorTypeMap = ctx.vectorTypeMap ++ Map(
               (summon[LTag[Vec2C]].tag.combine(valType.tag)) -> (typeDefIndex + 4),
-              (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5)),
+              (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5),
+              (summon[LTag[Vec4C]].tag.combine(valType.tag)) -> (typeDefIndex + 11)
+            ),
             funVecPointerTypeMap = ctx.funVecPointerTypeMap ++ Map(
               typeDefIndex -> (typeDefIndex + 6),
               (typeDefIndex + 4) -> (typeDefIndex + 6),
-              (typeDefIndex + 5) -> (typeDefIndex + 9)
+              (typeDefIndex + 5) -> (typeDefIndex + 9),
+              (typeDefIndex + 11) -> (typeDefIndex + 12)
             ),
             uniformVecPointerMap = ctx.uniformVecPointerMap + (typeDefIndex -> (typeDefIndex + 7)),
             inputVecPointerMap = ctx.inputVecPointerMap + (typeDefIndex -> (typeDefIndex + 8)),
-            nextResultId = ctx.nextResultId + 10
+            nextResultId = ctx.nextResultId + 15
           )
         )
     }
@@ -199,7 +222,7 @@ object DSLCompiler {
       val definitionInstructions = List[Words](
         Instruction(Op.OpTypeRuntimeArray, List(
           ResultRef(block.memberArrayTypeRef),
-          IntWord(context.scalarTypeMap(tpe))
+          IntWord(context.valueTypeMap(tpe.tag))
         )), // %_runtimearr_X = OpTypeRuntimeArray %[typeOf(tpe)]
         Instruction(Op.OpTypeStruct, List(
           ResultRef(block.structTypeRef),
@@ -596,14 +619,31 @@ object DSLCompiler {
               )
               (instructions, updatedContext)
 
-            case composeVec2: ComposeVec3[_] =>
+            case composeVec3: ComposeVec3[_] =>
               val instructions = List(
                 Instruction(Op.OpCompositeConstruct, List(
-                  ResultRef(ctx.vectorTypeMap(composeVec2.tag.tag)),
+                  ResultRef(ctx.vectorTypeMap(composeVec3.tag.tag)),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                   ResultRef(ctx.exprRefs(expr.dependencies(1).digest)),
                   ResultRef(ctx.exprRefs(expr.dependencies(2).digest))
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                nextResultId = ctx.nextResultId + 1
+              )
+              (instructions, updatedContext)
+
+            case composeVec4: ComposeVec4[_] =>
+              val instructions = List(
+                Instruction(Op.OpCompositeConstruct, List(
+                  ResultRef(ctx.vectorTypeMap(composeVec4.tag.tag)),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(2).digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(3).digest))
                 ))
               )
               val updatedContext = ctx.copy(
@@ -618,14 +658,14 @@ object DSLCompiler {
             case ga@GArrayElem(index, i) =>
               val instructions = List(
                 Instruction(Op.OpAccessChain, List(
-                  ResultRef(ctx.uniformPointerMap(ctx.scalarTypeMap(summon[Tag[Float32]]))),
+                  ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(ga.tag.tag))),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.inBufferBlocks(index).blockVarRef),
                   ResultRef(ctx.constRefs((summon[Tag[Int32]], 0))),
                   ResultRef(ctx.exprRefs(expr.dependencies.head.digest))
                 )),
                 Instruction(Op.OpLoad, List(
-                  IntWord(ctx.scalarTypeMap(ga.tag)),
+                  IntWord(ctx.valueTypeMap(ga.tag.tag)),
                   ResultRef(ctx.nextResultId + 1),
                   ResultRef(ctx.nextResultId)
                 ))
@@ -761,7 +801,7 @@ object DSLCompiler {
     vars ::: notVars
   }
 
-  def compileMain(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
+  def compileMain(sortedTree: List[DigestedExpression], resultType: Tag[_], ctx: Context): (List[Words], Context) = {
     val init = List(
       Instruction(Op.OpFunction, List(
         ResultRef(ctx.voidTypeRef),
@@ -797,12 +837,10 @@ object DSLCompiler {
 
     val end = List(
       Instruction(Op.OpAccessChain, List(
-        ResultRef(codeCtx.uniformPointerMap(codeCtx.scalarTypeMap(summon[Tag[Float32]]))),
+        ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
         ResultRef(codeCtx.nextResultId),
-        //ResultRef(codeCtx.outBufferBlocks(0).blockPointerRef),
         ResultRef(codeCtx.outBufferBlocks(0).blockVarRef),
         ResultRef(codeCtx.constRefs((summon[Tag[Int32]], 0))),
-        //ResultRef(codeCtx.exprRefs(sortedTree.last.digest))
         ResultRef(codeCtx.workerIndexRef)
       )),
 
@@ -837,7 +875,8 @@ object DSLCompiler {
     val (constDefs, constCtx) = defineConstants(allBlockExprs, inputContext)
     val (varDefs, varCtx) = defineVars(constCtx)
 //    println("preC")
-    val (main, finalCtx) = compileMain(sorted, varCtx)
+    val resultType = returnVal.tree.tag
+    val (main, finalCtx) = compileMain(sorted, resultType, varCtx)
 
     val code: List[Words] =
       insnWithHeader :::

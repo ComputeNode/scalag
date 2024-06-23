@@ -123,6 +123,7 @@ object Algebra:
 
   given [T <: Scalar : FromExpr : Tag]: BasicVectorAlgebra[T, Vec2[T]] = new BasicVectorAlgebra[T, Vec2[T]] {}
   given [T <: Scalar : FromExpr : Tag]: BasicVectorAlgebra[T, Vec3[T]] = new BasicVectorAlgebra[T, Vec3[T]] {}
+  given [T <: Scalar : FromExpr : Tag]: BasicVectorAlgebra[T, Vec4[T]] = new BasicVectorAlgebra[T, Vec4[T]] {}
   
   given Conversion[Float, Float32] = f => Float32(ConstFloat32(f))
   given Conversion[Int, Int32] = i => Int32(ConstInt32(i))
@@ -150,12 +151,19 @@ object Algebra:
   given Conversion[(Float32, Float32, Float32), Vec3[Float32]] = {
     case (x, y, z) => Vec3(ComposeVec3(x, y, z))
   }
-  
+
   given Conversion[(Float, Float, Float), Vec3[Float32]] = {
     case (x, y, z) => Vec3(ComposeVec3(Float32(ConstFloat32(x)), Float32(ConstFloat32(y)), Float32(ConstFloat32(z))))
   }
   given Conversion[(Int, Int, Int), Vec3[Int32]] = {
     case (x, y, z) => Vec3(ComposeVec3(Int32(ConstInt32(x)), Int32(ConstInt32(y)), Int32(ConstInt32(z))))
+  }
+
+  given Conversion[(Int32, Int32, Int32, Int32), Vec4[Int32]] = {
+    case (x, y, z, w) => Vec4(ComposeVec4(x, y, z, w))
+  }
+  given Conversion[(Float32, Float32, Float32, Float32), Vec4[Float32]] = {
+    case (x, y, z, w) => Vec4(ComposeVec4(x, y, z, w))
   }
   
   extension [T <: Scalar: FromExpr: Tag] (v2: Vec2[T])
@@ -166,7 +174,21 @@ object Algebra:
     def x: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(0))))
     def y: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(1))))
     def z: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v3, Int32(ConstInt32(2))))
-  
+    def r: T = x
+    def g: T = y
+    def b: T = z
+
+  extension [T <: Scalar: FromExpr: Tag] (v4: Vec4[T])
+    def x: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v4, Int32(ConstInt32(0))))
+    def y: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v4, Int32(ConstInt32(1))))
+    def z: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v4, Int32(ConstInt32(2))))
+    def w: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v4, Int32(ConstInt32(3))))
+    def r: T = x
+    def g: T = y
+    def b: T = z
+    def a: T = w
+
+
   extension (b: GBoolean)
     def &&(other: GBoolean): GBoolean = GBoolean(And(b, other))
     def ||(other: GBoolean): GBoolean = GBoolean(Or(b, other))

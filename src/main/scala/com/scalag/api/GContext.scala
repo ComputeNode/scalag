@@ -25,7 +25,7 @@ import java.nio.channels.FileChannel
 import java.nio.file.{Files, Paths}
 
 trait Executable[H <: Value, R <: Value] {
-  def execute(input: GMem[H], output: WritableGMem[R]): Future[Unit]
+  def execute(input: GMem[H], output: WritableGMem[R, _]): Future[Unit]
 }
 
 trait GContext {
@@ -45,7 +45,7 @@ class MVPContext extends GContext {
     println("TREE: " + tree)
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
 
-    val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, 4)) toList
+    val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, DSLCompiler.typeStride(summon[Tag[H]]))) toList
     val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos.asJava, "main", vkContext.getDevice)
 
     new ComputePipeline(shader, vkContext)
@@ -60,7 +60,7 @@ class MVPContext extends GContext {
     fc.write(shaderCode)
     fc.close()
     shaderCode.rewind()
-    val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, 4)) toList
+    val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, DSLCompiler.typeStride(summon[Tag[H]]))) toList
     val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos.asJava, "main", vkContext.getDevice)
 
     new ComputePipeline(shader, vkContext)
