@@ -36,7 +36,7 @@ object ImageTests:
         val r = (rgb >> 16) & 0xFF
         val g = (rgb >> 8) & 0xFF
         val b = rgb & 0xFF
-        val pixel = colorize("  ", Attribute.BACK_COLOR(r,g,b))
+        val pixel = colorize("   ", Attribute.BACK_COLOR(r,g,b))
         imageText.append(pixel)
       imageText.append("\n")
     imageText.toString

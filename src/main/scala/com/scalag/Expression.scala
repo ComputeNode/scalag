@@ -28,6 +28,18 @@ object Expression:
   case class DotProd[S <: Scalar : Tag, V <: Vec[S]](a: V, b: V) extends Expression[S]
   case class CrossProd[V <: Vec[_] : Tag](a: V, b: V) extends Expression[V]
   
+  sealed trait BitwiseOpExpression[T <: Scalar : Tag] extends Expression[T]
+  sealed trait BitwiseBinaryOpExpression[T <: Scalar: Tag] extends BitwiseOpExpression[T] {
+    def a: T
+    def b: T
+  }
+  case class BitwiseAnd[T <: Scalar : Tag](a: T, b: T) extends BitwiseBinaryOpExpression[T]
+  case class BitwiseOr[T <: Scalar : Tag](a: T, b: T) extends BitwiseBinaryOpExpression[T]
+  case class BitwiseXor[T <: Scalar : Tag](a: T, b: T) extends BitwiseBinaryOpExpression[T]
+  case class BitwiseNot[T <: Scalar : Tag](a: T) extends BitwiseOpExpression[T]
+  case class ShiftLeft[T <: Scalar : Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
+  case class ShiftRight[T <: Scalar : Tag](a: T, by: UInt32) extends BitwiseOpExpression[T]
+  
   sealed trait ComparisonOpExpression[T <: Value: Tag] extends Expression[GBoolean] {
     def operandTag = summon[Tag[T]]
     def a: T
@@ -46,9 +58,12 @@ object Expression:
   
   case class ExtractScalar[V <: Vec[_] : Tag, S <: Scalar : Tag](a: V, i: Int32) extends Expression[S]
 
-  sealed trait ConvertExpression[T <: Scalar : Tag] extends Expression[T]
-  case class ToFloat32[T <: Scalar : Tag](a: T) extends ConvertExpression[Float32]
-  case class ToInt32[T <: Scalar : Tag](a: T) extends ConvertExpression[Int32]
+  sealed trait ConvertExpression[F <: Scalar : Tag, T <: Scalar : Tag] extends Expression[T] {
+    def fromTag: Tag[F] = summon[Tag[F]]
+  }
+  case class ToFloat32[T <: Scalar : Tag](a: T) extends ConvertExpression[T, Float32]
+  case class ToInt32[T <: Scalar : Tag](a: T) extends ConvertExpression[T, Int32]
+  case class ToUInt32[T <: Scalar : Tag](a: T) extends ConvertExpression[T, UInt32]
   
   sealed trait Const[T <: Scalar : Tag] extends Expression[T] {
     def value: Any
@@ -58,6 +73,7 @@ object Expression:
   }
   case class ConstFloat32(value: Float) extends Const[Float32]
   case class ConstInt32(value: Int) extends Const[Int32]
+  case class ConstUInt32(value: Int) extends Const[UInt32]
 
   case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends Expression[Vec2[T]]
   case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends Expression[Vec3[T]]

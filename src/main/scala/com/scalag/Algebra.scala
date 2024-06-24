@@ -61,21 +61,15 @@ object Algebra:
     def >=(b: T): GBoolean = summon[Comparable[T]].greaterThanEqual(a, b)
     def <=(b: T): GBoolean = summon[Comparable[T]].lessThanEqual(a, b)
     def ===(b: T): GBoolean = summon[Comparable[T]].equal(a, b)
-
-  trait BasicScalarAlgebra[T <: Scalar : FromExpr : Tag] 
-    extends ScalarSummable[T]
-      with ScalarDiffable[T] 
-      with ScalarMulable[T] 
-      with ScalarDivable[T]
-      with ScalarModable[T]
-      with Comparable[T] 
-      with ScalarNegatable[T]
   
   extension (f32: Float32)
     def asInt: Int32 = Int32(ToInt32(f32))
   
   extension (i32: Int32)
     def asFloat: Float32 = Float32(ToFloat32(i32))
+    
+  extension (u32: UInt32)
+    def asFloat: Float32 = Float32(ToFloat32(u32))
   
   trait VectorSummable[V <: Vec[_] : FromExpr : Tag]:
     def sum(a: V, b: V): V = summon[FromExpr[V]].fromExpr(Sum(a, b))
@@ -109,7 +103,35 @@ object Algebra:
   extension[V <: Vec[_] : VectorNegatable : Tag](a: V)
     @targetName("negateVector")
     def unary_- : V = summon[VectorNegatable[V]].negate(a)
+    
+  trait BitwiseOperable[T <: Scalar : FromExpr : Tag]:
+    def bitwiseAnd(a: T, b: T): T = summon[FromExpr[T]].fromExpr(BitwiseAnd(a, b))
+    def bitwiseOr(a: T, b: T): T = summon[FromExpr[T]].fromExpr(BitwiseOr(a, b))
+    def bitwiseXor(a: T, b: T): T = summon[FromExpr[T]].fromExpr(BitwiseXor(a, b))
+    def bitwiseNot(a: T): T = summon[FromExpr[T]].fromExpr(BitwiseNot(a))
+    def shiftLeft(a: T, by: UInt32): T = summon[FromExpr[T]].fromExpr(ShiftLeft(a, by))
+    def shiftRight(a: T, by: UInt32): T = summon[FromExpr[T]].fromExpr(ShiftRight(a, by))
+    
+  extension[T <: Scalar : BitwiseOperable : Tag](a: T)
+    def &(b: T): T = summon[BitwiseOperable[T]].bitwiseAnd(a, b)
+    def |(b: T): T = summon[BitwiseOperable[T]].bitwiseOr(a, b)
+    def ^(b: T): T = summon[BitwiseOperable[T]].bitwiseXor(a, b)
+    def unary_~ : T = summon[BitwiseOperable[T]].bitwiseNot(a)
+    def <<(by: UInt32): T = summon[BitwiseOperable[T]].shiftLeft(a, by)
+    def >>(by: UInt32): T = summon[BitwiseOperable[T]].shiftRight(a, by)
 
+  trait BasicScalarAlgebra[T <: Scalar : FromExpr : Tag]
+    extends ScalarSummable[T]
+      with ScalarDiffable[T]
+      with ScalarMulable[T]
+      with ScalarDivable[T]
+      with ScalarModable[T]
+      with Comparable[T]
+      with ScalarNegatable[T]
+
+  trait BasicScalarIntAlgebra[T <: Scalar : FromExpr : Tag]
+    extends BasicScalarAlgebra[T] with BitwiseOperable[T]
+  
   trait BasicVectorAlgebra[S <: Scalar, V <: Vec[S] : FromExpr : Tag]
     extends VectorSummable[V]
       with VectorDiffable[V]
@@ -117,9 +139,10 @@ object Algebra:
       with VectorCrossable[V]
       with VectorScalarMulable[S, V]
       with VectorNegatable[V]
-
+  
   given BasicScalarAlgebra[Float32] = new BasicScalarAlgebra[Float32] {}
-  given BasicScalarAlgebra[Int32] = new BasicScalarAlgebra[Int32] {}
+  given BasicScalarIntAlgebra[Int32] = new BasicScalarIntAlgebra[Int32] {}
+  given BasicScalarIntAlgebra[UInt32] = new BasicScalarIntAlgebra[UInt32] {}
 
   given [T <: Scalar : FromExpr : Tag]: BasicVectorAlgebra[T, Vec2[T]] = new BasicVectorAlgebra[T, Vec2[T]] {}
   given [T <: Scalar : FromExpr : Tag]: BasicVectorAlgebra[T, Vec3[T]] = new BasicVectorAlgebra[T, Vec3[T]] {}
@@ -127,6 +150,7 @@ object Algebra:
   
   given Conversion[Float, Float32] = f => Float32(ConstFloat32(f))
   given Conversion[Int, Int32] = i => Int32(ConstInt32(i))
+  given Conversion[Int, UInt32] = i => UInt32(ConstUInt32(i))
   
   type FloatOrFloat32 = Float | Float32
   
@@ -185,9 +209,17 @@ object Algebra:
     def g: T = y
     def b: T = z
     def a: T = w
+    def xyz: Vec3[T] = Vec3(ComposeVec3(x, y, z))
+    def rgb: Vec3[T] = xyz
 
 
   extension (b: GBoolean)
     def &&(other: GBoolean): GBoolean = GBoolean(And(b, other))
     def ||(other: GBoolean): GBoolean = GBoolean(Or(b, other))
     def unary_! : GBoolean = GBoolean(Not(b))
+    
+    
+  def vec4(x: FloatOrFloat32, y: FloatOrFloat32, z: FloatOrFloat32, w: FloatOrFloat32): Vec4[Float32] =
+    Vec4(ComposeVec4(toFloat32(x), toFloat32(y), toFloat32(z), toFloat32(w)))
+  def vec3(x: FloatOrFloat32, y: FloatOrFloat32, z: FloatOrFloat32): Vec3[Float32] = 
+    Vec3(ComposeVec3(toFloat32(x), toFloat32(y), toFloat32(z)))

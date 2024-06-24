@@ -4,7 +4,7 @@ import com.scalag.Algebra.FromExpr
 import com.scalag.Expression.E
 import izumi.reflect.Tag
 
-sealed trait Value {
+trait Value {
   def tree: E[_]
 }
 
@@ -20,6 +20,11 @@ object Value {
   case class Int32(tree: E[Int32]) extends IntType
   given FromExpr[Int32] with
     def fromExpr(f: E[Int32]) = Int32(f)
+
+  trait UIntType extends Scalar
+  case class UInt32(tree: E[UInt32]) extends UIntType
+  given FromExpr[UInt32] with
+    def fromExpr(f: E[UInt32]) = UInt32(f)
     
   case class GBoolean(tree: E[GBoolean]) extends Scalar
   given FromExpr[GBoolean] with
@@ -38,4 +43,5 @@ object Value {
   case class Vec4[T <: Value](tree: E[Vec4[T]]) extends Vec[T]
   given [T <: Scalar]: FromExpr[Vec4[T]] with
     def fromExpr(f: E[Vec4[T]]) = Vec4(f)
+  
 }

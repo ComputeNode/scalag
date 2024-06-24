@@ -15,6 +15,9 @@ object Functions:
 
   case object Cos extends FunctionSpec
   def cos(v: Float32): Float32 = Float32(FunctionCall(Cos, List(v)))
+  
+  case object Tan extends FunctionSpec
+  def tan(v: Float32): Float32 = Float32(FunctionCall(Tan, List(v)))
 
   case object Len2 extends FunctionSpec
   def length[T <: Scalar : Tag](v: Vec2[T]): Float32 = Float32(FunctionCall(Len2, List(v)))
@@ -28,6 +31,8 @@ object Functions:
   case object Smoothstep extends FunctionSpec
   def smoothstep(edge0: Float32, edge1: Float32, x: Float32): Float32 = Float32(FunctionCall(Smoothstep, List(edge0, edge1, x)))
   
+  case object Sqrt extends FunctionSpec
+  def sqrt(v: Float32): Float32 = Float32(FunctionCall(Sqrt, List(v)))
 
 
 

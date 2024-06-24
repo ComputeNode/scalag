@@ -13,7 +13,7 @@ case class GArray[T <: Value : Tag : FromExpr](index: Int) {
 
 class GArray2D[T <: Value : Tag: FromExpr](width: Int, height: Int, val arr: GArray[T]) {
   def at(x: Int32, y: Int32): T = {
-    arr.at(width * y + x)
+    arr.at(y * width + x)
   }
 }
 
