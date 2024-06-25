@@ -1,11 +1,9 @@
 package com.scalag.vulkan.executor;
 
-import com.scalag.vulkan.core.Device;
 import com.scalag.vulkan.VulkanContext;
 import com.scalag.vulkan.command.CommandPool;
 import com.scalag.vulkan.command.Fence;
 import com.scalag.vulkan.command.Queue;
-import com.scalag.vulkan.compute.LayoutInfo;
 import com.scalag.vulkan.core.Device;
 import com.scalag.vulkan.memory.Allocator;
 import com.scalag.vulkan.memory.Buffer;
@@ -111,7 +109,7 @@ public abstract class AbstractExecutor {
                     .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
                     .pCommandBuffers(pCommandBuffer);
 
-            int err = vkQueueSubmit(queue.get(), submitInfo, fence.get());
+            int err = VK10.vkQueueSubmit(queue.get(), submitInfo, fence.get());
             if (err != VK_SUCCESS) {
                 throw new VulkanAssertionError("Failed to submit command buffer to queue", err);
             }

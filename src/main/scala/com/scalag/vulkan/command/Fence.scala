@@ -3,9 +3,6 @@ package com.scalag.vulkan.command;
 import com.scalag.vulkan.core.Device;
 import com.scalag.vulkan.utility.VulkanAssertionError;
 import com.scalag.vulkan.utility.VulkanObjectHandle;
-import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObjectHandle;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkFenceCreateInfo;
 

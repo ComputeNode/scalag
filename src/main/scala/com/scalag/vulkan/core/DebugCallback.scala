@@ -1,7 +1,6 @@
 package com.scalag.vulkan.core;
 
 import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObject;
 import com.scalag.vulkan.utility.VulkanObjectHandle;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.vulkan.VkDebugReportCallbackCreateInfoEXT;

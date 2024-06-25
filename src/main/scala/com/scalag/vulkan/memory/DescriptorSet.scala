@@ -3,10 +3,6 @@ package com.scalag.vulkan.memory;
 import com.scalag.vulkan.core.Device;
 import com.scalag.vulkan.utility.VulkanAssertionError;
 import com.scalag.vulkan.utility.VulkanObjectHandle;
-import com.scalag.vulkan.compute.ComputePipeline;
-import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObjectHandle;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDescriptorSetAllocateInfo;
 

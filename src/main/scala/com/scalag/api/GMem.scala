@@ -2,11 +2,11 @@ package com.scalag.api
 
 import com.scalag.Value
 import com.scalag.Value.*
+import com.scalag.vulkan.executor.{AbstractExecutor, BufferAction, MapExecutor, SortByKeyExecutor}
 
 import java.nio.ByteBuffer
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
-import com.scalag.vulkan.executor.{AbstractExecutor, BufferAction, MapExecutor, SortByKeyExecutor}
 
 import scala.concurrent.ExecutionContext.Implicits.*
 import scala.concurrent.{ExecutionContext, Future}

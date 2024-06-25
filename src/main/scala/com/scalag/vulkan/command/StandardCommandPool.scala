@@ -1,7 +1,6 @@
 package com.scalag.vulkan.command;
 
 import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.core.Device;
 
 /**
  * @author MarconZet

@@ -2,8 +2,6 @@ package com.scalag.vulkan.command;
 
 import com.scalag.vulkan.core.Device;
 import com.scalag.vulkan.utility.VulkanObject;
-import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.utility.VulkanObject;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkQueue;

@@ -1,11 +1,7 @@
 package com.scalag.vulkan.memory;
 
-import com.scalag.vulkan.command.CommandPool;
 import com.scalag.vulkan.command.Fence;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObjectHandle;
 import com.scalag.vulkan.command.CommandPool;
-import com.scalag.vulkan.command.Fence;
 import com.scalag.vulkan.utility.VulkanAssertionError;
 import com.scalag.vulkan.utility.VulkanObjectHandle;
 import org.lwjgl.PointerBuffer;

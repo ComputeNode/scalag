@@ -10,15 +10,13 @@ import com.scalag.*
 
 import java.util.concurrent.Executors
 import com.scalag.compiler.DSLCompiler
-import com.scalag.vulkan.VulkanContext
-import com.scalag.vulkan.compute.{ComputePipeline, LayoutInfo, Shader}
-import com.scalag.vulkan.executor.{MapExecutor, SortByKeyExecutor}
 import izumi.reflect.Tag
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.language.postfixOps
 import com.scalag.Algebra.*
+import vulkan.VulkanContext
 
 import java.io.FileOutputStream
 import java.nio.channels.FileChannel

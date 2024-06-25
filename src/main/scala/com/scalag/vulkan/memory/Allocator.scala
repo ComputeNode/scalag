@@ -1,9 +1,6 @@
 package com.scalag.vulkan.memory;
 
 import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObjectHandle;
-import com.scalag.vulkan.core.Device;
 import com.scalag.vulkan.core.Instance;
 import com.scalag.vulkan.utility.VulkanAssertionError;
 import com.scalag.vulkan.utility.VulkanObjectHandle;

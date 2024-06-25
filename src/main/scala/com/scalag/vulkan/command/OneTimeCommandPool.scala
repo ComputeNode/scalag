@@ -2,7 +2,6 @@ package com.scalag.vulkan.command;
 
 
 import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.core.Device;
 
 import static org.lwjgl.vulkan.VK10.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 

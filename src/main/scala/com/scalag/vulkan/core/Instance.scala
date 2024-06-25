@@ -2,8 +2,6 @@ package com.scalag.vulkan.core;
 
 import com.scalag.vulkan.utility.VulkanAssertionError;
 import com.scalag.vulkan.utility.VulkanObject;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObject;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkApplicationInfo;

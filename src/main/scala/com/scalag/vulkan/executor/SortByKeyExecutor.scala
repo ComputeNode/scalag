@@ -23,7 +23,6 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_CPU_TO_GPU;
 import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_ONLY;
 import static org.lwjgl.vulkan.VK10.*;
-import static org.lwjgl.vulkan.VK11.VK_DEPENDENCY_DEVICE_GROUP_BIT;
 
 public class SortByKeyExecutor extends AbstractExecutor {
     private final int sortPasses;

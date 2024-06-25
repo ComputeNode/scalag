@@ -1,8 +1,5 @@
 package com.scalag.vulkan.compute;
 
-import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObjectHandle;
 import com.scalag.vulkan.VulkanContext;
 import com.scalag.vulkan.core.Device;
 import com.scalag.vulkan.utility.VulkanAssertionError;
@@ -13,8 +10,6 @@ import org.lwjgl.vulkan.*;
 
 import java.nio.LongBuffer;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
 import static org.lwjgl.system.MemoryStack.stackPush;

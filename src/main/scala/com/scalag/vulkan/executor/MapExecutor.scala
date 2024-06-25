@@ -1,16 +1,12 @@
 package com.scalag.vulkan.executor;
 
 import com.scalag.vulkan.VulkanContext;
-import com.scalag.vulkan.command.Fence;
 import com.scalag.vulkan.compute.ComputePipeline;
 import com.scalag.vulkan.compute.LayoutInfo;
 import com.scalag.vulkan.compute.Shader;
+import com.scalag.vulkan.utility.VulkanObjectHandle;
 import com.scalag.vulkan.memory.Buffer;
 import com.scalag.vulkan.memory.DescriptorSet;
-import com.scalag.vulkan.memory.*;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObject;
-import com.scalag.vulkan.utility.VulkanObjectHandle;
 import org.joml.Vector3ic;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
