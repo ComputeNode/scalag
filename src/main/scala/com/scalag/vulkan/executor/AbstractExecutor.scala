@@ -25,7 +25,7 @@ import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_UNKNOWN;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 
-public abstract class AbstractExecutor {
+abstract class AbstractExecutor {
     private VkCommandBuffer commandBuffer;
 
     protected final List<DescriptorSet> descriptorSets;
@@ -40,7 +40,7 @@ public abstract class AbstractExecutor {
     protected final DescriptorPool descriptorPool;
     protected final CommandPool commandPool;
 
-    public AbstractExecutor(int dataLength, List<BufferAction> bufferActions, VulkanContext context) {
+    AbstractExecutor(int dataLength, List<BufferAction> bufferActions, VulkanContext context) {
         this.device = context.getDevice();
         this.allocator = context.getAllocator();
         this.descriptorPool = context.getDescriptorPool();
@@ -84,7 +84,7 @@ public abstract class AbstractExecutor {
         }
     }
 
-    public List<ByteBuffer> execute(List<ByteBuffer> input) {
+    List<ByteBuffer> execute(List<ByteBuffer> input) {
         Buffer stagingBuffer = new Buffer(
                 getBiggestTransportData() * dataLength,
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -154,7 +154,7 @@ public abstract class AbstractExecutor {
         return descriptorSet;
     }
 
-    public void destroy() {
+    void destroy() {
         commandPool.freeCommandBuffer(commandBuffer);
         descriptorSets.forEach(DescriptorSet::destroy);
         buffers.forEach(VulkanObject::destroy);

@@ -16,7 +16,7 @@ import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
  * Created 13.04.2020
  * Copied from Wrap
  */
-public class Queue extends VulkanObject {
+class Queue extends VulkanObject {
     private VkQueue queue;
 
     private int familyIndex;
@@ -24,19 +24,18 @@ public class Queue extends VulkanObject {
 
     private Device device;
 
-    public Queue(int familyIndex, int queueIndex, Device device) {
+    Queue(int familyIndex, int queueIndex, Device device) {
         this.familyIndex = familyIndex;
         this.queueIndex = queueIndex;
         this.device = device;
         create();
     }
 
-    public synchronized int submit(VkSubmitInfo submitInfo, Fence fence) {
+    synchronized int submit(VkSubmitInfo submitInfo, Fence fence) {
         return vkQueueSubmit(queue, submitInfo, fence.get());
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pQueue = stack.callocPointer(1);
             vkGetDeviceQueue(device.get(), familyIndex, queueIndex, pQueue);
@@ -44,16 +43,15 @@ public class Queue extends VulkanObject {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
 
     }
 
-    public int getFamilyIndex() {
+    int getFamilyIndex() {
         return familyIndex;
     }
 
-    public VkQueue get() {
+    VkQueue get() {
         return queue;
     }
 

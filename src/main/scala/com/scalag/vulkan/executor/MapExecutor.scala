@@ -22,24 +22,22 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 15.04.2020
  */
-public class MapExecutor extends AbstractExecutor {
+class MapExecutor extends AbstractExecutor {
     private final Shader shader;
     private final ComputePipeline computePipeline;
 
-    public MapExecutor(int dataLength, List<BufferAction> bufferActions, ComputePipeline computePipeline, VulkanContext context) {
+    MapExecutor(int dataLength, List<BufferAction> bufferActions, ComputePipeline computePipeline, VulkanContext context) {
         super(dataLength, bufferActions, context);
         this.computePipeline = computePipeline;
         this.shader = computePipeline.getComputeShader();
         setup();
     }
 
-    @Override
-    protected int getBiggestTransportData() {
+    override     protected int getBiggestTransportData() {
         return shader.getLayoutInfos().stream().mapToInt(LayoutInfo::getSize).max().orElse(0);
     }
 
-    @Override
-    protected void setupBuffers() {
+    override     protected void setupBuffers() {
         List<LayoutInfo> layoutInfos = shader.getLayoutInfos();
 
         for (int i = 0; i < layoutInfos.size(); i++) {
@@ -82,8 +80,7 @@ public class MapExecutor extends AbstractExecutor {
         }
     }
 
-    @Override
-    protected void recordCommandBuffer(VkCommandBuffer commandBuffer) {
+    override     protected void recordCommandBuffer(VkCommandBuffer commandBuffer) {
         try (MemoryStack stack = stackPush()) {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.get());
 

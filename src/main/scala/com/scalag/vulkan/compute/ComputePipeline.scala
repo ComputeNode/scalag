@@ -20,7 +20,7 @@ import static org.lwjgl.vulkan.VK10.vkDestroyDescriptorSetLayout;
  * @author MarconZet
  * Created 14.04.2020
  */
-public class ComputePipeline extends VulkanObjectHandle {
+class ComputePipeline extends VulkanObjectHandle {
     @Getter
     private long[] descriptorSetLayouts;
     @Getter
@@ -30,14 +30,13 @@ public class ComputePipeline extends VulkanObjectHandle {
 
     private final Device device;
 
-    public ComputePipeline(Shader computeShader, VulkanContext context) {
+    ComputePipeline(Shader computeShader, VulkanContext context) {
         this.computeShader = computeShader;
         this.device = context.getDevice();
         create();
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             List<List<LayoutInfo>> layoutInfos = computeShader.getLayoutsBySets();
             descriptorSetLayouts = layoutInfos.stream().mapToLong(this::createDescriptorSetLayout).toArray();
@@ -111,8 +110,7 @@ public class ComputePipeline extends VulkanObjectHandle {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vkDestroyPipeline(device.get(), handle, null);
         vkDestroyPipelineLayout(device.get(), pipelineLayout, null);
         for (long l : descriptorSetLayouts) {

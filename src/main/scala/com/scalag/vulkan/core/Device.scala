@@ -20,7 +20,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 13.04.2020
  */
-public class Device extends VulkanObject {
+class Device extends VulkanObject {
     private static final String[] DEVICE_EXTENSIONS = {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME};
     private final boolean enableValidationLayers;
     private final String vk_khr_portability_subset = "VK_KHR_portability_subset";
@@ -32,14 +32,13 @@ public class Device extends VulkanObject {
     private final Instance instance;
     private int computeQueueFamily;
 
-    public Device(boolean enableValidationLayers, Instance instance) {
+    Device(boolean enableValidationLayers, Instance instance) {
         this.enableValidationLayers = enableValidationLayers;
         this.instance = instance;
         create();
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             IntBuffer pPhysicalDeviceCount = stack.callocInt(1);
             int err = vkEnumeratePhysicalDevices(instance.get(), pPhysicalDeviceCount, null);
@@ -120,8 +119,7 @@ public class Device extends VulkanObject {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vkDestroyDevice(device, null);
     }
 
@@ -155,15 +153,15 @@ public class Device extends VulkanObject {
         throw new AssertionError("No suitable queue family found for computing");
     }
 
-    public VkDevice get() {
+    VkDevice get() {
         return device;
     }
 
-    public VkPhysicalDevice getPhysicalDevice() {
+    VkPhysicalDevice getPhysicalDevice() {
         return physicalDevice;
     }
 
-    public int getComputeQueueFamily() {
+    int getComputeQueueFamily() {
         return computeQueueFamily;
     }
 }

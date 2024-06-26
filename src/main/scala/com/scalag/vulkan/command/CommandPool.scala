@@ -17,20 +17,19 @@ import static org.lwjgl.vulkan.VK10.*;
  * Created 13.04.2020
  * Copied from Wrap
  */
-public abstract class CommandPool extends VulkanObjectHandle {
+abstract class CommandPool extends VulkanObjectHandle {
     private long commandPool;
 
     private Device device;
     private Queue queue;
 
-    public CommandPool(Device device, Queue queue) {
+    CommandPool(Device device, Queue queue) {
         this.device = device;
         this.queue = queue;
         create();
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             VkCommandPoolCreateInfo createInfo = VkCommandPoolCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO)
@@ -47,7 +46,7 @@ public abstract class CommandPool extends VulkanObjectHandle {
         }
     }
 
-    public VkCommandBuffer[] createCommandBuffer(int n) {
+    VkCommandBuffer[] createCommandBuffer(int n) {
         try (MemoryStack stack = stackPush()) {
             VkCommandBuffer[] commandBuffers = new VkCommandBuffer[n];
             VkCommandBufferAllocateInfo allocateInfo = VkCommandBufferAllocateInfo.callocStack()
@@ -70,11 +69,11 @@ public abstract class CommandPool extends VulkanObjectHandle {
         }
     }
 
-    public VkCommandBuffer createCommandBuffer() {
+    VkCommandBuffer createCommandBuffer() {
         return createCommandBuffer(1)[0];
     }
 
-    public VkCommandBuffer beginSingleTimeCommands() {
+    VkCommandBuffer beginSingleTimeCommands() {
         try (MemoryStack stack = stackPush()) {
             VkCommandBuffer commandBuffer = this.createCommandBuffer();
 
@@ -90,7 +89,7 @@ public abstract class CommandPool extends VulkanObjectHandle {
         }
     }
 
-    public Fence endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+    Fence endSingleTimeCommands(VkCommandBuffer commandBuffer) {
         try (MemoryStack stack = stackPush()) {
             vkEndCommandBuffer(commandBuffer);
 
@@ -105,7 +104,7 @@ public abstract class CommandPool extends VulkanObjectHandle {
         }
     }
 
-    public void freeCommandBuffer(VkCommandBuffer... commandBuffer) {
+    void freeCommandBuffer(VkCommandBuffer... commandBuffer) {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pointerBuffer = stack.callocPointer(commandBuffer.length);
             for (VkCommandBuffer buffer : commandBuffer) {
@@ -116,14 +115,13 @@ public abstract class CommandPool extends VulkanObjectHandle {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vkDestroyCommandPool(device.get(), commandPool, null);
     }
 
     protected abstract int getFlags();
 
-    public long get() {
+    long get() {
         return commandPool;
     }
 }

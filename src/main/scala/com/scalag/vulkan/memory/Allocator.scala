@@ -19,19 +19,18 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
  * Created 13.04.2020
  * Copied from Wrap
  */
-public class Allocator extends VulkanObjectHandle {
+class Allocator extends VulkanObjectHandle {
 
     private Instance instance;
     private Device device;
 
-    public Allocator(Instance instance, Device device) {
+    Allocator(Instance instance, Device device) {
         this.instance = instance;
         this.device = device;
         create();
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             VmaVulkanFunctions functions = VmaVulkanFunctions.callocStack();
             functions.set(instance.get(), device.get());
@@ -49,8 +48,7 @@ public class Allocator extends VulkanObjectHandle {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vmaDestroyAllocator(handle);
     }
 }

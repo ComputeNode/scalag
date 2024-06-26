@@ -8,13 +8,12 @@ import com.scalag.vulkan.core.Device;
  * Copied from Wrap
  */
 
-public class StandardCommandPool extends CommandPool {
-    public StandardCommandPool(Device device, Queue queue) {
+class StandardCommandPool extends CommandPool {
+    StandardCommandPool(Device device, Queue queue) {
         super(device, queue);
     }
 
-    @Override
-    protected int getFlags() {
+    override     protected int getFlags() {
         return 0;
     }
 }

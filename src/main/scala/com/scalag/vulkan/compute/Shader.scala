@@ -25,7 +25,7 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 25.04.2020
  */
-public class Shader extends VulkanObjectHandle {
+class Shader extends VulkanObjectHandle {
     private final ByteBuffer shaderCode;
 
     @Getter
@@ -37,7 +37,7 @@ public class Shader extends VulkanObjectHandle {
 
     private final Device device;
 
-    public Shader(ByteBuffer shaderCode, Vector3ic workgroupDimensions, List<LayoutInfo> layoutInfos, String functionName, Device device) {
+    Shader(ByteBuffer shaderCode, Vector3ic workgroupDimensions, List<LayoutInfo> layoutInfos, String functionName, Device device) {
         this.shaderCode = shaderCode;
         this.workgroupDimensions = workgroupDimensions;
         this.layoutInfos = layoutInfos;
@@ -46,16 +46,15 @@ public class Shader extends VulkanObjectHandle {
         create();
     }
 
-    public List<LayoutInfo> getLayoutsBySets(int a) {
+    List<LayoutInfo> getLayoutsBySets(int a) {
         return layoutInfos.stream().filter(x -> x.getSet() == a).collect(Collectors.toList());
     }
 
-    public List<List<LayoutInfo>> getLayoutsBySets(){
+    List<List<LayoutInfo>> getLayoutsBySets(){
         return layoutInfos.stream().mapToInt(LayoutInfo::getSet).distinct().sorted().mapToObj(this::getLayoutsBySets).collect(Collectors.toList());
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             VkShaderModuleCreateInfo shaderModuleCreateInfo = VkShaderModuleCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO)
@@ -72,17 +71,16 @@ public class Shader extends VulkanObjectHandle {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vkDestroyShaderModule(device.get(), handle, null);
     }
 
 
-    public static ByteBuffer loadShader(String path) {
+    static ByteBuffer loadShader(String path) {
         return loadShader(path, Shader.class.getClassLoader());
     }
 
-    public static ByteBuffer loadShader(String path, ClassLoader classLoader) {
+    static ByteBuffer loadShader(String path, ClassLoader classLoader) {
         try {
             File file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile());
             FileInputStream fis = new FileInputStream(file);

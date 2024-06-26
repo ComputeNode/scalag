@@ -17,18 +17,17 @@ import static org.lwjgl.vulkan.VK10.*;
  * Created 14.04.2019
  */
 
-public class DescriptorPool extends VulkanObjectHandle {
+class DescriptorPool extends VulkanObjectHandle {
     private static final int MAX_SETS = 100;
 
     private Device device;
 
-    public DescriptorPool(Device device) {
+    DescriptorPool(Device device) {
         this.device = device;
         create();
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             VkDescriptorPoolSize.Buffer descriptorPoolSize = VkDescriptorPoolSize.callocStack(1);
             descriptorPoolSize.get(0)
@@ -50,8 +49,7 @@ public class DescriptorPool extends VulkanObjectHandle {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vkDestroyDescriptorPool(device.get(), handle, null);
     }
 }

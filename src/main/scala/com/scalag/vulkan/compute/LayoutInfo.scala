@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
  */
 @RequiredArgsConstructor
 @Getter
-public class LayoutInfo {
+class LayoutInfo {
     private final int
             set,
             binding,

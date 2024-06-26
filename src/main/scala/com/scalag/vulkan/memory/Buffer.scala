@@ -23,14 +23,14 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 11.05.2019
  */
-public class Buffer extends VulkanObjectHandle {
+class Buffer extends VulkanObjectHandle {
     private long allocation;
     private final int size;
     private final int usage, flags, memUsage;
 
     private Allocator allocator;
 
-    public Buffer(int size, int usage, int flags, int memUsage, Allocator allocator) {
+    Buffer(int size, int usage, int flags, int memUsage, Allocator allocator) {
         this.allocator = allocator;
         this.size = size;
         this.usage = usage;
@@ -39,8 +39,7 @@ public class Buffer extends VulkanObjectHandle {
         create();
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
@@ -65,12 +64,11 @@ public class Buffer extends VulkanObjectHandle {
         }
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vmaDestroyBuffer(allocator.get(), handle, allocation);
     }
 
-    public void get(byte[] dst){
+    void get(byte[] dst){
         int len = Math.min(dst.length, size);
         ByteBuffer byteBuffer = memCalloc(len);
         Buffer.copyBuffer(this, byteBuffer, len);
@@ -78,7 +76,7 @@ public class Buffer extends VulkanObjectHandle {
         memFree(byteBuffer);
     }
 
-    public static void copyBuffer(ByteBuffer src, Buffer dst, long bytes) {
+    static void copyBuffer(ByteBuffer src, Buffer dst, long bytes) {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pData = stack.callocPointer(1);
             int err = vmaMapMemory(dst.getAllocator().get(), dst.getAllocation(), pData);
@@ -92,7 +90,7 @@ public class Buffer extends VulkanObjectHandle {
         }
     }
 
-    public static void copyBuffer(Buffer src, ByteBuffer dst, long bytes) {
+    static void copyBuffer(Buffer src, ByteBuffer dst, long bytes) {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pData = stack.callocPointer(1);
             int err = vmaMapMemory(src.getAllocator().get(), src.getAllocation(), pData);
@@ -105,7 +103,7 @@ public class Buffer extends VulkanObjectHandle {
         }
     }
 
-    public static Fence copyBuffer(Buffer src, Buffer dst, long bytes, CommandPool commandPool) {
+    static Fence copyBuffer(Buffer src, Buffer dst, long bytes, CommandPool commandPool) {
         try (MemoryStack stack = stackPush()) {
             VkCommandBuffer commandBuffer = commandPool.beginSingleTimeCommands();
 
@@ -123,7 +121,7 @@ public class Buffer extends VulkanObjectHandle {
         return allocator;
     }
 
-    public int getSize() {
+    int getSize() {
         return size;
     }
 

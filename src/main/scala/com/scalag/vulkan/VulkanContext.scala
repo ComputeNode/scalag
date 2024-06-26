@@ -17,38 +17,24 @@ import com.scalag.vulkan.core.Instance;
 import com.scalag.vulkan.memory.Allocator;
 import com.scalag.vulkan.memory.DescriptorPool;
 
-/**
- * @author MarconZet
- * Created 13.04.2020
- */
-public class VulkanContext {
-  public static final String[] VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
-  private final boolean enableValidationLayers;
+/** @author
+  *   MarconZet Created 13.04.2020
+  */
+object VulkanContext {
+  val VALIDATION_LAYERS: Array[String] = Array("VK_LAYER_KHRONOS_validation")
+}
 
-  private final Instance instance;
-  private final DebugCallback debugCallback;
-  private final Device device;
-  private final Allocator allocator;
-  private final Queue computeQueue;
-  private final DescriptorPool descriptorPool;
-  private final CommandPool commandPool;
+class VulkanContext(val enableValidationLayers: Boolean = false) {
 
-  public VulkanContext() {
-    this(false);
-  }
+  val instance: Instance = new Instance(enableValidationLayers);
+  val debugCallback: DebugCallback = (enableValidationLayers) ? new DebugCallback(instance): null;
+  val device: Device = new Device(enableValidationLayers, instance);
+  val computeQueue: Allocator = new Queue(device.getComputeQueueFamily(), 0, device);
+  val allocator: Queue = new Allocator(instance, device);
+  val descriptorPool: DescriptorPool = new DescriptorPool(device);
+  val commandPool: CommandPool = new StandardCommandPool(device, computeQueue);
 
-  public VulkanContext(boolean enableValidationLayers) {
-    this.enableValidationLayers = enableValidationLayers;
-    instance = new Instance(enableValidationLayers);
-    debugCallback = (enableValidationLayers) ? new DebugCallback(instance) : null;
-    device = new Device(enableValidationLayers, instance);
-    computeQueue = new Queue(device.getComputeQueueFamily(), 0, device);
-    allocator = new Allocator(instance, device);
-    descriptorPool = new DescriptorPool(device);
-    commandPool = new StandardCommandPool(device, computeQueue);
-  }
-
-  public void destroy() {
+  def destroy(): Unit = {
     commandPool.destroy();
     descriptorPool.destroy();
     allocator.destroy();
@@ -57,26 +43,5 @@ public class VulkanContext {
     if (enableValidationLayers)
       debugCallback.destroy();
     instance.destroy();
-  }
-
-
-  public Device getDevice() {
-    return device;
-  }
-
-  public Allocator getAllocator() {
-    return allocator;
-  }
-
-  public Queue getComputeQueue() {
-    return computeQueue;
-  }
-
-  public DescriptorPool getDescriptorPool() {
-    return descriptorPool;
-  }
-
-  public CommandPool getCommandPool() {
-    return commandPool;
   }
 }

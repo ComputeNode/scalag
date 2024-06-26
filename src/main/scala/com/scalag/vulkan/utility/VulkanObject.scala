@@ -1,35 +1,27 @@
 package com.scalag.vulkan.utility;
 
-/**
- * @author MarconZet
- * Created 13.04.2020
- */
-public abstract class VulkanObject {
-    private boolean alive;
+/** @author
+  *   MarconZet Created 13.04.2020
+  */
+abstract class VulkanObject {
+  protected var alive: Boolean = false
 
-    public VulkanObject() {
-        alive = false;
-    }
+  def destroy(): Unit = {
+    if (!alive)
+      throw new IllegalStateException();
+    close();
+    alive = false;
+  }
 
-    public void destroy() {
-        if(!alive)
-            throw new IllegalStateException();
-        close();
-        alive = false;
-    }
+  protected def create(): Unit = {
+    if (alive)
+      throw new IllegalStateException();
+    init();
+    alive = true;
+  }
 
-    protected void create() {
-        if(alive)
-            throw new IllegalStateException();
-        init();
-        alive = true;
-    }
+  protected def init(): Unit
 
-    protected abstract void init();
+  protected def close(): Unit
 
-    protected abstract void close();
-
-    public boolean isAlive() {
-        return alive;
-    }
 }

@@ -19,7 +19,7 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
  * @author MarconZet
  * Created 13.04.2020
  */
-public class DebugCallback extends VulkanObjectHandle {
+class DebugCallback extends VulkanObjectHandle {
     private static final Logger logger = LoggerFactory.getLogger(DebugCallback.class);
     private static final int DEBUG_REPORT =
             VK_DEBUG_REPORT_ERROR_BIT_EXT |
@@ -28,15 +28,14 @@ public class DebugCallback extends VulkanObjectHandle {
 
     private final Instance instance;
 
-    public DebugCallback(Instance instance) {
+    DebugCallback(Instance instance) {
         this.instance = instance;
         create();
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         VkDebugReportCallbackEXT debugCallback = new VkDebugReportCallbackEXT() {
-            public int invoke(int flags, int objectType, long object, long location, int messageCode, long pLayerPrefix, long pMessage, long pUserData) {
+            int invoke(int flags, int objectType, long object, long location, int messageCode, long pLayerPrefix, long pMessage, long pUserData) {
                 String decodedMessage = VkDebugReportCallbackEXT.getString(pMessage);
                 int bit = 1;
                 while ((flags >>= 1)>0)
@@ -64,8 +63,7 @@ public class DebugCallback extends VulkanObjectHandle {
         handle = setupDebugging(DEBUG_REPORT, debugCallback);
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vkDestroyDebugReportCallbackEXT(instance.get(), handle, null);
     }
 

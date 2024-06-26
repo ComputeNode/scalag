@@ -15,21 +15,19 @@ import static org.lwjgl.vulkan.VK10.*;
  * @author MarconZet
  * Created 30.10.2019
  */
-public class Semaphore extends VulkanObjectHandle {
+class Semaphore extends VulkanObjectHandle {
     private Device device;
 
-    public Semaphore(Device device) {
+    Semaphore(Device device) {
         this.device = device;
         create();
     }
 
-    @Override
-    public void close() {
+    override     void close() {
         vkDestroySemaphore(device.get(), handle, null);
     }
 
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             VkSemaphoreCreateInfo semaphoreCreateInfo = VkSemaphoreCreateInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);

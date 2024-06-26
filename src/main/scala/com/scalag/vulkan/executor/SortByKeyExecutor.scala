@@ -24,7 +24,7 @@ import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_CPU_TO_GPU;
 import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_ONLY;
 import static org.lwjgl.vulkan.VK10.*;
 
-public class SortByKeyExecutor extends AbstractExecutor {
+class SortByKeyExecutor extends AbstractExecutor {
     private final int sortPasses;
 
     private final Shader keyShader;
@@ -34,7 +34,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
     private final ComputePipeline sortPipeline;
     private final ComputePipeline copyPipeline;
 
-    public SortByKeyExecutor(int dataLength, ComputePipeline keyPipeline, VulkanContext context) {
+    SortByKeyExecutor(int dataLength, ComputePipeline keyPipeline, VulkanContext context) {
         super(dataLength, createBufferActions(), context);
         this.keyPipeline = keyPipeline;
         this.keyShader = keyPipeline.getComputeShader();
@@ -58,8 +58,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
         return (d * d + d) / 2;
     }
 
-    @Override
-    protected void setupBuffers() {
+    override     protected void setupBuffers() {
         List<LayoutInfo> layoutInfos = keyShader.getLayoutInfos();
 
         int[] sizes = {layoutInfos.get(0).getSize(), layoutInfos.get(0).getSize(), 4, 4, 4};
@@ -130,8 +129,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
         return IntStream.of(actions).mapToObj(BufferAction::new).collect(Collectors.toList());
     }
 
-    @Override
-    protected void recordCommandBuffer(VkCommandBuffer commandBuffer) {
+    override     protected void recordCommandBuffer(VkCommandBuffer commandBuffer) {
         DescriptorSet keySet = descriptorSets.get(0),
                 prepSet = descriptorSets.get(1),
                 sort1Set = descriptorSets.get(2),
@@ -215,8 +213,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
         return bufferMemoryBarriers;
     }
 
-    @Override
-    protected int getBiggestTransportData() {
+    override     protected int getBiggestTransportData() {
         return keyShader.getLayoutInfos().get(0).getSize();
     }
 
@@ -270,8 +267,7 @@ public class SortByKeyExecutor extends AbstractExecutor {
         return new ComputePipeline(shader, context);
     }
 
-    @Override
-    public void destroy() {
+    override     void destroy() {
         Stream.of(preparePipeline, copyPipeline, sortPipeline).forEach(pipeline -> {
             pipeline.getComputeShader().destroy();
             pipeline.destroy();

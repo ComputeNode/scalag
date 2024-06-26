@@ -23,22 +23,15 @@ import static org.lwjgl.vulkan.VK11.VK_API_VERSION_1_1;
  * @author MarconZet
  * Created 13.04.2020
  */
-public class Instance extends VulkanObject {
+class Instance(enableValidationLayers: Boolean) extends VulkanObject {
 
     private static final String[] VALIDATION_LAYERS_INSTANCE_EXTENSIONS = {VK_EXT_DEBUG_REPORT_EXTENSION_NAME};
     private static final String[] INSTANCE_EXTENSIONS = {};
-    private final boolean enableValidationLayers;
 
 
     private VkInstance instance;
 
-    public Instance(boolean enableValidationLayers) {
-        this.enableValidationLayers = enableValidationLayers;
-        create();
-    }
-
-    @Override
-    protected void init() {
+    override     protected void init() {
         try (MemoryStack stack = stackPush()) {
             VkApplicationInfo appInfo = VkApplicationInfo.callocStack()
                     .sType(VK_STRUCTURE_TYPE_APPLICATION_INFO)
@@ -90,12 +83,11 @@ public class Instance extends VulkanObject {
         return ppEnabledExtensionNames.flip();
     }
 
-    @Override
-    protected void close() {
+    override     protected void close() {
         vkDestroyInstance(instance, null);
     }
 
-    public VkInstance get() {
+    VkInstance get() {
         return instance;
     }
 }
