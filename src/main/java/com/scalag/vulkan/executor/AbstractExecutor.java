@@ -87,6 +87,7 @@ public abstract class AbstractExecutor {
     }
 
     public List<ByteBuffer> execute(List<ByteBuffer> input) {
+        System.out.println("Executing!");
         Buffer stagingBuffer = new Buffer(
                 getBiggestTransportData() * dataLength,
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -103,7 +104,7 @@ public abstract class AbstractExecutor {
             }
         }
 
-
+        System.out.println("Executing command");
         try (MemoryStack stack = stackPush()) {
             Fence fence = new Fence(device);
             PointerBuffer pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer);
@@ -118,6 +119,8 @@ public abstract class AbstractExecutor {
             fence.block().destroy();
         }
 
+        System.out.println("Got output");
+
         List<ByteBuffer> output = new ArrayList<>();
         for (int i = 0; i < bufferActions.size(); i++) {
             if (bufferActions.get(i).getAction() == BufferAction.LOAD_FROM) {
@@ -128,6 +131,7 @@ public abstract class AbstractExecutor {
                 output.add(outBuffer);
             }
         }
+        System.out.println("Returning output");
         stagingBuffer.destroy();
         return output;
     }

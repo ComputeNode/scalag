@@ -33,6 +33,9 @@ object Functions:
   
   case object Sqrt extends FunctionSpec
   def sqrt(v: Float32): Float32 = Float32(FunctionCall(Sqrt, List(v)))
+  
+  case object Cross extends FunctionSpec
+  def cross[T <: Scalar : Tag](v1: Vec3[T], v2: Vec3[T]): Vec3[T] = Vec3(FunctionCall(Cross, List(v1, v2)))
 
 
 

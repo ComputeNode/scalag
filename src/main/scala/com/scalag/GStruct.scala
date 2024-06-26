@@ -13,7 +13,7 @@ abstract class GStruct[T <: GStruct[T] : Tag : GStructSchema] extends Value with
   self: T =>
   private[scalag] var _schema: GStructSchema[T] = summon[GStructSchema[T]] // a nasty hack
   def schema: GStructSchema[T] = _schema
-  def tree: E[T] = schema.tree(self)
+  lazy val tree: E[T] = schema.tree(self)
 
 case class GStructSchema[T <: GStruct[T]: Tag](
   fields: List[(String, FromExpr[_], Tag[_])],

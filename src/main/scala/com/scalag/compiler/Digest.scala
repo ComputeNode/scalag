@@ -1,14 +1,14 @@
 package com.scalag.compiler
 
 
-import com.scalag.Control.{Block}
+import com.scalag.Control.Block
 import com.scalag.{Expression, GSeq, Value}
 
 import java.security.MessageDigest
 import java.util.Base64
+import scala.collection.mutable
 
 object Digest {
-  val digestBytes = 16
 
   trait CustomDigest:
     def digest: Array[Byte]
@@ -37,31 +37,26 @@ object Digest {
     md.digest()
   }
   
+  val treeCache: mutable.Map[Int, (DigestedExpression, Array[Byte])] = mutable.Map.empty[Int, (DigestedExpression, Array[Byte])]
   def digest(tree: Expression[_]): (DigestedExpression, Array[Byte]) = {
-    val d = MessageDigest.getInstance("MD5")
+    if(treeCache.contains(tree.treeid)) return treeCache(tree.treeid)
     val products = tree.productIterator.toList // non-lazy
     def digestChildren(children: List[Any]): (List[DigestedExpression], List[DigestedExpression]) =
       (for (elem <- children) yield {
-        elem match {
+       elem match {
           case b: Block[_] =>
             val (digestedChild, bytes) = digest(b.expr)
-            d.update(bytes)
             (None, Some(digestedChild))
           case x: Expression[_] =>
             val (digestedChild, bytes) = digest(x)
-            d.update(bytes)
             (Some(digestedChild), None)
           case x: Value =>
             val (digestedChild, bytes) = digest(x.tree)
-            d.update(bytes)
             (Some(digestedChild), None)
           case list: List[Any] =>
             (digestChildren(list.filter(_.isInstanceOf[Value]).map(_.asInstanceOf[Value].tree))._1,
               digestChildren(list.filter(_.isInstanceOf[Block[_]]).map(_.asInstanceOf[Block[_]].expr))._1)
-          case other =>
-            val hashBytes = hashToBytes(other)
-            d.update(hashBytes)
-            (None, None)
+          case _ => (None, None)
         }
       }).foldLeft((List.empty[DigestedExpression], List.empty[DigestedExpression])) {
         case ((acc, blockAcc), (newExprs, newBlocks)) => (acc ::: newExprs.iterator.toList, blockAcc ::: newBlocks.iterator.toList)
@@ -71,17 +66,18 @@ object Digest {
       case c: CustomDependencies =>
         (c.dependencies, c.blockDeps)
       case _ => digestChildren(products)
-    } 
-    val treeT = tree.getClass.getSimpleName.hashCode // TODO conflicts possible
-    val typeBytes = tree.tag.tag.shortName.getBytes()
-    d.update(typeBytes)
-    d.update(BigInt(treeT).toByteArray)
+    }
     val digestBytes = tree match {
       case c: CustomDigest => c.digest
-      case _ => d.digest()
+      case _ => BigInt(tree.treeid).toByteArray
     }
-    val b64 = Base64.getEncoder.encodeToString(digestBytes)
-    (DigestedExpression(b64, tree, children, blockChildren), digestBytes)
+    val ds = tree match {
+      case c: CustomDigest => Base64.getEncoder.encodeToString(c.digest)
+      case _ => Base64.getEncoder.encodeToString(digestBytes)
+    }
+    val result = (DigestedExpression(ds, tree, children, blockChildren), digestBytes)
+    treeCache.put(tree.treeid, result)
+    result
   }
 
   def formatTreeWithDigest(e: DigestedExpression): String = {

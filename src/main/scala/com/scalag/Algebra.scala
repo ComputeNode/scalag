@@ -2,6 +2,7 @@ package com.scalag
 
 import com.scalag.Algebra.FromExpr
 import com.scalag.Expression.*
+import com.scalag.Functions.{Cross, Sin}
 import com.scalag.Value.*
 import izumi.reflect.Tag
 
@@ -67,9 +68,11 @@ object Algebra:
   
   extension (i32: Int32)
     def asFloat: Float32 = Float32(ToFloat32(i32))
+    def unsigned: UInt32 = UInt32(ToUInt32(i32))
     
   extension (u32: UInt32)
     def asFloat: Float32 = Float32(ToFloat32(u32))
+    def signed: Int32 = Int32(ToInt32(u32))
   
   trait VectorSummable[V <: Vec[_] : FromExpr : Tag]:
     def sum(a: V, b: V): V = summon[FromExpr[V]].fromExpr(Sum(a, b))
@@ -89,7 +92,7 @@ object Algebra:
     def dot(b: V): S = summon[VectorDotable[S, V]].dot(a, b)
 
   trait VectorCrossable[V <: Vec[_] : FromExpr : Tag]:
-    def cross(a: V, b: V): V = summon[FromExpr[V]].fromExpr(CrossProd(a, b))
+    def cross(a: V, b: V): V = summon[FromExpr[V]].fromExpr(FunctionCall(Cross, List(a, b)))
   extension[V <: Vec[_] : VectorCrossable : Tag](a: V)
     def cross(b: V): V = summon[VectorCrossable[V]].cross(a, b)
 
@@ -151,6 +154,7 @@ object Algebra:
   given Conversion[Float, Float32] = f => Float32(ConstFloat32(f))
   given Conversion[Int, Int32] = i => Int32(ConstInt32(i))
   given Conversion[Int, UInt32] = i => UInt32(ConstUInt32(i))
+  given Conversion[Boolean, GBoolean] = b => GBoolean(ConstGB(b))
   
   type FloatOrFloat32 = Float | Float32
   
