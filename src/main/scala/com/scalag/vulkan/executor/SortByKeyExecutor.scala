@@ -1,278 +1,215 @@
 package com.scalag.vulkan.executor;
 
-import com.scalag.vulkan.VulkanContext;
-import com.scalag.vulkan.compute.ComputePipeline;
-import com.scalag.vulkan.compute.LayoutInfo;
-import com.scalag.vulkan.compute.Shader;
-import com.scalag.vulkan.memory.Buffer;
-import com.scalag.vulkan.memory.DescriptorSet;
-import org.joml.Vector3i;
-import org.joml.Vector3ic;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkBufferMemoryBarrier;
-import org.lwjgl.vulkan.VkCommandBuffer;
+import com.scalag.vulkan.VulkanContext
+import com.scalag.vulkan.compute.ComputePipeline
+import com.scalag.vulkan.compute.LayoutInfo
+import com.scalag.vulkan.compute.Shader
+import com.scalag.vulkan.memory.Buffer
+import com.scalag.vulkan.memory.DescriptorSet
+import org.joml.Vector3i
+import org.joml.Vector3ic
+import org.lwjgl.system.MemoryStack
+import org.lwjgl.vulkan.VkBufferMemoryBarrier
+import org.lwjgl.vulkan.VkCommandBuffer
+import com.scalag.vulkan.executor.SortByKeyExecutor.*
+import com.scalag.vulkan.executor.BufferAction.*
 
-import java.nio.LongBuffer;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
+import scala.collection.mutable
+import java.nio.LongBuffer
+import java.util.Arrays
+import java.util.List
+import java.util.stream.Collectors
+import java.util.stream.IntStream
+import java.util.stream.Stream
+import org.lwjgl.system.MemoryStack.stackPush
+import org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_CPU_TO_GPU
+import org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_ONLY
+import org.lwjgl.vulkan.VK10.*
 
-import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_CPU_TO_GPU;
-import static org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_GPU_ONLY;
-import static org.lwjgl.vulkan.VK10.*;
+import scala.util.Using;
 
-class SortByKeyExecutor extends AbstractExecutor {
-    private final int sortPasses;
+class SortByKeyExecutor(dataLength: Int, keyPipeline: ComputePipeline, context: VulkanContext)
+    extends AbstractExecutor(dataLength, createBufferActions, context) {
+  private val sortPasses: Int = getNumberOfPasses(dataLength);
 
-    private final Shader keyShader;
+  private val keyShader: Shader = keyPipeline.computeShader;
 
-    private final ComputePipeline keyPipeline;
-    private final ComputePipeline preparePipeline;
-    private final ComputePipeline sortPipeline;
-    private final ComputePipeline copyPipeline;
+  private val preparePipeline: ComputePipeline = createPreparePipeline(context);;
+  private val sortPipeline: ComputePipeline = createSortPipeline(context);
+  private val copyPipeline: ComputePipeline = createCopyPipeline(context);
 
-    SortByKeyExecutor(int dataLength, ComputePipeline keyPipeline, VulkanContext context) {
-        super(dataLength, createBufferActions(), context);
-        this.keyPipeline = keyPipeline;
-        this.keyShader = keyPipeline.getComputeShader();
-        this.preparePipeline = createPreparePipeline(context);
-        this.copyPipeline = createCopyPipeline(context);
-        this.sortPipeline = createSortPipeline(context);
-        this.sortPasses = getNumberOfPasses(dataLength);
-        setup();
+  protected def setupBuffers(): (Seq[DescriptorSet], Seq[Buffer]) = {
+    val layoutInfos = keyShader.layoutInfos
+
+    val sizes = Seq(layoutInfos.head.size, layoutInfos.head.size, 4, 4, 4)
+
+    val buffers = mutable.Buffer[Buffer]()
+    for (i <- sizes.indices) do
+      buffers.addOne(
+        new Buffer(sizes(i) * dataLength, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | bufferActions(i).action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+      );
+
+    for (i <- 0 until 2) do buffers.addOne(new Buffer(8, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator));
+
+    buffers.addOne(new Buffer(4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 0, VMA_MEMORY_USAGE_CPU_TO_GPU, allocator));
+    val Seq(in, out, keys, order1, order2, data1, data2, size) = buffers.toSeq
+
+    Using(stackPush()) { stack =>
+      val sizeData = stack.calloc(4 * 2);
+      sizeData.asIntBuffer().put(this.dataLength).put(this.dataLength);
+      Buffer.copyBuffer(sizeData, size, sizeData.remaining());
     }
 
-    private static int getNumberOfPasses(int dataLength) {
-        int remaining = dataLength;
-        int d = 0;
-        while (remaining > 1) {
-            if (remaining % 2 != 0) {
-                throw new IllegalArgumentException("Number of data must be power of 2");
-            }
-            remaining /= 2;
-            d++;
-        }
-        return (d * d + d) / 2;
-    }
+    val outOrder = if (sortPasses % 2 == 0) order1 else order2
 
-    override     protected void setupBuffers() {
-        List<LayoutInfo> layoutInfos = keyShader.getLayoutInfos();
+    val descriptorSets = Seq(
+      createUpdatedDescriptorSet(keyPipeline.descriptorSetLayouts.head, Seq(in, keys)),
+      createUpdatedDescriptorSet(preparePipeline.descriptorSetLayouts.head, Seq(order1, data1)),
+      createUpdatedDescriptorSet(sortPipeline.descriptorSetLayouts.head, Seq(keys, order1, order2, data1, data2)),
+      createUpdatedDescriptorSet(sortPipeline.descriptorSetLayouts.head, Seq(keys, order2, order1, data2, data1)),
+      createUpdatedDescriptorSet(copyPipeline.descriptorSetLayouts.head, Seq(in, out, outOrder, size))
+    )
+    (descriptorSets, buffers.toSeq)
+  }
 
-        int[] sizes = {layoutInfos.get(0).getSize(), layoutInfos.get(0).getSize(), 4, 4, 4};
-        for (int i = 0; i < sizes.length; i++) {
-            buffers.add(
-                    new Buffer(
-                            sizes[i] * dataLength,
-                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | bufferActions.get(i).getAction(),
-                            0,
-                            VMA_MEMORY_USAGE_GPU_ONLY,
-                            allocator
-                    )
-            );
-        }
+  protected def recordCommandBuffer(commandBuffer: VkCommandBuffer): Unit = {
+    val Seq(keySet, prepSet, sort1Set, sort2Set, copySet) = descriptorSets
 
-        for (int i = 0; i < 2; i++) {
-            buffers.add(
-                    new Buffer(
-                            8,
-                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                            0,
-                            VMA_MEMORY_USAGE_GPU_ONLY,
-                            allocator
-                    )
-            );
-        }
+    val Seq(inBuffer, outBuffer, keysBuffer, order1Buffer, order2Buffer, data1Buffer, data2Buffer, sizeBuffer) = buffers.toSeq
 
-        buffers.add(
-                new Buffer(
-                        4,
-                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                        0,
-                        VMA_MEMORY_USAGE_CPU_TO_GPU,
-                        allocator
-                )
+    Using(stackPush()) { stack =>
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, keyPipeline.get);
+
+      var pDescriptorSets = stack.longs(keySet.get);
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, keyPipeline.pipelineLayout, 0, pDescriptorSets, null);
+
+      var workgroup = keyShader.workgroupDimensions;
+      vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
+
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, preparePipeline.get);
+
+      pDescriptorSets = stack.longs(prepSet.get);
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, preparePipeline.pipelineLayout, 0, pDescriptorSets, null);
+
+      workgroup = preparePipeline.computeShader.workgroupDimensions
+      vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
+
+      var bufferMemoryBarriers = getMemoryBarriers(Seq(keysBuffer, order1Buffer, data1Buffer))
+      vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        null,
+        bufferMemoryBarriers,
+        null
+      )
+
+      val buffersSet1 = Seq(order1Buffer, data1Buffer)
+      val buffersSet2 = Seq(order2Buffer, data2Buffer)
+
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, sortPipeline.get);
+
+      for (i <- 0 until sortPasses) do {
+        pDescriptorSets = stack.longs(if (i % 2 == 0) sort1Set.get else sort2Set.get);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, sortPipeline.pipelineLayout, 0, pDescriptorSets, null);
+
+        workgroup = sortPipeline.computeShader.workgroupDimensions
+        vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
+
+        bufferMemoryBarriers = getMemoryBarriers(if (i % 2 != 0) buffersSet1 else buffersSet2)
+        vkCmdPipelineBarrier(
+          commandBuffer,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          0,
+          null,
+          bufferMemoryBarriers,
+          null
         );
+      }
 
-        Buffer in = buffers.get(0),
-                out = buffers.get(1),
-                keys = buffers.get(2),
-                order1 = buffers.get(3),
-                order2 = buffers.get(4),
-                data1 = buffers.get(5),
-                data2 = buffers.get(6),
-                size = buffers.get(7);
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, copyPipeline.get);
 
+      pDescriptorSets = stack.longs(copySet.get)
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, copyPipeline.pipelineLayout, 0, pDescriptorSets, null);
 
-        try (MemoryStack stack = stackPush()) {
-            var sizeData = stack.calloc(4 * 2);
-            sizeData.asIntBuffer().put(this.dataLength).put(this.dataLength);
-            Buffer.copyBuffer(sizeData, size, sizeData.remaining());
-        }
-
-        Buffer outOrder = (sortPasses % 2 == 0) ? order1 : order2;
-
-        List<DescriptorSet> descriptorSets = Arrays.asList(
-                createUpdatedDescriptorSet(keyPipeline.getDescriptorSetLayouts()[0], Arrays.asList(in, keys)),
-                createUpdatedDescriptorSet(preparePipeline.getDescriptorSetLayouts()[0], Arrays.asList(order1, data1)),
-                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[0], Arrays.asList(keys, order1, order2, data1, data2)),
-                createUpdatedDescriptorSet(sortPipeline.getDescriptorSetLayouts()[0], Arrays.asList(keys, order2, order1, data2, data1)),
-                createUpdatedDescriptorSet(copyPipeline.getDescriptorSetLayouts()[0], Arrays.asList(in, out, outOrder, size))
-        );
-        this.descriptorSets.addAll(descriptorSets);
+      workgroup = copyPipeline.computeShader.workgroupDimensions
+      vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
     }
+  }
 
-    private static List<BufferAction> createBufferActions() {
-        int[] actions = {VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0, 0, 0, 0, 0, 0};
-        return IntStream.of(actions).mapToObj(BufferAction::new).collect(Collectors.toList());
+  private def getMemoryBarriers(buffers: Seq[Buffer]): VkBufferMemoryBarrier.Buffer = {
+    val bufferMemoryBarriers = VkBufferMemoryBarrier.callocStack(buffers.size);
+
+    for (i <- buffers.indices) do
+      bufferMemoryBarriers
+        .get(i)
+        .pNext(0)
+        .sType(VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER)
+        .srcAccessMask(VK_ACCESS_SHADER_WRITE_BIT)
+        .dstAccessMask(VK_ACCESS_SHADER_READ_BIT)
+        .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+        .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+        .buffer(buffers(i).get)
+        .offset(0)
+        .size(VK_WHOLE_SIZE);
+    bufferMemoryBarriers
+  }
+
+  def getBiggestTransportData: Int = keyShader.layoutInfos.head.size
+
+  def destroy(): Unit = {
+    Seq(preparePipeline, copyPipeline, sortPipeline).foreach { pipeline =>
+      pipeline.computeShader.destroy();
+      pipeline.destroy();
     }
+    super.destroy();
+  }
+}
 
-    override     protected void recordCommandBuffer(VkCommandBuffer commandBuffer) {
-        DescriptorSet keySet = descriptorSets.get(0),
-                prepSet = descriptorSets.get(1),
-                sort1Set = descriptorSets.get(2),
-                sort2Set = descriptorSets.get(3),
-                copySet = descriptorSets.get(4);
+object SortByKeyExecutor {
 
-        Buffer inBuffer = buffers.get(0),
-                outBuffer = buffers.get(1),
-                keysBuffer = buffers.get(2),
-                order1Buffer = buffers.get(3),
-                order2Buffer = buffers.get(4),
-                data1Buffer = buffers.get(5),
-                data2Buffer = buffers.get(6),
-                sizeBuffer = buffers.get(7);
+  private def createBufferActions: Seq[BufferAction] =
+    Seq(LOAD_INTO, LOAD_FROM, DO_NOTHING, DO_NOTHING, DO_NOTHING, DO_NOTHING, DO_NOTHING, DO_NOTHING)
 
-        try (MemoryStack stack = stackPush()) {
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, keyPipeline.get());
-
-            LongBuffer pDescriptorSets = stack.longs(keySet.get());
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, keyPipeline.getPipelineLayout(), 0, pDescriptorSets, null);
-
-            Vector3ic workgroup = keyShader.getWorkgroupDimensions();
-            vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
-
-
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, preparePipeline.get());
-
-            pDescriptorSets = stack.longs(prepSet.get());
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, preparePipeline.getPipelineLayout(), 0, pDescriptorSets, null);
-
-            workgroup = preparePipeline.getComputeShader().getWorkgroupDimensions();
-            vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
-
-            var bufferMemoryBarriers = getMemoryBarriers(Arrays.asList(keysBuffer, order1Buffer, data1Buffer));
-            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, null, bufferMemoryBarriers, null);
-
-
-            var buffersSet1 = Arrays.asList(order1Buffer, data1Buffer);
-            var buffersSet2 = Arrays.asList(order2Buffer, data2Buffer);
-
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, sortPipeline.get());
-
-            for (int i = 0; i < sortPasses; i++) {
-                pDescriptorSets = stack.longs((i % 2 == 0) ? sort1Set.get() : sort2Set.get());
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, sortPipeline.getPipelineLayout(), 0, pDescriptorSets, null);
-
-                workgroup = sortPipeline.getComputeShader().getWorkgroupDimensions();
-                vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
-
-                bufferMemoryBarriers = getMemoryBarriers((i % 2 != 0) ? buffersSet1 : buffersSet2);
-                vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, null, bufferMemoryBarriers, null);
-            }
-
-
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, copyPipeline.get());
-
-            pDescriptorSets = stack.longs(copySet.get());
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, copyPipeline.getPipelineLayout(), 0, pDescriptorSets, null);
-
-            workgroup = copyPipeline.getComputeShader().getWorkgroupDimensions();
-            vkCmdDispatch(commandBuffer, dataLength / workgroup.x(), 1 / workgroup.y(), 1 / workgroup.z());
-        }
+  private def getNumberOfPasses(dataLength: Int): Int = {
+    var remaining = dataLength;
+    var d = 0;
+    while (remaining > 1) {
+      if (remaining % 2 != 0)
+        throw new IllegalArgumentException("Number of data must be power of 2");
+      remaining = remaining / 2;
+      d = d + 1;
     }
+    (d * d + d) / 2;
+  }
 
+  private def createCopyPipeline(context: VulkanContext): ComputePipeline = {
+    val shader = new Shader(
+      Shader.loadShader("copy.spv"),
+      new Vector3i(1024, 1, 1),
+      Seq(LayoutInfo(0, 0, 4), LayoutInfo(0, 1, 4), LayoutInfo(0, 2, 4), LayoutInfo(0, 3, 4)),
+      "main",
+      context.device
+    )
+    new ComputePipeline(shader, context);
+  }
 
-    private VkBufferMemoryBarrier.Buffer getMemoryBarriers(List<Buffer> buffers) {
-        var bufferMemoryBarriers = VkBufferMemoryBarrier.callocStack(buffers.size());
+  private def createSortPipeline(context: VulkanContext): ComputePipeline = {
+    val shader = new Shader(
+      Shader.loadShader("sort.spv"),
+      new Vector3i(1024, 1, 1),
+      Seq(LayoutInfo(0, 0, 4), LayoutInfo(0, 1, 4), LayoutInfo(0, 2, 4), LayoutInfo(0, 3, 4), LayoutInfo(0, 4, 4)),
+      "main",
+      context.device
+    )
+    new ComputePipeline(shader, context);
+  }
 
-        for (int i = 0; i < buffers.size(); i++) {
-            bufferMemoryBarriers.get(i)
-                    .pNext(0)
-                    .sType(VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER)
-                    .srcAccessMask(VK_ACCESS_SHADER_WRITE_BIT)
-                    .dstAccessMask(VK_ACCESS_SHADER_READ_BIT)
-                    .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                    .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                    .buffer(buffers.get(i).get())
-                    .offset(0)
-                    .size(VK_WHOLE_SIZE);
-        }
-        return bufferMemoryBarriers;
-    }
-
-    override     protected int getBiggestTransportData() {
-        return keyShader.getLayoutInfos().get(0).getSize();
-    }
-
-    private static ComputePipeline createCopyPipeline(VulkanContext context) {
-        Shader shader = new Shader(
-                Shader.loadShader("copy.spv"),
-                new Vector3i(1024, 1, 1),
-                Arrays.asList(
-                        new LayoutInfo(0, 0, 4),
-                        new LayoutInfo(0, 1, 4),
-                        new LayoutInfo(0, 2, 4),
-                        new LayoutInfo(0, 3, 4)
-                ),
-                "main",
-                context.getDevice()
-        );
-
-        return new ComputePipeline(shader, context);
-    }
-
-    private static ComputePipeline createSortPipeline(VulkanContext context) {
-        Shader shader = new Shader(
-                Shader.loadShader("sort.spv"),
-                new Vector3i(1024, 1, 1),
-                Arrays.asList(
-                        new LayoutInfo(0, 0, 4),
-                        new LayoutInfo(0, 1, 4),
-                        new LayoutInfo(0, 2, 4),
-                        new LayoutInfo(0, 3, 4),
-                        new LayoutInfo(0, 4, 4)
-                ),
-                "main",
-                context.getDevice()
-        );
-
-        return new ComputePipeline(shader, context);
-    }
-
-    private static ComputePipeline createPreparePipeline(VulkanContext context) {
-        Shader shader = new Shader(
-                Shader.loadShader("prepare.spv"),
-                new Vector3i(1024, 1, 1),
-                Arrays.asList(
-                        new LayoutInfo(0, 0, 4),
-                        new LayoutInfo(0, 1, 4)
-                ),
-                "main",
-                context.getDevice()
-        );
-
-        return new ComputePipeline(shader, context);
-    }
-
-    override     void destroy() {
-        Stream.of(preparePipeline, copyPipeline, sortPipeline).forEach(pipeline -> {
-            pipeline.getComputeShader().destroy();
-            pipeline.destroy();
-        });
-
-        super.destroy();
-    }
+  private def createPreparePipeline(context: VulkanContext): ComputePipeline = {
+    val shader =
+      new Shader(Shader.loadShader("prepare.spv"), new Vector3i(1024, 1, 1), Seq(LayoutInfo(0, 0, 4), LayoutInfo(0, 1, 4)), "main", context.device)
+    new ComputePipeline(shader, context);
+  }
 }

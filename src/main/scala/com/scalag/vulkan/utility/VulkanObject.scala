@@ -4,7 +4,7 @@ package com.scalag.vulkan.utility;
   *   MarconZet Created 13.04.2020
   */
 abstract class VulkanObject {
-  protected var alive: Boolean = false
+  protected var alive: Boolean = true
 
   def destroy(): Unit = {
     if (!alive)
@@ -12,15 +12,6 @@ abstract class VulkanObject {
     close();
     alive = false;
   }
-
-  protected def create(): Unit = {
-    if (alive)
-      throw new IllegalStateException();
-    init();
-    alive = true;
-  }
-
-  protected def init(): Unit
 
   protected def close(): Unit
 

@@ -1,58 +1,31 @@
 package com.scalag.vulkan.command;
 
-import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.utility.VulkanObject;
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkQueue;
-import org.lwjgl.vulkan.VkSubmitInfo;
+import com.scalag.vulkan.core.Device
+import com.scalag.vulkan.utility.VulkanObject
+import org.lwjgl.PointerBuffer
+import org.lwjgl.system.MemoryStack
+import org.lwjgl.vulkan.VkQueue
+import org.lwjgl.vulkan.VkSubmitInfo
+import org.lwjgl.system.MemoryStack.stackPush
+import org.lwjgl.vulkan.VK10.vkGetDeviceQueue
+import org.lwjgl.vulkan.VK10.vkQueueSubmit
 
-import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.vkGetDeviceQueue;
-import static org.lwjgl.vulkan.VK10.vkQueueSubmit;
+import scala.util.Using;
 
-/**
- * @author MarconZet
- * Created 13.04.2020
- * Copied from Wrap
- */
-class Queue extends VulkanObject {
-    private VkQueue queue;
+/** @author
+  *   MarconZet Created 13.04.2020
+  */
+class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends VulkanObject {
+  private val queue: VkQueue = Using(stackPush()) { stack =>
+    val pQueue = stack.callocPointer(1);
+    vkGetDeviceQueue(device.get, familyIndex, queueIndex, pQueue);
+    new VkQueue(pQueue.get(0), device.get);
+  }.get
 
-    private int familyIndex;
-    private int queueIndex;
+  def submit(submitInfo: VkSubmitInfo, fence: Fence): Int = this.synchronized {
+    vkQueueSubmit(queue, submitInfo, fence.get);
+  }
 
-    private Device device;
-
-    Queue(int familyIndex, int queueIndex, Device device) {
-        this.familyIndex = familyIndex;
-        this.queueIndex = queueIndex;
-        this.device = device;
-        create();
-    }
-
-    synchronized int submit(VkSubmitInfo submitInfo, Fence fence) {
-        return vkQueueSubmit(queue, submitInfo, fence.get());
-    }
-
-    override     protected void init() {
-        try (MemoryStack stack = stackPush()) {
-            PointerBuffer pQueue = stack.callocPointer(1);
-            vkGetDeviceQueue(device.get(), familyIndex, queueIndex, pQueue);
-            queue = new VkQueue(pQueue.get(0), device.get());
-        }
-    }
-
-    override     protected void close() {
-
-    }
-
-    int getFamilyIndex() {
-        return familyIndex;
-    }
-
-    VkQueue get() {
-        return queue;
-    }
+  def get: VkQueue = queue
 
 }

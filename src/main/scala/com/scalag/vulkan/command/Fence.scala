@@ -1,87 +1,61 @@
 package com.scalag.vulkan.command;
 
-import com.scalag.vulkan.core.Device;
-import com.scalag.vulkan.utility.VulkanAssertionError;
-import com.scalag.vulkan.utility.VulkanObjectHandle;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkFenceCreateInfo;
+import com.scalag.vulkan.core.Device
+import com.scalag.vulkan.utility.VulkanAssertionError
+import com.scalag.vulkan.utility.VulkanObjectHandle
+import org.lwjgl.system.MemoryStack
+import org.lwjgl.vulkan.VkFenceCreateInfo
 
-import java.nio.LongBuffer;
+import java.nio.LongBuffer
+import org.lwjgl.system.MemoryStack.stackPush
+import org.lwjgl.vulkan.VK10.*
 
-import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.vulkan.VK10.*;
+import scala.util.Using;
 
-/**
- * @author MarconZet
- * Created 13.04.2020
- * Copied from Wrap
- */
-class Fence extends VulkanObjectHandle {
-    private Runnable runnable;
-    int flags;
+/** @author
+  *   MarconZet Created 13.04.2020 Copied from Wrap
+  */
+class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit = () => ()) extends VulkanObjectHandle {
+  protected val handle: Long = Using(stackPush()) { stack =>
+    val fenceInfo = VkFenceCreateInfo
+      .callocStack()
+      .sType(VK_STRUCTURE_TYPE_FENCE_CREATE_INFO)
+      .pNext(VK_NULL_HANDLE)
+      .flags(flags);
 
-    private Device device;
+    val pFence = stack.callocLong(1);
+    val err = vkCreateFence(device.get, fenceInfo, null, pFence);
+    if (err != VK_SUCCESS)
+      throw new VulkanAssertionError("Failed to create fence", err);
+    pFence.get();
+  }.get
 
-    Fence(Device device) {
-        this(device, 0);
-    }
+  override def close(): Unit = {
+    onDestroy.apply()
+    vkDestroyFence(device.get, handle, null);
+  }
 
-    Fence(Device device, int flags) {
-        this.device = device;
-        this.flags = flags;
-        create();
-    }
+  def isSignaled: Boolean = {
+    val result = vkGetFenceStatus(device.get, handle);
+    if (!(result == VK_SUCCESS || result == VK_NOT_READY))
+      throw new VulkanAssertionError("Failed to get fence status", result);
+    result == VK_SUCCESS;
+  }
 
-    Fence onDestroy(Runnable runnable) {
-        this.runnable = runnable;
-        return this;
-    }
+  def reset(): Fence = {
+    vkResetFences(device.get, handle);
+    this;
+  }
 
-    override     protected void init() {
-        try (MemoryStack stack = stackPush()) {
-            VkFenceCreateInfo fenceInfo = VkFenceCreateInfo.callocStack()
-                    .sType(VK_STRUCTURE_TYPE_FENCE_CREATE_INFO)
-                    .pNext(VK_NULL_HANDLE)
-                    .flags(flags);
+  def block(): Fence = {
+    block(Long.MaxValue);
+    this;
+  }
 
-            LongBuffer pFence = stack.callocLong(1);
-            int err = vkCreateFence(device.get(), fenceInfo, null, pFence);
-            if (err != VK_SUCCESS) {
-                throw new VulkanAssertionError("Failed to create fence", err);
-            }
-            handle = pFence.get();
-        }
-    }
-
-    override     void close() {
-        if (runnable != null)
-            runnable.run();
-        vkDestroyFence(device.get(), handle, null);
-    }
-
-    boolean isSignaled() {
-        int result = vkGetFenceStatus(device.get(), handle);
-        if (!(result == VK_SUCCESS || result == VK_NOT_READY)) {
-            throw new VulkanAssertionError("Failed to get fence status", result);
-        }
-        return result == VK_SUCCESS;
-    }
-
-    Fence reset() {
-        vkResetFences(device.get(), handle);
-        return this;
-    }
-
-    Fence block() {
-        block(Long.MAX_VALUE);
-        return this;
-    }
-
-    boolean block(long timeout) {
-        int err = vkWaitForFences(device.get(), handle, true, timeout);
-        if (err != VK_SUCCESS && err != VK_TIMEOUT) {
-            throw new VulkanAssertionError("Failed to wait for fences", err);
-        }
-        return err == VK_SUCCESS;
-    }
+  def block(timeout: Long): Boolean = {
+    val err = vkWaitForFences(device.get, handle, true, timeout);
+    if (err != VK_SUCCESS && err != VK_TIMEOUT)
+      throw new VulkanAssertionError("Failed to wait for fences", err);
+    err == VK_SUCCESS;
+  }
 }

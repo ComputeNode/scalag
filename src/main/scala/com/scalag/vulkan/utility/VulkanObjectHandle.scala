@@ -4,7 +4,7 @@ package com.scalag.vulkan.utility;
   *   MarconZet Created 13.04.2020
   */
 abstract class VulkanObjectHandle extends VulkanObject {
-  protected var handle: Long = 0L;
+  protected val handle: Long
 
   def get: Long =
     if (!alive)

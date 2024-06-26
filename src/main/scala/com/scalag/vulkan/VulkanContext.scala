@@ -25,12 +25,11 @@ object VulkanContext {
 }
 
 class VulkanContext(val enableValidationLayers: Boolean = false) {
-
   val instance: Instance = new Instance(enableValidationLayers);
-  val debugCallback: DebugCallback = (enableValidationLayers) ? new DebugCallback(instance): null;
+  val debugCallback: DebugCallback = if (enableValidationLayers) new DebugCallback(instance) else null;
   val device: Device = new Device(enableValidationLayers, instance);
-  val computeQueue: Allocator = new Queue(device.getComputeQueueFamily(), 0, device);
-  val allocator: Queue = new Allocator(instance, device);
+  val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device);
+  val allocator: Allocator = new Allocator(instance, device);
   val descriptorPool: DescriptorPool = new DescriptorPool(device);
   val commandPool: CommandPool = new StandardCommandPool(device, computeQueue);
 
