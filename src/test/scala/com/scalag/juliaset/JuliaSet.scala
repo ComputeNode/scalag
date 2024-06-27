@@ -41,7 +41,7 @@ class JuliaSet {
         def juliaSet(uv: Vec2[Float32]): Int32 =
           GSeq.gen(uv, next = v => {
             ((v.x * v.x) - (v.y * v.y), 2.0f * v.x * v.y) + const
-          }).limit(RECURSION_LIMIT).map(length).takeUntil(_ < 2.0f).count
+          }).limit(RECURSION_LIMIT).map(length).takeWhile(_ < 2.0f).count
 
         def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] =
           val newXAxis = (cos(angle), sin(angle))

@@ -1,8 +1,9 @@
 package com.scalag
 
 import com.scalag.Algebra.FromExpr
+import com.scalag.Control.when
 import com.scalag.Expression.*
-import com.scalag.Functions.{Cross, Sin}
+import com.scalag.Functions.{Cross, Sin, clamp}
 import com.scalag.Value.*
 import izumi.reflect.Tag
 
@@ -227,3 +228,18 @@ object Algebra:
     Vec4(ComposeVec4(toFloat32(x), toFloat32(y), toFloat32(z), toFloat32(w)))
   def vec3(x: FloatOrFloat32, y: FloatOrFloat32, z: FloatOrFloat32): Vec3[Float32] = 
     Vec3(ComposeVec3(toFloat32(x), toFloat32(y), toFloat32(z)))
+  
+  def vec4(f: FloatOrFloat32): Vec4[Float32] = (f, f, f, f)
+  def vec3(f: FloatOrFloat32): Vec3[Float32] = (f, f, f)
+  // todo replace below ones to ext functions
+
+  extension (v: Vec3[Float32])
+    def mulV(v2: Vec3[Float32]): Vec3[Float32] = (v.x * v2.x, v.y * v2.y, v.z * v2.z)
+    def addV(v2: Vec3[Float32]): Vec3[Float32] = (v.x + v2.x, v.y + v2.y, v.z + v2.z)
+    def divV(v2: Vec3[Float32]): Vec3[Float32] = (v.x / v2.x, v.y / v2.y, v.z / v2.z)
+
+  
+  def vclamp(v: Vec3[Float32], min: Float32, max: Float32): Vec3[Float32] =
+    (clamp(v.x, min, max), clamp(v.y, min, max), clamp(v.z, min, max))
+  
+  

@@ -449,16 +449,19 @@ object DSLCompiler {
       )
     (instructions, updatedContext)
 
-  private val fnOpMap: Map[FunctionSpec, Code] = Map(
+  private val fnOpMap: Map[FunctionName, Code] = Map(
     Functions.Sin -> GlslOp.Sin,
     Functions.Cos -> GlslOp.Cos,
     Functions.Tan -> GlslOp.Tan,
     Functions.Len2 -> GlslOp.Length,
     Functions.Len3 -> GlslOp.Length,
-    Functions.PowF -> GlslOp.Pow,
+    Functions.Pow -> GlslOp.Pow,
     Functions.Smoothstep -> GlslOp.SmoothStep,
     Functions.Sqrt -> GlslOp.Sqrt,
-    Functions.Cross -> GlslOp.Cross
+    Functions.Cross -> GlslOp.Cross,
+    Functions.Clamp -> GlslOp.FClamp,
+    Functions.Mix -> GlslOp.FMix,
+    Functions.Abs -> GlslOp.FAbs
   )
 
   def compileFunctionCall(expr: DigestedExpression, call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =

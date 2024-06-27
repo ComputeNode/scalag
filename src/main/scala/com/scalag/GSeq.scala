@@ -56,7 +56,7 @@ class GSeq[T <: Value : Tag : FromExpr](
       fn(currentElem).tree
     ))
 
-  def takeUntil(fn: T => GBoolean): GSeq[T] =
+  def takeWhile(fn: T => GBoolean): GSeq[T] =
     this.copyWithDynamicTrees(elemOps = elemOps :+ GSeq.TakeUntilOp(
       fn(currentElem).tree
     ))
