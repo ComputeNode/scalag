@@ -13,7 +13,10 @@ import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
+import scala.collection.mutable
+import scala.math.random
 import scala.runtime.stdLibPatches.Predef.summon
+import scala.util.Random
 
 object DSLCompiler {
   val scalagVendorId: Byte = 44 // https://github.com/KhronosGroup/SPIRV-Headers/blob/main/include/spirv/spir-v.xml#L52
@@ -31,18 +34,31 @@ object DSLCompiler {
   val GL_GLOBAL_INVOCATION_ID_REF = 5
   val GL_WORKGROUP_SIZE_REF = 6
   val HEADER_REFS_TOP = 7
+  
+  val Int32Tag = summon[Tag[Int32]]
+  val UInt32Tag = summon[Tag[UInt32]]
+  val Float32Tag = summon[Tag[Float32]]
+  val GBooleanTag = summon[Tag[GBoolean]]
+  val Vec2TagWithoutArgs = summon[Tag[Vec2[_]]].tag.withoutArgs
+  val Vec3TagWithoutArgs = summon[Tag[Vec3[_]]].tag.withoutArgs
+  val Vec4TagWithoutArgs = summon[Tag[Vec4[_]]].tag.withoutArgs
+  val Vec2Tag = summon[Tag[Vec2[_]]]
+  val Vec3Tag = summon[Tag[Vec3[_]]]
+  val Vec4Tag = summon[Tag[Vec4[_]]]
+  
+  
 
   def scalarTypeDefInsn(tag: Tag[_], typeDefIndex: Int) = tag match {
-    case t if t == summon[Tag[Int32]] => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(1)))
-    case t if t == summon[Tag[UInt32]] => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(0)))
-    case t if t == summon[Tag[Float32]] => Instruction(Op.OpTypeFloat, List(ResultRef(typeDefIndex), IntWord(32)))
-    case t if t == summon[Tag[GBoolean]] => Instruction(Op.OpTypeBool, List(ResultRef(typeDefIndex)))
+    case t if t == Int32Tag => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(1)))
+    case t if t == UInt32Tag => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(0)))
+    case t if t == Float32Tag => Instruction(Op.OpTypeFloat, List(ResultRef(typeDefIndex), IntWord(32)))
+    case t if t == GBooleanTag => Instruction(Op.OpTypeBool, List(ResultRef(typeDefIndex)))
   }
 
   val typeStride = Map[Tag[_], Int](
-    summon[Tag[Int32]] -> 4,
-    summon[Tag[UInt32]] -> 4,
-    summon[Tag[Float32]] -> 4,
+    Int32Tag -> 4,
+    UInt32Tag -> 4,
+    Float32Tag -> 4,
     summon[Tag[Vec2[Float32]]] -> 8,
     summon[Tag[Vec2[Int32]]] -> 8,
     summon[Tag[Vec2[UInt32]]] -> 8,
@@ -117,7 +133,7 @@ object DSLCompiler {
   type Vec3C[T <: Value] = Vec3[T]
   type Vec4C[T <: Value] = Vec4[T]
   def defineScalarTypes(types: List[Tag[_]]): (List[Words], Context) = {
-    val basicTypes = List(summon[Tag[Int32]], summon[Tag[Float32]], summon[Tag[UInt32]], summon[Tag[GBoolean]])
+    val basicTypes = List(Int32Tag, Float32Tag, UInt32Tag, GBooleanTag)
     (basicTypes ::: types).distinct.foldLeft((List[Words](), initialContext)) {
       case ((words, ctx), valType) =>
         val typeDefIndex = ctx.nextResultId
@@ -182,7 +198,7 @@ object DSLCompiler {
   def defineStructTypes(list: List[GStructSchema[_]], context: Context): (List[Words], Context) =
     list.distinctBy(_.structTag).foldLeft((List[Words](), context)) {
       case ((words, ctx), schema) =>
-        (List(
+        (words ::: List(
           Instruction(Op.OpTypeStruct, List(
             ResultRef(ctx.nextResultId),
           ) ::: schema.fields.map(_._3).map(t => ctx.valueTypeMap(t.tag)).map(ResultRef.apply)),
@@ -200,12 +216,10 @@ object DSLCompiler {
 
 
 
-
-
   def getVectorType(ctx: Context, v: Tag[_], s: Tag[_]) = {
     val vElems = v match {
-      case v if v.tag.withoutArgs == summon[Tag[Vec2[_]]].tag.withoutArgs => 2
-      case v if v == summon[Tag[Vec3[_]]] => 3
+      case v if v.tag.withoutArgs == Vec2TagWithoutArgs => 2
+      case v if v.tag.withoutArgs == Vec3TagWithoutArgs => 3
     }
   }
 
@@ -302,9 +316,9 @@ object DSLCompiler {
 
   def createInvocationId(context: Context): (List[Words], Context) = {
     val definitionInstructions = List(
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(summon[Tag[Int32]])), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(summon[Tag[Int32]])), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(summon[Tag[Int32]])), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(Int32Tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(Int32Tag)), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(Int32Tag)), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
       Instruction(Op.OpConstantComposite, List(
         IntWord(context.vectorTypeMap(summon[Tag[Vec3[Int32]]].tag)),
         ResultRef(GL_WORKGROUP_SIZE_REF),
@@ -317,11 +331,11 @@ object DSLCompiler {
   }
 
   def toWord(tpe: Tag[_], value: Any): Words = tpe match {
-    case t if t == summon[Tag[Int32]] =>
+    case t if t == Int32Tag =>
       IntWord(value.asInstanceOf[Int])
-    case t if t == summon[Tag[UInt32]] =>
+    case t if t == UInt32Tag =>
       IntWord(value.asInstanceOf[Int]) // todo maybe handle pseudo-unsigned from Scala
-    case t if t == summon[Tag[Float32]] =>
+    case t if t == Float32Tag =>
       val fl = value match {
         case fl: Float => fl
         case dl: Double => dl.toFloat
@@ -334,7 +348,7 @@ object DSLCompiler {
     val consts = (exprs.collect {
       case DigestedExpression(_, c@Const(x), _, _) =>
         (c.tag, x)
-    } ::: List((summon[Tag[Int32]], 0), (summon[Tag[UInt32]], 0))).distinct
+    } ::: List((Int32Tag, 0), (UInt32Tag, 0))).distinct.filterNot(_._1 == GBooleanTag)
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {
       case ((instructions, context), const) =>
         val insn = Instruction(Op.OpConstant, List(
@@ -350,19 +364,19 @@ object DSLCompiler {
     }
     val withBool = insns ::: List(
       Instruction(Op.OpConstantTrue, List(
-        ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+        ResultRef(ctx.scalarTypeMap(GBooleanTag)),
         ResultRef(newC.nextResultId)
       )),
       Instruction(Op.OpConstantFalse, List(
-        ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+        ResultRef(ctx.scalarTypeMap(GBooleanTag)),
         ResultRef(newC.nextResultId + 1)
       ))
     )
     (withBool, newC.copy(
       nextResultId = newC.nextResultId + 2,
       constRefs = newC.constRefs ++ Map(
-        (summon[Tag[GBoolean]], true) -> (newC.nextResultId),
-        (summon[Tag[GBoolean]], false) -> (newC.nextResultId + 1)
+        (GBooleanTag, true) -> (newC.nextResultId),
+        (GBooleanTag, false) -> (newC.nextResultId + 1)
       )
     ))
   }
@@ -372,7 +386,7 @@ object DSLCompiler {
       List(Instruction(
         Op.OpVariable,
         List(
-          ResultRef(ctx.inputVecPointerMap(ctx.scalarTypeMap(summon[Tag[Int32]]))),
+          ResultRef(ctx.inputVecPointerMap(ctx.scalarTypeMap(Int32Tag))),
           ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
           StorageClass.Input
         ))),
@@ -416,10 +430,12 @@ object DSLCompiler {
     val tpe = cexpr.tag
     val typeRef = ctx.scalarTypeMap(tpe)
     val tfOpcode = (cexpr.fromTag, expr.expr) match {
-      case (from, _: ToFloat32[_]) if from.tag =:= summon[Tag[Int32]].tag => Op.OpConvertSToF
-      case (from, _: ToFloat32[_]) if from.tag =:= summon[Tag[UInt32]].tag => Op.OpConvertUToF
-      case (from, _: ToInt32[_]) if from.tag =:= summon[Tag[Float32]].tag => Op.OpConvertFToS
-      case (from, _: ToUInt32[_]) if from.tag =:= summon[Tag[Float32]].tag => Op.OpConvertFToU
+      case (from, _: ToFloat32[_]) if from.tag =:= Int32Tag.tag => Op.OpConvertSToF
+      case (from, _: ToFloat32[_]) if from.tag =:= UInt32Tag.tag => Op.OpConvertUToF
+      case (from, _: ToInt32[_]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToS
+      case (from, _: ToUInt32[_]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToU
+      case (from, _: ToInt32[_]) if from.tag =:= UInt32Tag.tag => Op.OpBitcast
+      case (from, _: ToUInt32[_]) if from.tag =:= Int32Tag.tag => Op.OpBitcast
     }
     val instructions = List(
       Instruction(tfOpcode, List(
@@ -433,15 +449,19 @@ object DSLCompiler {
       )
     (instructions, updatedContext)
 
-  private val fnOpMap: Map[FunctionSpec, Code] = Map(
+  private val fnOpMap: Map[FunctionName, Code] = Map(
     Functions.Sin -> GlslOp.Sin,
     Functions.Cos -> GlslOp.Cos,
     Functions.Tan -> GlslOp.Tan,
     Functions.Len2 -> GlslOp.Length,
     Functions.Len3 -> GlslOp.Length,
-    Functions.PowF -> GlslOp.Pow,
+    Functions.Pow -> GlslOp.Pow,
     Functions.Smoothstep -> GlslOp.SmoothStep,
-    Functions.Sqrt -> GlslOp.Sqrt
+    Functions.Sqrt -> GlslOp.Sqrt,
+    Functions.Cross -> GlslOp.Cross,
+    Functions.Clamp -> GlslOp.FClamp,
+    Functions.Mix -> GlslOp.FMix,
+    Functions.Abs -> GlslOp.FAbs
   )
 
   def compileFunctionCall(expr: DigestedExpression, call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =
@@ -526,10 +546,12 @@ object DSLCompiler {
               compileBinaryOpExpression(expr, b, ctx)
 
             case negate: Negate[_] =>
-              val op = if (negate.tag.tag <:< summon[Tag[FloatType]].tag) Op.OpFNegate else Op.OpSNegate
+              val op = if (negate.tag.tag <:< summon[Tag[FloatType]].tag || (negate.tag.tag <:< summon[Tag[Vec[_]]].tag && negate.tag.tag.typeArgs.head <:< summon[Tag[FloatType]].tag))
+                Op.OpFNegate 
+              else Op.OpSNegate
               val instructions = List(
                 Instruction(op, List(
-                  ResultRef(ctx.scalarTypeMap(negate.tag)),
+                  ResultRef(ctx.valueTypeMap(negate.tag.tag)),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
                 ))
@@ -546,7 +568,7 @@ object DSLCompiler {
             case and: And =>
               val instructions = List(
                 Instruction(Op.OpLogicalAnd, List(
-                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                   ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
@@ -561,7 +583,7 @@ object DSLCompiler {
             case or: Or =>
               val instructions = List(
                 Instruction(Op.OpLogicalOr, List(
-                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                   ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
@@ -576,7 +598,7 @@ object DSLCompiler {
             case not: Not =>
               val instructions = List(
                 Instruction(Op.OpLogicalNot, List(
-                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
                 ))
@@ -616,27 +638,12 @@ object DSLCompiler {
               )
               (instructions, updatedContext)
 
-            case cp: CrossProd[_] =>
-              val instructions = List(
-                Instruction(GlslOp.Cross, List(
-                  ResultRef(ctx.vectorTypeMap(cp.tag.tag)),
-                  ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
-                ))
-              )
-              val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
-                nextResultId = ctx.nextResultId + 1
-              )
-              (instructions, updatedContext)
-
             case co: ComparisonOpExpression[_] =>
               val (intOp, floatOp) = comparisonOp(co)
               val op = if (co.operandTag.tag <:< summon[Tag[FloatType]].tag) floatOp else intOp
               val instructions = List(
                 Instruction(op, List(
-                  ResultRef(ctx.scalarTypeMap(summon[Tag[GBoolean]])),
+                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
                   ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
@@ -721,7 +728,7 @@ object DSLCompiler {
                   ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(ga.tag.tag))),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.inBufferBlocks(index).blockVarRef),
-                  ResultRef(ctx.constRefs((summon[Tag[Int32]], 0))),
+                  ResultRef(ctx.constRefs((Int32Tag, 0))),
                   ResultRef(ctx.exprRefs(expr.dependencies.head.digest))
                 )),
                 Instruction(Op.OpLoad, List(
@@ -743,7 +750,6 @@ object DSLCompiler {
               GSeqCompiler.compileFold(expr, fd, ctx)
 
             case cs: ComposeStruct[_] =>
-              println("XD")
               val schema = cs.resultSchema.asInstanceOf[GStructSchema[_]]
               val fields = cs.fields
               val insns: List[Instruction] = List(
@@ -763,7 +769,7 @@ object DSLCompiler {
             case gf: GetField[_, _] =>
               val insns: List[Instruction] = List(
                 Instruction(Op.OpCompositeExtract, List(
-                  ResultRef(ctx.scalarTypeMap(gf.tag)),
+                  ResultRef(ctx.valueTypeMap(gf.tag.tag)),
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.exprRefs(expr.dependencies.head.digest)),
                   IntWord(gf.fieldIndex)
@@ -904,13 +910,13 @@ object DSLCompiler {
 
     val initWorkerIndex = List(
       Instruction(Op.OpAccessChain, List(
-        ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(summon[Tag[Int32]]))),
+        ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(Int32Tag))),
         ResultRef(ctx.nextResultId + 1),
         ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
-        ResultRef(ctx.constRefs(summon[Tag[Int32]], 0))
+        ResultRef(ctx.constRefs(Int32Tag, 0))
       )),
       Instruction(Op.OpLoad, List(
-        ResultRef(ctx.scalarTypeMap(summon[Tag[Int32]])),
+        ResultRef(ctx.scalarTypeMap(Int32Tag)),
         ResultRef(ctx.nextResultId + 2),
         ResultRef(ctx.nextResultId + 1)
       ))
@@ -928,7 +934,7 @@ object DSLCompiler {
         ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
         ResultRef(codeCtx.nextResultId),
         ResultRef(codeCtx.outBufferBlocks(0).blockVarRef),
-        ResultRef(codeCtx.constRefs((summon[Tag[Int32]], 0))),
+        ResultRef(codeCtx.constRefs((Int32Tag, 0))),
         ResultRef(codeCtx.workerIndexRef)
       )),
 
@@ -942,19 +948,49 @@ object DSLCompiler {
     (init ::: bubbledBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
   }
 
+  // its a bit weird, but with these two caches it went from 10 minutes to below 1s
+  private val allBlocksCache = mutable.Map[Int, List[DigestedExpression]]()
+  private var blockI = 0
+  def getAllBlocksExprs(root: DigestedExpression): List[DigestedExpression] = {
+    val visited = mutable.Set[Int]()
+    def getAllBlocksExprsAcc(root: DigestedExpression): List[DigestedExpression] = {
+      if (visited.contains(root.expr.treeid)) {
+        return Nil
+      }
+      if (allBlocksCache.contains(root.expr.treeid)) {
+        return allBlocksCache(root.expr.treeid)
+      }
+      val result = List(root).flatMap {
+        case d@DigestedExpression(_, _, deps, blockDeps) =>
+          d :: deps.flatMap(b => getAllBlocksExprsAcc(b)) ::: blockDeps.flatMap(b => getAllBlocksExprsAcc(b))
+      }
+      visited += root.expr.treeid
+      blockI += 1
+      if (blockI % 100 == 0) {
+        allBlocksCache.update(root.expr.treeid, result)
+      }
+      result
+    }
+    val result = getAllBlocksExprsAcc(root)
+    allBlocksCache(root.expr.treeid) = result
+    blockI += 1
+    result
+  }
+  
   def compile[T <: Value](returnVal: T, inTypes: List[Tag[_]], outTypes: List[Tag[_]]): ByteBuffer = {
     val tree = returnVal.tree
+    println("Compiling...")
+    println("Digesting...")
     val (digestTree, hash) = Digest.digest(tree)
+    println("Digest done!")
     val sorted = BlockBuilder.buildBlock(digestTree)
-    def getAllBlocksExprs(root: DigestedExpression): List[DigestedExpression] = List(root).flatMap {
-      case d@DigestedExpression(_, _, deps, blockDeps) =>
-        d :: deps.flatMap(getAllBlocksExprs) ::: blockDeps.flatMap(getAllBlocksExprs)
-    }
+ 
     val allBlockExprs = getAllBlocksExprs(digestTree)
+    println("Generated all blocks tree")
 
     val insnWithHeader = headers()
     val typesInCode = allBlockExprs.map(_.expr.tag)
-    val allTypes = (typesInCode ::: inTypes ::: outTypes)
+    val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes)
     val structsInCode = allBlockExprs.map(_.expr).collect {
