@@ -2,11 +2,11 @@ package com.scalag.api
 
 import com.scalag.Value
 import com.scalag.Value.*
+import com.scalag.vulkan.executor.{AbstractExecutor, BufferAction, MapExecutor, SortByKeyExecutor}
 
 import java.nio.ByteBuffer
 import org.lwjgl.BufferUtils
 import org.lwjgl.system.MemoryUtil
-import com.scalag.vulkan.executor.{AbstractExecutor, BufferAction, MapExecutor, SortByKeyExecutor}
 
 import scala.concurrent.ExecutionContext.Implicits.*
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,22 +29,21 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
 
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
-  def execute(executor: AbstractExecutor): Future[Array[R]] = {
+  def execute(executor: AbstractExecutor): Future[Array[R]] =
     Future {
-      val out = executor.execute(List(data).asJava).asScala
+      val out = executor.execute(List(data))
       executor.destroy()
       toResultArray(out.head)
     }
-  }
 
   def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] = {
-    val actions = List(new BufferAction(BufferAction.LOAD_INTO), new BufferAction(BufferAction.LOAD_FROM))
-    execute(new MapExecutor(size, actions.asJava, fn.pipeline, context.vkContext))
+    val actions = List(BufferAction.LOAD_INTO, BufferAction.LOAD_FROM)
+    execute(new MapExecutor(size, actions, fn.pipeline, context.vkContext))
   }
 
   def map(fn: GArray2DFunction[T, T])(implicit context: GContext): Future[Array[R]] = {
-    val actions = List(new BufferAction(BufferAction.LOAD_INTO), new BufferAction(BufferAction.LOAD_FROM))
-    execute(new MapExecutor(size, actions.asJava, fn.pipeline, context.vkContext))
+    val actions = List(BufferAction.LOAD_INTO, (BufferAction.LOAD_FROM))
+    execute(new MapExecutor(size, actions, fn.pipeline, context.vkContext))
   }
 
   def write(data: Array[R]): Unit
@@ -60,9 +59,8 @@ class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
     result
   }
 
-  def sort[R <: Value](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] = {
+  def sort[R <: Value](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] =
     execute(new SortByKeyExecutor(size, fn.pipeline, context.vkContext))
-  }
 
   def write(floats: Array[Float]): Unit = {
     data.rewind()
@@ -77,9 +75,8 @@ object FloatMem {
     floatMem
   }
 
-  def apply(size: Int): FloatMem = {
+  def apply(size: Int): FloatMem =
     new FloatMem(size)
-  }
 }
 
 type RGBA = (Float, Float, Float, Float)
@@ -89,9 +86,8 @@ class Vec4FloatMem(val size: Int) extends WritableGMem[Vec4[Float32], RGBA]:
   override protected def toResultArray(buffer: ByteBuffer): Array[RGBA] = {
     val res = buffer.asFloatBuffer()
     val result = new Array[RGBA](size)
-    for (i <- 0 until size) {
+    for (i <- 0 until size)
       result(i) = (res.get(), res.get(), res.get(), res.get())
-    }
     result
   }
 
@@ -114,7 +110,5 @@ object Vec4FloatMem:
     vec4FloatMem
   }
 
-  def apply(size: Int): Vec4FloatMem = {
+  def apply(size: Int): Vec4FloatMem =
     new Vec4FloatMem(size)
-  }
-
