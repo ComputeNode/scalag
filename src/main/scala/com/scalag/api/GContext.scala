@@ -10,15 +10,14 @@ import com.scalag.*
 
 import java.util.concurrent.Executors
 import com.scalag.compiler.DSLCompiler
-import com.scalag.vulkan.VulkanContext
-import com.scalag.vulkan.compute.{ComputePipeline, LayoutInfo, Shader}
-import com.scalag.vulkan.executor.{MapExecutor, SortByKeyExecutor}
 import izumi.reflect.Tag
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.language.postfixOps
 import com.scalag.Algebra.*
+import com.scalag.vulkan.compute.{ComputePipeline, LayoutInfo, Shader}
+import vulkan.VulkanContext
 
 import java.io.{File, FileOutputStream}
 import java.nio.channels.FileChannel
@@ -28,7 +27,7 @@ trait Executable[H <: Value, R <: Value] {
 }
 
 trait GContext {
-  val vkContext = new VulkanContext(false)
+  val vkContext = new VulkanContext()
 
   def compile[H <: Value : Tag : FromExpr, R <: Value : Tag](function: GFunction[H, R]): ComputePipeline
   def compile[H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GArray2DFunction[H, R]): ComputePipeline
@@ -43,8 +42,8 @@ class MVPContext extends GContext {
     val tree = function.fn.apply(GArray[H](0).at(WorkerIndex))
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
 
-    val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, DSLCompiler.typeStride(summon[Tag[H]]))) toList
-    val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos.asJava, "main", vkContext.getDevice)
+    val layoutInfos = 0 to 1 map ( LayoutInfo(0, _, DSLCompiler.typeStride(summon[Tag[H]]))) toList
+    val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos, "main", vkContext.device)
 
     new ComputePipeline(shader, vkContext)
   }
@@ -80,8 +79,8 @@ class MVPContext extends GContext {
     fc.write(shaderCode)
     fc.close()
     shaderCode.rewind()
-    val layoutInfos = 0 to 1 map (new LayoutInfo(0, _, DSLCompiler.typeStride(summon[Tag[H]]))) toList
-    val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos.asJava, "main", vkContext.getDevice)
+    val layoutInfos = 0 to 1 map ( LayoutInfo(0, _, DSLCompiler.typeStride(summon[Tag[H]]))) toList
+    val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfos, "main", vkContext.device)
 
     new ComputePipeline(shader, vkContext)
   }
