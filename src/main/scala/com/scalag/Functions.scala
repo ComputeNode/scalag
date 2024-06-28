@@ -19,6 +19,18 @@ object Functions:
   
   case object Tan extends FunctionName
   def tan(v: Float32): Float32 = Float32(FunctionCall(Tan, List(v)))
+  
+  case object Acos extends FunctionName
+  def acos(v: Float32): Float32 = Float32(FunctionCall(Acos, List(v)))
+  
+  case object Asin extends FunctionName
+  def asin(v: Float32): Float32 = Float32(FunctionCall(Asin, List(v)))
+  
+  case object Atan extends FunctionName
+  def atan(v: Float32): Float32 = Float32(FunctionCall(Atan, List(v)))
+  
+  case object Atan2 extends FunctionName
+  def atan2(y: Float32, x: Float32): Float32 = Float32(FunctionCall(Atan2, List(y, x)))
 
   case object Len2 extends FunctionName
   def length[T <: Scalar : Tag](v: Vec2[T]): Float32 = Float32(FunctionCall(Len2, List(v)))

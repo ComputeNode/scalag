@@ -461,7 +461,11 @@ object DSLCompiler {
     Functions.Cross -> GlslOp.Cross,
     Functions.Clamp -> GlslOp.FClamp,
     Functions.Mix -> GlslOp.FMix,
-    Functions.Abs -> GlslOp.FAbs
+    Functions.Abs -> GlslOp.FAbs,
+    Functions.Atan -> GlslOp.Atan,
+    Functions.Acos -> GlslOp.Acos,
+    Functions.Asin -> GlslOp.Asin,
+    Functions.Atan2 -> GlslOp.Atan2
   )
 
   def compileFunctionCall(expr: DigestedExpression, call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =
