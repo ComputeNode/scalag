@@ -1,11 +1,9 @@
-package com.scalag.vulkan.utility
+package com.scalag.vulkan.util
 
 import org.lwjgl.vulkan.EXTDebugReport.VK_ERROR_VALIDATION_FAILED_EXT
 import org.lwjgl.vulkan.KHRDisplaySwapchain.VK_ERROR_INCOMPATIBLE_DISPLAY_KHR
-import org.lwjgl.vulkan.KHRSurface.VK_ERROR_NATIVE_WINDOW_IN_USE_KHR
-import org.lwjgl.vulkan.KHRSurface.VK_ERROR_SURFACE_LOST_KHR
-import org.lwjgl.vulkan.KHRSwapchain.VK_ERROR_OUT_OF_DATE_KHR
-import org.lwjgl.vulkan.KHRSwapchain.VK_SUBOPTIMAL_KHR
+import org.lwjgl.vulkan.KHRSurface.{VK_ERROR_NATIVE_WINDOW_IN_USE_KHR, VK_ERROR_SURFACE_LOST_KHR}
+import org.lwjgl.vulkan.KHRSwapchain.{VK_ERROR_OUT_OF_DATE_KHR, VK_SUBOPTIMAL_KHR}
 import org.lwjgl.vulkan.VK10.*
 
 /** @author

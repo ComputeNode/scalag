@@ -1,4 +1,4 @@
-package com.scalag.vulkan.utility;
+package com.scalag.vulkan.util
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -8,7 +8,7 @@ abstract class VulkanObjectHandle extends VulkanObject {
 
   def get: Long =
     if (!alive)
-      throw new IllegalStateException();
+      throw new IllegalStateException()
     else
-      handle;
+      handle
 }

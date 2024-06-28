@@ -1,6 +1,6 @@
-package com.scalag.vulkan.command;
+package com.scalag.vulkan.command
 
-import com.scalag.vulkan.core.Device;
+import com.scalag.vulkan.core.Device
 
 /** @author
   *   MarconZet Created 13.04.2020 Copied from Wrap

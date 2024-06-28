@@ -1,4 +1,4 @@
-package com.scalag.vulkan.utility;
+package com.scalag.vulkan.util
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -8,9 +8,9 @@ abstract class VulkanObject {
 
   def destroy(): Unit = {
     if (!alive)
-      throw new IllegalStateException();
-    close();
-    alive = false;
+      throw new IllegalStateException()
+    close()
+    alive = false
   }
 
   protected def close(): Unit
