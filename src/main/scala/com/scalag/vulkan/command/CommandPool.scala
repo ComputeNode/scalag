@@ -46,7 +46,7 @@ abstract class CommandPool(device: Device, queue: Queue) extends VulkanObjectHan
     val err = vkAllocateCommandBuffers(device.get, allocateInfo, pointerBuffer);
     if (err != VK_SUCCESS)
       throw new VulkanAssertionError("Failed to allocate command buffers", err);
-    0 to n map (i => pointerBuffer.get(i)) map (new VkCommandBuffer(_, device.get))
+    0 until n map (i => pointerBuffer.get(i)) map (new VkCommandBuffer(_, device.get))
   }.get
 
   def createCommandBuffer(): VkCommandBuffer =

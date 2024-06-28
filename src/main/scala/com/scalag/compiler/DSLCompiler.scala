@@ -316,11 +316,11 @@ object DSLCompiler {
 
   def createInvocationId(context: Context): (List[Words], Context) = {
     val definitionInstructions = List(
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(Int32Tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(Int32Tag)), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(Int32Tag)), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(UInt32Tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(UInt32Tag)), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
+      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(UInt32Tag)), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
       Instruction(Op.OpConstantComposite, List(
-        IntWord(context.vectorTypeMap(summon[Tag[Vec3[Int32]]].tag)),
+        IntWord(context.vectorTypeMap(summon[Tag[Vec3[UInt32]]].tag)),
         ResultRef(GL_WORKGROUP_SIZE_REF),
         ResultRef(context.nextResultId + 0),
         ResultRef(context.nextResultId + 1),
@@ -1021,7 +1021,7 @@ object DSLCompiler {
       case WordVariable(name) if name == BOUND_VARIABLE => IntWord(finalCtx.nextResultId)
       case x => x
     }
-    //dumpCode(fullCode)
+//    dumpCode(fullCode)
 
     val bytes = fullCode.flatMap(_.toWords).toArray
 

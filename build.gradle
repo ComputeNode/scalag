@@ -87,10 +87,13 @@ dependencies {
 }
 
 tasks.withType(JavaExec) {
-//    systemProperty "org.lwjgl.vulkan.libname", "${System.getenv("VULKAN_SDK")}/macOS/lib/libvulkan.dylib"
     systemProperty "org.lwjgl.vulkan.libname", "${System.getenv("VULKAN_SDK")}/lib/libvulkan.1.dylib"
-//    systemProperty "org.lwjgl.vulkan.libname", "${System.getenv("VULKAN_SDK")}/lib/libMoltenVK.dylib"
 }
+
+test {
+    systemProperty "org.lwjgl.vulkan.libname", "${System.getenv("VULKAN_SDK")}/lib/libvulkan.1.dylib"
+}
+
 
 scala {
     zincVersion = '1.10.0'

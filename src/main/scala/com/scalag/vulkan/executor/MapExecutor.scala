@@ -25,7 +25,7 @@ import scala.util.Using;
   */
 class MapExecutor(dataLength: Int, bufferActions: Seq[BufferAction], computePipeline: ComputePipeline, context: VulkanContext)
     extends AbstractExecutor(dataLength, bufferActions, context) {
-  private val shader: Shader = computePipeline.computeShader;
+  private lazy val shader: Shader = computePipeline.computeShader;
 
   protected def getBiggestTransportData: Int = shader.layoutInfos.maxBy(_.size).size
 
