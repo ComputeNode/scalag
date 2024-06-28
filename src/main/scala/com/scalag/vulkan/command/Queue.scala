@@ -28,4 +28,5 @@ class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends Vulka
 
   def get: VkQueue = queue
 
+  protected def close(): Unit = ()
 }

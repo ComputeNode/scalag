@@ -24,9 +24,10 @@ class Allocator(instance: Instance, device: Device) extends VulkanObjectHandle {
     val functions = VmaVulkanFunctions.callocStack();
     functions.set(instance.get, device.get);
     val allocatorInfo = VmaAllocatorCreateInfo
-      .create()
+      .calloc(stack)
       .device(device.get)
       .physicalDevice(device.physicalDevice)
+      .instance(instance.get)
       .pVulkanFunctions(functions);
 
     val pAllocator = stack.callocPointer(1);

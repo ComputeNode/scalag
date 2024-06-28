@@ -1,7 +1,5 @@
 package com.scalag.vulkan.executor;
 
-import lombok.Data;
-
 import org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 import org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 

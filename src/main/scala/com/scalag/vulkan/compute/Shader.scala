@@ -3,7 +3,6 @@ package com.scalag.vulkan.compute;
 import com.scalag.vulkan.core.Device
 import com.scalag.vulkan.utility.VulkanAssertionError
 import com.scalag.vulkan.utility.VulkanObjectHandle
-import lombok.Getter
 import org.joml.Vector3ic
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.vulkan.VkShaderModuleCreateInfo

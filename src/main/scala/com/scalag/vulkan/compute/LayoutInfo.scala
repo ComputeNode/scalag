@@ -1,7 +1,5 @@
 package com.scalag.vulkan.compute;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * @author MarconZet

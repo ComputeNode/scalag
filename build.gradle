@@ -7,26 +7,34 @@ plugins {
     id 'java-library'
 
     id 'org.hidetake.ssh' version '2.10.1'
-    id "io.freefair.lombok" version "8.6"
+//    id "io.freefair.lombok" version "8.6"
     id 'idea'
 }
 import org.gradle.internal.os.OperatingSystem
 
-project.ext.lwjglVersion = "3.2.4-SNAPSHOT"
-project.ext.jomlVersion = "1.9.24"
+project.ext.lwjglVersion = "3.3.3"
+project.ext.jomlVersion = "1.10.6"
 
 switch (OperatingSystem.current()) {
     case OperatingSystem.LINUX:
+        project.ext.lwjglNatives = "natives-linux"
         def osArch = System.getProperty("os.arch")
-        project.ext.lwjglNatives = osArch.startsWith("arm") || osArch.startsWith("aarch64")
-                ? "natives-linux-${osArch.contains("64") || osArch.startsWith("armv8") ? "arm64" : "arm32"}"
-                : "natives-linux"
+        if (osArch.startsWith("arm") || osArch.startsWith("aarch64")) {
+            project.ext.lwjglNatives += osArch.contains("64") || osArch.startsWith("armv8") ? "-arm64" : "-arm32"
+        } else if  (osArch.startsWith("ppc")) {
+            project.ext.lwjglNatives += "-ppc64le"
+        } else if  (osArch.startsWith("riscv")) {
+            project.ext.lwjglNatives += "-riscv64"
+        }
         break
     case OperatingSystem.MAC_OS:
-        project.ext.lwjglNatives = "natives-macos"
+        project.ext.lwjglNatives = System.getProperty("os.arch").startsWith("aarch64") ? "natives-macos-arm64" : "natives-macos"
         break
     case OperatingSystem.WINDOWS:
-        project.ext.lwjglNatives = System.getProperty("os.arch").contains("64") ? "natives-windows" : "natives-windows-x86"
+        def osArch = System.getProperty("os.arch")
+        project.ext.lwjglNatives = osArch.contains("64")
+                ? "natives-windows${osArch.startsWith("aarch64") ? "-arm64" : ""}"
+                : "natives-windows-x86"
         break
 }
 
@@ -38,7 +46,6 @@ repositories {
 apply plugin: 'java'
 
 test {
-    if (lwjglNatives.equals("natives-macos")) jvmArgs "-Dorg.lwjgl.vulkan.libname=${System.getenv("VULKAN_SDK")}/lib/libvulkan.dylib"
     useJUnitPlatform()
     jvmArgs = ['-Xmx2048m']
 }
@@ -50,16 +57,22 @@ ext {
 
 dependencies {
     implementation "org.scala-lang:scala3-library_3:3.3.3"
-    implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
-    implementation "org.lwjgl:lwjgl"
-    implementation "org.lwjgl:lwjgl-vulkan"
-    implementation  "org.lwjgl:lwjgl-vma:${lwjglVersion}"
+
     implementation 'dev.zio:izumi-reflect_3:2.3.10'
     implementation 'com.lihaoyi:pprint_3:0.9.0'
     implementation group: 'com.diogonunes', name: 'JColor', version: '5.5.1'
 
+
+    implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
+    implementation "org.lwjgl:lwjgl"
+    implementation "org.lwjgl:lwjgl-vulkan"
+    implementation  "org.lwjgl:lwjgl-vma:"
+
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
-    runtimeOnly "org.lwjgl:lwjgl-vma:${lwjglVersion}:${lwjglNatives}"
+    runtimeOnly "org.lwjgl:lwjgl-vma::$lwjglNatives"
+    if (lwjglNatives == "natives-macos" || lwjglNatives == "natives-macos-arm64") {
+//        runtimeOnly "org.lwjgl:lwjgl-vulkan::$lwjglNatives"
+    }
 
     implementation "org.joml:joml:${jomlVersion}"
     implementation group: 'commons-io', name: 'commons-io', version: '2.16.1'
@@ -71,6 +84,12 @@ dependencies {
 
     testRuntimeOnly('org.junit.jupiter:junit-jupiter-engine:5.7.2')
 
+}
+
+tasks.withType(JavaExec) {
+//    systemProperty "org.lwjgl.vulkan.libname", "${System.getenv("VULKAN_SDK")}/macOS/lib/libvulkan.dylib"
+    systemProperty "org.lwjgl.vulkan.libname", "${System.getenv("VULKAN_SDK")}/lib/libvulkan.1.dylib"
+//    systemProperty "org.lwjgl.vulkan.libname", "${System.getenv("VULKAN_SDK")}/lib/libMoltenVK.dylib"
 }
 
 scala {

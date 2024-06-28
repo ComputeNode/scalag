@@ -159,7 +159,7 @@ class SortByKeyExecutor(dataLength: Int, keyPipeline: ComputePipeline, context: 
 
   def getBiggestTransportData: Int = keyShader.layoutInfos.head.size
 
-  def destroy(): Unit = {
+  override def destroy(): Unit = {
     Seq(preparePipeline, copyPipeline, sortPipeline).foreach { pipeline =>
       pipeline.computeShader.destroy();
       pipeline.destroy();

@@ -10,10 +10,11 @@ import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
 import com.scalag.vulkan.VulkanContext.VALIDATION_LAYERS
-import com.scalag.vulkan.core.Device.{DEVICE_EXTENSIONS, vk_khr_portability_subset}
+import com.scalag.vulkan.core.Device.{VmaAllocatorExtension, MacOsExtension}
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
 
 import scala.util.Using;
@@ -23,8 +24,8 @@ import scala.util.Using;
   */
 
 object Device {
-  val DEVICE_EXTENSIONS = List(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)
-  val vk_khr_portability_subset = "VK_KHR_portability_subset";
+  val VmaAllocatorExtension = List(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)
+  val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME;
 }
 
 class Device(enableValidationLayers: Boolean, instance: Instance) extends VulkanObject {
@@ -56,7 +57,7 @@ class Device(enableValidationLayers: Boolean, instance: Instance) extends Vulkan
     val pQueueFamilies = VkQueueFamilyProperties.callocStack(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, pQueueFamilyCount, pQueueFamilies);
 
-    val queues = 0 to queueFamilyCount
+    val queues = 0 until queueFamilyCount
     queues
       .find { i =>
         val queueFamily = pQueueFamilies.get(i);
@@ -84,7 +85,7 @@ class Device(enableValidationLayers: Boolean, instance: Instance) extends Vulkan
       if (err != VK_SUCCESS)
         throw new VulkanAssertionError("Failed to extension properties", err);
 
-      val additionalExtension = pProperties.stream().anyMatch(x => x.extensionNameString().equals(vk_khr_portability_subset));
+      val additionalExtension = pProperties.stream().anyMatch(x => x.extensionNameString().equals(MacOsExtension));
 
       val pQueuePriorities = stack.callocFloat(1).put(1.0f);
       pQueuePriorities.flip();
@@ -98,11 +99,11 @@ class Device(enableValidationLayers: Boolean, instance: Instance) extends Vulkan
         .queueFamilyIndex(computeQueueFamily)
         .pQueuePriorities(pQueuePriorities);
 
-      val ppExtensionNames = stack.callocPointer(DEVICE_EXTENSIONS.length + 1);
-      DEVICE_EXTENSIONS.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
+      val ppExtensionNames = stack.callocPointer(VmaAllocatorExtension.length + 1);
+      VmaAllocatorExtension.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
 
       if (additionalExtension)
-        ppExtensionNames.put(stack.ASCII(vk_khr_portability_subset));
+        ppExtensionNames.put(stack.ASCII(MacOsExtension));
       ppExtensionNames.flip();
 
       val deviceFeatures = VkPhysicalDeviceFeatures.callocStack();

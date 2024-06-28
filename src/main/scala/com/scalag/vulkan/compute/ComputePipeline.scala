@@ -4,7 +4,6 @@ import com.scalag.vulkan.VulkanContext
 import com.scalag.vulkan.core.Device
 import com.scalag.vulkan.utility.VulkanAssertionError
 import com.scalag.vulkan.utility.VulkanObjectHandle
-import lombok.Getter
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.vulkan.*
 
