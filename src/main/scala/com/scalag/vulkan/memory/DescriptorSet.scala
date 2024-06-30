@@ -1,5 +1,6 @@
 package com.scalag.vulkan.memory
 
+import com.scalag.vulkan.compute.{Binding, LayoutSet}
 import com.scalag.vulkan.core.Device
 import com.scalag.vulkan.util.Util.{check, pushStack}
 import com.scalag.vulkan.util.VulkanObjectHandle
@@ -10,7 +11,7 @@ import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, Vk
 /** @author
   *   MarconZet Created 15.04.2020
   */
-class DescriptorSet(device: Device, descriptorSetLayout: Long, descriptorPool: DescriptorPool) extends VulkanObjectHandle {
+class DescriptorSet(device: Device, descriptorSetLayout: Long, val bindings: Seq[Binding], descriptorPool: DescriptorPool) extends VulkanObjectHandle {
 
   protected val handle: Long = pushStack { stack =>
     val pSetLayout = stack.callocLong(1).put(0, descriptorSetLayout)
@@ -24,7 +25,7 @@ class DescriptorSet(device: Device, descriptorSetLayout: Long, descriptorPool: D
     check(vkAllocateDescriptorSets(device.get, descriptorSetAllocateInfo, pDescriptorSet), "Failed to allocate descriptor set")
     pDescriptorSet.get()
   }
-
+  
   def update(buffers: Seq[Buffer]): Unit = pushStack { stack =>
     val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
     buffers.indices foreach { i =>

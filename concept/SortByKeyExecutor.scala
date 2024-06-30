@@ -155,7 +155,7 @@ class SortByKeyExecutor(dataLength: Int, keyPipeline: ComputePipeline, context: 
 object SortByKeyExecutor {
 
   private def createBufferActions: Seq[BufferAction] =
-    Seq(LOAD_INTO, LOAD_FROM, DO_NOTHING, DO_NOTHING, DO_NOTHING, DO_NOTHING, DO_NOTHING, DO_NOTHING)
+    Seq(LoadTo, LoadFrom, DoNothing, DoNothing, DoNothing, DoNothing, DoNothing, DoNothing)
 
   private def getNumberOfPasses(dataLength: Int): Int = {
     var remaining = dataLength

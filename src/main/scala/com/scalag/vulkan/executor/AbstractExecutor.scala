@@ -45,7 +45,7 @@ abstract class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAc
       VMA_MEMORY_USAGE_UNKNOWN,
       allocator
     )
-    for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LOAD_INTO) do {
+    for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadTo) do {
       val buffer = input(i)
       Buffer.copyBuffer(buffer, stagingBuffer, buffer.remaining())
       Buffer.copyBuffer(stagingBuffer, buffers(i), buffer.remaining(), commandPool).block().destroy()
@@ -63,7 +63,7 @@ abstract class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAc
       fence.block().destroy()
     }
 
-    val output = for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LOAD_FROM) yield {
+    val output = for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LoadFrom) yield {
       val fence = Buffer.copyBuffer(buffers(i), stagingBuffer, buffers(i).size, commandPool)
       val outBuffer = BufferUtils.createByteBuffer(buffers(i).size)
       fence.block().destroy()

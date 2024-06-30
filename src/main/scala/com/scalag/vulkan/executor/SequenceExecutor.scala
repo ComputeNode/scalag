@@ -30,7 +30,7 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
   private val descriptorPool: DescriptorPool = context.descriptorPool
   private val commandPool: CommandPool = context.commandPool
 
-  private val descriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack { stack =>
+  private val pipelineToDescriptorSets: Map[ComputePipeline, Seq[DescriptorSet]] = pushStack { stack =>
     val pipelines = computeSequence.sequence.collect { case Compute(pipeline, _) => pipeline }
 
     val rawSets = pipelines.map(_.computeShader.layoutInfo.sets)
@@ -64,13 +64,15 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
         sets.zip(layouts)
       }
       .distinctBy(_._1)
-      .map { case (set, layout) =>
-        (set, new DescriptorSet(device, layout, descriptorPool))
+      .map { case (set, (id, layout)) =>
+        (set, new DescriptorSet(device, id, layout.bindings, descriptorPool))
       }
       .toMap
 
     pipelines.zip(resolvedSets.map(_.map(descriptorSetMap(_)))).toMap
   }
+
+  private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
   private val commandBuffer: VkCommandBuffer = pushStack { stack =>
     val commandBuffer = commandPool.createCommandBuffer()
@@ -86,11 +88,11 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
       case Compute(pipeline, _) =>
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
 
-        val pDescriptorSets = stack.longs(descriptorSets(pipeline).map(_.get): _*)
+        val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get): _*)
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
 
         val workgroup = pipeline.computeShader.workgroupDimensions
-        vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch
+        vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch, then we can eliminate dataLength from constructor
       case MemoryBarrier =>
         val memoryBarrier = VkMemoryBarrier2KHR
           .calloc(1, stack)
@@ -114,6 +116,39 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
 
   def execute(inputs: Seq[ByteBuffer], inputSize: Int): Seq[ByteBuffer] = pushStack { stack =>
     assume(inputSize == dataLength, "Input size does not match the data length")
+    val setToActions = computeSequence.sequence
+      .collect { case Compute(pipeline, bufferActions) =>
+        pipelineToDescriptorSets(pipeline).zipWithIndex.map { case (descriptorSet, i) =>
+          val descriptorBufferActions = descriptorSet.bindings.map(_.id).map(LayoutLocation(i, _)).map(bufferActions)
+          (descriptorSet, descriptorBufferActions)
+        }
+      }
+      .flatten
+      .groupMapReduce(_._1)(_._2)((a, b) => a.zip(b).map(x => x._1 | x._2))
+
+    val setWithSize = descriptorSets.map(x =>
+      val size = x.bindings.map(_.size match
+        case InputBufferSize(elemSize) => elemSize * inputSize
+        case UniformSize(size)         => size
+      )
+      (x, size)
+    )
+
+    val setToBuffers = setWithSize.map { case (set, sizes) =>
+      val actions = setToActions(set)
+      val buffers = sizes.zip(actions).map { case (size, action) =>
+        new Buffer(size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+      }
+      set.update(buffers)
+      (set, buffers)
+    }.toMap
+
+    def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
+      computeSequence.sequence.collect { case x: Compute =>
+        pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
+          case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
+        }
+      }.flatten
 
     val stagingBuffer = new Buffer(
       inputs.map(_.remaining()).max,
@@ -122,12 +157,10 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
       VMA_MEMORY_USAGE_UNKNOWN,
       allocator
     )
-    
-    val bufferActions = computeSequence.sequence.collect { case Compute(_, actions) => actions }
-    for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LOAD_INTO) do {
-      val buffer = input(i)
-      Buffer.copyBuffer(buffer, stagingBuffer, buffer.remaining())
-      Buffer.copyBuffer(stagingBuffer, buffers(i), buffer.remaining(), commandPool).block().destroy()
+
+    buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
+      Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
+      Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
     }
 
     val fence = new Fence(device)
@@ -137,18 +170,20 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
       .sType$Default()
       .pCommandBuffers(pCommandBuffer)
 
-    check(VK10.vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
+    check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
     fence.block().destroy()
 
-    val output = for (i <- bufferActions.indices if bufferActions(i) == BufferAction.LOAD_FROM) yield {
-      val fence = Buffer.copyBuffer(buffers(i), stagingBuffer, buffers(i).size, commandPool)
-      val outBuffer = BufferUtils.createByteBuffer(buffers(i).size)
-      fence.block().destroy()
-      Buffer.copyBuffer(stagingBuffer, outBuffer, outBuffer.remaining())
-      outBuffer
-
+    val output = buffersWithAction(BufferAction.LoadFrom).map { buffer =>
+      Buffer.copyBuffer(buffer, stagingBuffer, buffer.size, commandPool).block().destroy()
+      val out = BufferUtils.createByteBuffer(buffer.size)
+      Buffer.copyBuffer(stagingBuffer, out, buffer.size)
+      out
     }
+
     stagingBuffer.destroy()
+    setToBuffers.keys.foreach(_.update(Seq.empty))
+    setToBuffers.flatMap(_._2).foreach(_.destroy())
+
     output
   }
 
@@ -163,8 +198,15 @@ object SequenceExecutor {
   case class ComputationSequence(sequence: Seq[ComputationStep], dependencies: Seq[Dependency])
 
   sealed trait ComputationStep
-  case class Compute(computePipeline: ComputePipeline, bufferActions: Map[LayoutInfo, BufferAction]) extends ComputationStep
+  case class Compute(pipeline: ComputePipeline, bufferActions: Map[LayoutLocation, BufferAction]) extends ComputationStep:
+    def pumpLayoutLocations: Seq[Seq[BufferAction]] =
+      pipeline.computeShader.layoutInfo.sets
+        .map(x => x.bindings.map(y => (x.id, y.id)).map(x => bufferActions.getOrElse(LayoutLocation.apply.tupled(x), BufferAction.DoNothing)))
+
   case object MemoryBarrier extends ComputationStep
 
+  case class LayoutLocation(set: Int, binding: Int)
+
   case class Dependency(from: ComputePipeline, fromSet: Int, to: ComputePipeline, toSet: Int)
+
 }

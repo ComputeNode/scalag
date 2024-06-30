@@ -20,33 +20,30 @@ class MapExecutor(dataLength: Int, bufferActions: Seq[BufferAction], computePipe
     extends AbstractExecutor(dataLength, bufferActions, context) {
   private lazy val shader: Shader = computePipeline.computeShader
 
-  protected def getBiggestTransportData: Int = shader.layoutInfos.collect {
-    case LayoutInfo(_, _, InputBufferSize(n)) => n
-  }.max
+  protected def getBiggestTransportData: Int = shader.layoutInfo.sets
+    .flatMap(_.bindings)
+    .collect { case Binding(_, InputBufferSize(n)) =>
+      n
+    }
+    .max
 
   protected def setupBuffers(): (Seq[DescriptorSet], Seq[Buffer]) = pushStack { stack =>
-    val layoutInfos = shader.layoutInfos
-    val buffers = layoutInfos.zipWithIndex.map { case (layoutInfo, i) =>
-      val bufferSize = layoutInfo.size match {
+    val bindings = shader.layoutInfo.sets.flatMap(_.bindings)
+    val buffers = bindings.zipWithIndex.map { case (binding, i) =>
+      val bufferSize = binding.size match {
         case InputBufferSize(n) => n * dataLength
-        case UniformSize(n) => n
+        case UniformSize(n)     => n
       }
-      new Buffer(
-        bufferSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | bufferActions(i).action,
-        0,
-        VMA_MEMORY_USAGE_GPU_ONLY,
-        allocator
-      )
+      new Buffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | bufferActions(i).action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
     }
 
     val bufferDeque = mutable.ArrayDeque.from(buffers)
     val descriptorSetLayouts = computePipeline.descriptorSetLayouts
     val descriptorSets = for (i <- descriptorSetLayouts.indices) yield {
-      val descriptorSet = new DescriptorSet(device, descriptorSetLayouts(i), descriptorPool)
-      val layouts = shader.getLayoutsBySets(i)
-      descriptorSet.update(bufferDeque.take(layouts.size).toSeq)
-      bufferDeque.drop(layouts.size)
+      val descriptorSet = new DescriptorSet(device, descriptorSetLayouts(i)._1, descriptorSetLayouts(i)._2.bindings, descriptorPool)
+      val size = descriptorSetLayouts(i)._2.bindings.size
+      descriptorSet.update(bufferDeque.take(size).toSeq)
+      bufferDeque.drop(size)
       descriptorSet
     }
     (descriptorSets, buffers)

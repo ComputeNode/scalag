@@ -16,15 +16,15 @@ import scala.util.Using
   */
 class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends VulkanObjectHandle {
   private val device: Device = context.device
-  val descriptorSetLayouts: Seq[Long] =
-    computeShader.getLayoutsBySets.map(createDescriptorSetLayout)
+  val descriptorSetLayouts: Seq[(Long, LayoutSet)] =
+    computeShader.layoutInfo.sets.map(x => (createDescriptorSetLayout(x), x))
   val pipelineLayout: Long = pushStack { stack =>
     val pipelineLayoutCreateInfo = VkPipelineLayoutCreateInfo
       .calloc(stack)
       .sType$Default()
       .pNext(0)
       .flags(0)
-      .pSetLayouts(stack.longs(descriptorSetLayouts: _*))
+      .pSetLayouts(stack.longs(descriptorSetLayouts.map(_._1): _*))
       .pPushConstantRanges(null)
 
     val pPipelineLayout = stack.callocLong(1)
@@ -60,35 +60,31 @@ class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends
   protected def close(): Unit = {
     vkDestroyPipeline(device.get, handle, null)
     vkDestroyPipelineLayout(device.get, pipelineLayout, null)
-    descriptorSetLayouts.foreach(vkDestroyDescriptorSetLayout(device.get, _, null))
+    descriptorSetLayouts.map(_._1).foreach(vkDestroyDescriptorSetLayout(device.get, _, null))
   }
 
-  private def createDescriptorSetLayout(layoutInfos: Seq[LayoutInfo]): Long =
-    pushStack { stack =>
-      val descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.calloc(layoutInfos.size, stack)
-      layoutInfos.foreach { layoutInfo =>
-        descriptorSetLayoutBindings
-          .get()
-          .binding(layoutInfo.binding)
-          .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-          .descriptorCount(1)
-          .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
-          .pImmutableSamplers(null)
-      }
-      descriptorSetLayoutBindings.flip()
-
-      val descriptorSetLayoutCreateInfo = VkDescriptorSetLayoutCreateInfo
-        .calloc(stack)
-        .sType$Default()
-        .pNext(0)
-        .flags(0)
-        .pBindings(descriptorSetLayoutBindings)
-
-      val pDescriptorSetLayout = stack.callocLong(1)
-      check(
-        vkCreateDescriptorSetLayout(device.get, descriptorSetLayoutCreateInfo, null, pDescriptorSetLayout),
-        "Failed to create descriptor set layout"
-      )
-      pDescriptorSetLayout.get(0)
+  private def createDescriptorSetLayout(set: LayoutSet): Long = pushStack { stack =>
+    val descriptorSetLayoutBindings = VkDescriptorSetLayoutBinding.calloc(set.bindings.length, stack)
+    set.bindings.foreach { binding =>
+      descriptorSetLayoutBindings
+        .get()
+        .binding(binding.id)
+        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+        .descriptorCount(1)
+        .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
+        .pImmutableSamplers(null)
     }
+    descriptorSetLayoutBindings.flip()
+
+    val descriptorSetLayoutCreateInfo = VkDescriptorSetLayoutCreateInfo
+      .calloc(stack)
+      .sType$Default()
+      .pNext(0)
+      .flags(0)
+      .pBindings(descriptorSetLayoutBindings)
+
+    val pDescriptorSetLayout = stack.callocLong(1)
+    check(vkCreateDescriptorSetLayout(device.get, descriptorSetLayoutCreateInfo, null, pDescriptorSetLayout), "Failed to create descriptor set layout")
+    pDescriptorSetLayout.get(0)
+  }
 }
