@@ -4,26 +4,21 @@ import com.scalag.vulkan.VulkanContext
 import com.scalag.vulkan.command.*
 import com.scalag.vulkan.compute.*
 import com.scalag.vulkan.core.*
-import com.scalag.vulkan.executor.BufferAction
 import com.scalag.vulkan.executor.SequenceExecutor.*
 import com.scalag.vulkan.memory.*
 import com.scalag.vulkan.util.Util.*
 import org.lwjgl.BufferUtils
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.KHRSynchronization2.{VK_ACCESS_2_SHADER_READ_BIT_KHR, VK_ACCESS_2_SHADER_WRITE_BIT_KHR, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR, vkCmdPipelineBarrier2KHR}
 import org.lwjgl.vulkan.VK10.*
 
 import java.nio.ByteBuffer
-import scala.collection.mutable
-import scala.util.Using
 
 /** @author
   *   MarconZet Created 15.04.2020
   */
-class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, context: VulkanContext) {
+class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext) {
   private val device: Device = context.device
   private val queue: Queue = context.computeQueue
   private val allocator: Allocator = context.allocator
@@ -74,7 +69,8 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
 
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
-  private val commandBuffer: VkCommandBuffer = pushStack { stack =>
+  private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack { stack =>
+
     val commandBuffer = commandPool.createCommandBuffer()
 
     val commandBufferBeginInfo = VkCommandBufferBeginInfo
@@ -114,8 +110,8 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
     commandBuffer
   }
 
-  def execute(inputs: Seq[ByteBuffer], inputSize: Int): Seq[ByteBuffer] = pushStack { stack =>
-    assume(inputSize == dataLength, "Input size does not match the data length")
+  private def createBuffers(dataLength: Int): Map[DescriptorSet, Seq[Buffer]] = {
+
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
         pipelineToDescriptorSets(pipeline).zipWithIndex.map { case (descriptorSet, i) =>
@@ -128,7 +124,7 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
 
     val setWithSize = descriptorSets.map(x =>
       val size = x.bindings.map(_.size match
-        case InputBufferSize(elemSize) => elemSize * inputSize
+        case InputBufferSize(elemSize) => elemSize * dataLength
         case UniformSize(size)         => size
       )
       (x, size)
@@ -142,6 +138,12 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
       set.update(buffers)
       (set, buffers)
     }.toMap
+
+    setToBuffers
+  }
+
+  def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
+    val setToBuffers = createBuffers(dataLength)
 
     def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
       computeSequence.sequence.collect { case x: Compute =>
@@ -164,6 +166,7 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
     }
 
     val fence = new Fence(device)
+    val commandBuffer = recordCommandBuffer(dataLength)
     val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
     val submitInfo = VkSubmitInfo
       .calloc(stack)
@@ -181,16 +184,15 @@ class SequenceExecutor(dataLength: Int, computeSequence: ComputationSequence, co
     }
 
     stagingBuffer.destroy()
+    commandPool.freeCommandBuffer(commandBuffer)
     setToBuffers.keys.foreach(_.update(Seq.empty))
     setToBuffers.flatMap(_._2).foreach(_.destroy())
 
     output
   }
 
-  def destroy(): Unit = {
-    commandPool.freeCommandBuffer(commandBuffer)
+  def destroy(): Unit =
     descriptorSets.foreach(_.destroy())
-  }
 
 }
 

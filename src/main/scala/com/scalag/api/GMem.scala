@@ -37,7 +37,7 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
   private def execute(pipeline: ComputePipeline)(implicit context: GContext) = {
     val actions = Map(LayoutLocation(0, 0) -> BufferAction.LoadTo, LayoutLocation(0, 1) -> BufferAction.LoadFrom)
     val sequence = ComputationSequence(Seq(Compute(pipeline, actions)), Seq.empty)
-    val executor = new SequenceExecutor(size, sequence, context.vkContext)
+    val executor = new SequenceExecutor(sequence, context.vkContext)
     Future {
       val out = executor.execute(Seq(data), size)
       executor.destroy()

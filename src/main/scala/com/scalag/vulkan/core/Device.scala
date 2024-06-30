@@ -21,7 +21,7 @@ import scala.util.Using
   */
 
 object Device {
-  val VmaAllocatorExtension = List(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)
+  val VmaAllocatorExtension: Seq[String] = Seq.empty
   val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
 }
 
