@@ -1,7 +1,7 @@
 package com.scalag.vulkan.executor
 
 import com.scalag.vulkan.VulkanContext
-import com.scalag.vulkan.compute.{ComputePipeline, Shader}
+import com.scalag.vulkan.compute.*
 import com.scalag.vulkan.memory.{Buffer, DescriptorSet}
 import com.scalag.vulkan.util.Util.{check, pushStack}
 import org.lwjgl.system.MemoryStack
@@ -20,13 +20,19 @@ class MapExecutor(dataLength: Int, bufferActions: Seq[BufferAction], computePipe
     extends AbstractExecutor(dataLength, bufferActions, context) {
   private lazy val shader: Shader = computePipeline.computeShader
 
-  protected def getBiggestTransportData: Int = shader.layoutInfos.maxBy(_.size).size
+  protected def getBiggestTransportData: Int = shader.layoutInfos.collect {
+    case LayoutInfo(_, _, InputBufferSize(n)) => n
+  }.max
 
   protected def setupBuffers(): (Seq[DescriptorSet], Seq[Buffer]) = pushStack { stack =>
     val layoutInfos = shader.layoutInfos
-    val buffers = layoutInfos.indices.map { i =>
+    val buffers = layoutInfos.zipWithIndex.map { case (layoutInfo, i) =>
+      val bufferSize = layoutInfo.size match {
+        case InputBufferSize(n) => n * dataLength
+        case UniformSize(n) => n
+      }
       new Buffer(
-        layoutInfos(i).size * dataLength,
+        bufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | bufferActions(i).action,
         0,
         VMA_MEMORY_USAGE_GPU_ONLY,

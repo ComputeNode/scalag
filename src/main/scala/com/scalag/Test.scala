@@ -32,7 +32,7 @@ def main =
   val fovDeg = 60
   val fovRad = fovDeg * math.Pi.toFloat / 180.0f
   val maxBounces = 8
-  val pixelIterationsPerFrame =5 
+  val pixelIterationsPerFrame = 1000
   val bgColor = (0.2f, 0.2f, 0.2f)
   val exposure = 0.5f
   case class Random[T <: Value](value: T, nextSeed: UInt32)
@@ -98,7 +98,101 @@ def main =
     emissive: Vec3[Float32]
   ) extends GStruct[Quad]
 
+  case class RayTraceState(
+    rayPos: Vec3[Float32],
+    rayDir: Vec3[Float32],
+    color: Vec3[Float32],
+    throughput: Vec3[Float32],
+    rngState: UInt32,
+    finished: GBoolean = false
+  ) extends GStruct[RayTraceState]
 
+  val sceneTranslation = vec4(0f, 0f, 10f, 0f)
+  val rd = scala.util.Random(1)
+
+  def randomSphere: Sphere = {
+    def nextFloatAny = rd.nextFloat() * 2f - 1f
+
+    def nextFloatPos = rd.nextFloat()
+
+    val center = (nextFloatAny * 10, nextFloatAny * 10, nextFloatPos * 10 + 15f)
+    val radius = nextFloatPos * 2 + 1f
+    val color = (nextFloatPos, nextFloatPos, nextFloatPos)
+    val emissive = (0f, 0f, 0f)
+    Sphere(center, radius, color, emissive)
+  }
+
+  def randomSpheres(n: Int) = List.fill(n)(randomSphere)
+
+  val spheres = randomSpheres(20).map(sp => sp.copy(center = sp.center + sceneTranslation.xyz))
+
+
+  val walls = List(
+
+    Quad( // back
+      (-15.5f, -15.5f, 25.0f),
+      (15.5f, -15.5f, 25.0f),
+      (15.5f, 15.5f, 25.0f),
+      (-15.5f, 15.5f, 25.0f),
+      (0.8f, 0.8f, 0.8f),
+      (0f, 0f, 0f)
+    ),
+    Quad( // right
+      (15f, -15.5f, 25.5f),
+      (15f, -15.5f, -15.5f),
+      (15f, 15.5f, -15.5f),
+      (15f, 15.5f, 25.5f),
+      (0.0f, 0.8f, 0.0f),
+      (0f, 0f, 0f)
+    ),
+    Quad( // left
+      (-15f, -15.5f, 25.5f),
+      (-15f, -15.5f, -15.5f),
+      (-15f, 15.5f, -15.5f),
+      (-15f, 15.5f, 25.5f),
+      (0.8f, 0.0f, 0.0f),
+      (0f, 0f, 0f)
+    ),
+    Quad( // bottom
+      (-15.5f, 15f, 25.5f),
+      (15.5f, 15f, 25.5f),
+      (15.5f, 15f, -15.5f),
+      (-15.5f, 15f, -15.5f),
+      (0.8f, 0.8f, 0.8f),
+      (0f, 0f, 0f)
+    ),
+    Quad( // top
+      (-15.5f, -15f, 25.5f),
+      (15.5f, -15f, 25.5f),
+      (15.5f, -15f, -15.5f),
+      (-15.5f, -15f, -15.5f),
+      (0.8f, 0.8f, 0.8f),
+      (0f, 0f, 0f)
+    ),
+    Quad( // light
+      (-2.5f, -14.8f, 17.5f),
+      (2.5f, -14.8f, 17.5f),
+      (2.5f, -14.8f, 12.5f),
+      (-2.5f, -14.8f, 12.5f),
+      (1f, 1f, 1f),
+      (20f, 20f, 20f)
+    ),
+    { // flash
+      val x = -10f
+      val mX = -5f
+      val y = -10f
+      val mY = 0f
+      val z = -5f
+      Quad(
+        (x, y, z),
+        (mX, y, z),
+        (mX, mY, z),
+        (x, mY, z),
+        (1f, 1f, 1f),
+        (30f, 30f, 30f)
+      )
+    }
+  ).map(quad => quad.copy(a = quad.a + sceneTranslation.xyz, b = quad.b + sceneTranslation.xyz, c = quad.c + sceneTranslation.xyz, d = quad.d + sceneTranslation.xyz))
   val function: GArray2DFunction[Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
     case ((xi: Int32, yi: Int32), _) =>
       def wangHash(seed: UInt32): UInt32 = {
@@ -126,12 +220,77 @@ def main =
         Random((x, y, z2), seed2)
       }
 
-      def normalize(v: Vec3[Float32]): Vec3[Float32] = {
-        val len = sqrt(v dot v)
-        v * (1.0f / len)
-      }
-
       def scalarTriple(u: Vec3[Float32], v: Vec3[Float32], w: Vec3[Float32]): Float32 = (u cross v) dot w
+
+      val scalaBase = vec3(0f, 0f, 15.0f)
+      val scalaRadius = 3f
+      val spiralHeight = 6f
+      val scalaHeight = 7f
+      val scalaColor = vec3(0.8f, 0.2f, 0.2f)
+      val rotations = 2.5f
+      val angleHole = 3f
+
+      def testScala(
+        rayPos: Vec3[Float32],
+        rayDir: Vec3[Float32],
+        currentHit: RayHitInfo,
+      ): RayHitInfo =
+        val a = rayDir.x * rayDir.x + rayDir.z * rayDir.z
+        val b = 2f * (rayDir.x * (rayPos.x - scalaBase.x) + rayDir.z * (rayPos.z - scalaBase.z))
+        val c = (rayPos.x - scalaBase.x) * (rayPos.x - scalaBase.x) + (rayPos.z - scalaBase.z) * (rayPos.z - scalaBase.z) - scalaRadius * scalaRadius
+
+        val delta = b*b - 4f*a*c
+        when(delta < 0.0001f) {
+          currentHit
+        } otherwise {
+          val t1 = (-b - sqrt(delta)) / (2f * a)
+          val t2 = (-b + sqrt(delta)) / (2f * a)
+          val t = when(t1 > t2)(t2).otherwise(t1)
+          val hitPos = rayPos + rayDir * t
+          val h = hitPos.y - scalaBase.y
+          
+          when(h >= scalaBase.y && (h <= scalaBase.y + scalaHeight)) {
+            // front face
+            val l = spiralHeight / (2f * math.Pi.toFloat * rotations)
+            val spiralAngle = acos(l)
+            val ct = 1.0f / tan(spiralAngle)
+            val x = h / l
+            val segmentI = (x / (2f * math.Pi.toFloat)).asInt
+            val spiralX = cos(x mod (2f * math.Pi.toFloat))
+            val spiralZ = -sin(x mod (2f * math.Pi.toFloat))
+            val distToSpiral = length((spiralX * scalaRadius, h, spiralZ * scalaRadius) - (hitPos - scalaBase))
+            val angleToSpiral = asin((distToSpiral / 2f) / scalaRadius) * 2f
+            val distOnSphereToSpiral = angleToSpiral * scalaRadius
+            val distToNearestOnSpiral = distOnSphereToSpiral * ct
+            val centerToHit = normalize(hitPos.x - scalaBase.x, hitPos.y - scalaBase.y)
+            when(distToNearestOnSpiral < angleHole) {
+              val normal = normalize(hitPos - scalaBase)
+              RayHitInfo(t, normal, scalaColor, (0f, 0f, 0f))
+            } otherwise {
+              // back face
+              val tb = when(t1 < t2)(t2).otherwise(t1)
+              val hitPosb = rayPos + rayDir * tb
+              val hb = hitPosb.y - scalaBase.y
+              val xb = hb / l
+              val spiralXb = cos(xb mod (2f * math.Pi.toFloat))
+              val spiralZb = -sin(xb mod (2f * math.Pi.toFloat))
+              val distToSpiralb = length((spiralXb * scalaRadius, hb, spiralZb * scalaRadius) - (hitPosb - scalaBase))
+              val angleToSpiralb = asin((distToSpiralb / 2f) / scalaRadius) * 2f
+              val distOnSphereToSpiralb = angleToSpiralb * scalaRadius
+              val distToNearestOnSpiralb = distOnSphereToSpiralb * ct
+              when(hb >= scalaBase.y && (hb <= scalaBase.y + scalaHeight) && distToNearestOnSpiralb < angleHole) {
+                val normal = normalize(hitPosb - scalaBase)
+                RayHitInfo(tb, normal, scalaColor, (0f, 0f, 0f))
+              } otherwise {
+                currentHit
+              }
+            }
+          } otherwise {
+            currentHit
+          }
+        }
+
+
 
       def testQuadTrace(
         rayPos: Vec3[Float32],
@@ -228,78 +387,6 @@ def main =
           }
         }
 
-
-      val sceneTranslation = vec4(0f,0f,10f,0f)
-      val rd = scala.util.Random(1)
-      def randomSphere: Sphere = {
-        def nextFloatAny = rd.nextFloat() * 2f - 1f
-        def nextFloatPos = rd.nextFloat()
-        val center = (nextFloatAny * 10, nextFloatAny * 10, nextFloatPos * 10 + 15f)
-        val radius = nextFloatPos * 2 + 1f
-        val color = (nextFloatPos, nextFloatPos, nextFloatPos)
-        val emissive = if(nextFloatPos > 0.3f) {
-          (0f, 0f, 0f) * 1f
-        } else {
-          vec3(nextFloatPos * 10f, 0f, nextFloatPos * 10f)
-        }
-        Sphere(center, radius, color, emissive)
-      }
-      
-      def randomSpheres(n: Int) = List.fill(n)(randomSphere)
-      
-      val spheres = randomSpheres(20).map(sp => sp.copy(center = sp.center + sceneTranslation.xyz))
-        
-      val walls = List(
-        Quad( // back
-          (-15.5f, -15.5f, 25.0f),
-          (15.5f, -15.5f, 25.0f),
-          (15.5f, 15.5f, 25.0f),
-          (-15.5f, 15.5f, 25.0f),
-          (0.8f, 0.8f, 0.8f),
-          (0f, 0f, 0f)
-        ),
-        Quad( // right
-          (15f, -15.5f, 25.5f),
-          (15f, -15.5f, -15.5f),
-          (15f,  15.5f, -15.5f),
-          (15f,  15.5f, 25.5f),
-          (0.8f, 0.8f, 0.8f),
-          (0f, 0f, 0f)
-        ),
-        Quad( // left
-          (-15f, -15.5f, 25.5f),
-          (-15f, -15.5f, -15.5f),
-          (-15f,  15.5f, -15.5f),
-          (-15f,  15.5f, 25.5f),
-          (0.8f, 0.8f, 0.8f),
-          (0f, 0f, 0f)
-        ),
-        Quad( // bottom
-          (-15.5f, 15f, 25.5f),
-          ( 15.5f, 15f, 25.5f),
-          ( 15.5f, 15f, -15.5f),
-          (-15.5f, 15f, -15.5f),
-          (0.8f, 0.8f, 0.8f),
-          (0f, 0f, 0f)
-        ),
-        Quad( // top
-          (-15.5f, -15f, 25.5f),
-          ( 15.5f, -15f, 25.5f),
-          ( 15.5f, -15f, -15.5f),
-          (-15.5f, -15f, -15.5f),
-          (0.8f, 0.8f, 0.8f),
-          (0f, 0f, 0f)
-        ),
-//        Quad( // light
-//          (-2.5f, -14.8f, 17.5f),
-//          ( 2.5f, -14.8f, 17.5f),
-//          ( 2.5f, -14.8f, 12.5f),
-//          (-2.5f, -14.8f, 12.5f),
-//          (1f, 1f, 1f),
-//          (5f, 5f, 5f)
-//        )
-      ).map(quad => quad.copy(a = quad.a + sceneTranslation.xyz, b = quad.b + sceneTranslation.xyz, c = quad.c + sceneTranslation.xyz, d = quad.d + sceneTranslation.xyz))
-
       def testScene(
         rayPos: Vec3[Float32],
         rayDir: Vec3[Float32],
@@ -312,16 +399,9 @@ def main =
         val wallsHit = GSeq.of(walls).fold(spheresHit, { (hit, w) =>
           testQuadTrace(rayPos, rayDir, hit, w)
         })
-        wallsHit
+        val scalaHit = testScala(rayPos, rayDir, wallsHit)
+        scalaHit
 
-      case class RayTraceState(
-        rayPos: Vec3[Float32],
-        rayDir: Vec3[Float32],
-        color: Vec3[Float32],
-        throughput: Vec3[Float32],
-        rngState: UInt32,
-        done: GBoolean = false
-      ) extends GStruct[RayTraceState]
       val MaxBounces = 8
       def getColorForRay(startRayPos: Vec3[Float32], startRayDir: Vec3[Float32], initRngState: UInt32): RayTraceState =
         val initState = RayTraceState(startRayPos, startRayDir, (0f, 0f, 0f), (1f, 1f, 1f), initRngState)
@@ -341,16 +421,16 @@ def main =
               RayTraceState(rayPos, rayDir, color, throughput, rngState, true)
             }
           }
-        ).limit(MaxBounces).takeWhile(!_.done).lastOr(initState)
+        ).limit(MaxBounces).takeWhile(!_.finished).lastOr(initState)
       val rngState = xi * 1973 + yi * 9277 * 26699 | 1
       case class RenderIteration(color: Vec3[Float32], rngState: UInt32) extends GStruct[RenderIteration]
       val rayTraceResult =
         GSeq.gen(first = RenderIteration((0f,0f,0f), rngState.unsigned), next = {
           case RenderIteration(_, rngState) =>
-            val Random(jitterX, rngState1) = randomFloat(rngState)
-            val Random(jitterY, rngState2) = randomFloat(rngState1)
-            val x = ((xi.asFloat + jitterX) / dim.toFloat) * 2f - 1f
-            val y = ((yi.asFloat + jitterY) / dim.toFloat) * 2f - 1f
+            val Random(wiggleX, rngState1) = randomFloat(rngState)
+            val Random(wiggleY, rngState2) = randomFloat(rngState1)
+            val x = ((xi.asFloat + wiggleX) / dim.toFloat) * 2f - 1f
+            val y = ((yi.asFloat + wiggleY) / dim.toFloat) * 2f - 1f
             val xy = (x, y)
 
             val rayPosition = (0f, 0f, 0f)
@@ -369,6 +449,6 @@ def main =
       // val srgb = linearToSRGB(aces)
       (color.r, color.g, color.b, 1.0f)
   })
-  
+
   val r = Await.result(Vec4FloatMem(dim * dim).map(function), 10.hours)
   ImageUtility.renderToImage(r, dim, Paths.get("generated.png"))

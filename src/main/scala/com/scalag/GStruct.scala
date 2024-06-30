@@ -87,22 +87,3 @@ inline given derived[T <: GStruct[T] : Tag](using m: Mirror.Of[T]): GStructSchem
           val elements = elemNames.lazyZip(elemFromExpr).lazyZip(elemTags).toList
           GStructSchema[T](elements, None, m.fromTuple.asInstanceOf[Tuple => T])
         case _ => error("Only case classes are supported as GStructs")
-
-
-/**
- * Plan:
- *  - extend the GStruct trait
- *  - accept only Values as fields (some given?)
- *  - declare struct type
- *  - accept that quite often struct will be inlined
- *  - when passed in control structures, not inline but create the struct to pass around control structures:
- *    - in when/otherwise:
- *      - create the struct when its returned from when/otherwise
- *      - change its (create new with) expressions to ones that load the fields of return struct - so its just like:
- *         AccessField(SomeStructValue, fieldId)
- *    - in GSeq
- *      - initate it for acc / result
- *      - in generator, map, foldexpr, etc., create new one with expressions that access the fields of the structs
- *      - store the values from the returned struct in the acc/result struct (new one again but comes together!)
- *      - in the end, load the finalResult. Return new struct that accesses the fields of the result finalResult.
- */

@@ -26,12 +26,10 @@ object Instance {
     vkEnumerateInstanceLayerProperties(ip, null)
     val availableLayers = VkLayerProperties.malloc(ip.get(0), stack)
     vkEnumerateInstanceLayerProperties(ip, availableLayers)
-    availableLayers.forEach(x => println(x.layerNameString()))
 
     vkEnumerateInstanceExtensionProperties(null.asInstanceOf[String], ip, null)
     val instance_extensions = VkExtensionProperties.malloc(ip.get(0), stack)
     vkEnumerateInstanceExtensionProperties(null.asInstanceOf[String], ip, instance_extensions)
-    instance_extensions.forEach(x => println(x.extensionNameString()))
   }
 }
 

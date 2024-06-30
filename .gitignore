@@ -20,3 +20,8 @@ bin
 *.spv
 gradlew
 gradlew/wrapper
+target
+project/target
+out
+hs_err_pid*.log
+.bsp

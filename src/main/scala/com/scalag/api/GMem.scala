@@ -2,7 +2,7 @@ package com.scalag.api
 
 import com.scalag.Value
 import com.scalag.Value.*
-import com.scalag.vulkan.executor.{AbstractExecutor, BufferAction, MapExecutor, SortByKeyExecutor}
+import com.scalag.vulkan.executor.{AbstractExecutor, BufferAction, MapExecutor}
 
 import java.nio.ByteBuffer
 import org.lwjgl.BufferUtils
@@ -58,9 +58,6 @@ class FloatMem(val size: Int) extends WritableGMem[Float32, Float]:
     res.get(result)
     result
   }
-
-  def sort[R <: Value](fn: GFunction[Float32, Float32])(implicit context: GContext): Future[Array[Float]] =
-    execute(new SortByKeyExecutor(size, fn.pipeline, context.vkContext))
 
   def write(floats: Array[Float]): Unit = {
     data.rewind()
