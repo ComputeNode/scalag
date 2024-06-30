@@ -2,15 +2,14 @@ package com.scalag.api
 
 import com.scalag.Value
 import com.scalag.Value.*
-import com.scalag.vulkan.executor.{AbstractExecutor, BufferAction, MapExecutor}
-
-import java.nio.ByteBuffer
-import org.lwjgl.BufferUtils
+import com.scalag.vulkan.compute.ComputePipeline
+import com.scalag.vulkan.executor.SequenceExecutor.*
+import com.scalag.vulkan.executor.{BufferAction, SequenceExecutor}
 import org.lwjgl.system.MemoryUtil
 
+import java.nio.ByteBuffer
 import scala.concurrent.ExecutionContext.Implicits.*
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 import scala.language.postfixOps
 
 trait GMem[H <: Value]:
@@ -29,21 +28,21 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
 
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
-  def execute(executor: AbstractExecutor): Future[Array[R]] =
+  def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] =
+    execute(fn.pipeline)
+
+  def map(fn: GArray2DFunction[T, T])(implicit context: GContext): Future[Array[R]] =
+    execute(fn.pipeline)
+
+  private def execute(pipeline: ComputePipeline)(implicit context: GContext) = {
+    val actions = Map(LayoutLocation(0, 0) -> BufferAction.LoadTo, LayoutLocation(0, 1) -> BufferAction.LoadFrom)
+    val sequence = ComputationSequence(Seq(Compute(pipeline, actions)), Seq.empty)
+    val executor = new SequenceExecutor(size, sequence, context.vkContext)
     Future {
-      val out = executor.execute(List(data))
+      val out = executor.execute(Seq(data), size)
       executor.destroy()
       toResultArray(out.head)
     }
-
-  def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] = {
-    val actions = List(BufferAction.LoadTo, BufferAction.LoadFrom)
-    execute(new MapExecutor(size, actions, fn.pipeline, context.vkContext))
-  }
-
-  def map(fn: GArray2DFunction[T, T])(implicit context: GContext): Future[Array[R]] = {
-    val actions = List(BufferAction.LoadTo, (BufferAction.LoadFrom))
-    execute(new MapExecutor(size, actions, fn.pipeline, context.vkContext))
   }
 
   def write(data: Array[R]): Unit

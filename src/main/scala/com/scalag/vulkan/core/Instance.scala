@@ -2,9 +2,8 @@ package com.scalag.vulkan.core
 
 import com.scalag.vulkan.VulkanContext.VALIDATION_LAYERS
 import com.scalag.vulkan.util.Util.{check, pushStack}
-import com.scalag.vulkan.util.{VulkanAssertionError, VulkanObject}
+import com.scalag.vulkan.util.VulkanObject
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.EXTDebugReport.VK_EXT_DEBUG_REPORT_EXTENSION_NAME
@@ -12,7 +11,6 @@ import org.lwjgl.vulkan.KHRPortabilityEnumeration.{VK_INSTANCE_CREATE_ENUMERATE_
 import org.lwjgl.vulkan.VK10.*
 
 import scala.collection.mutable
-import scala.util.Using
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -21,7 +19,7 @@ object Instance {
   val ValidationLayersExtensions: Seq[String] = List(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
   val MacOsExtensions: Seq[String] = List(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
 
-  def printCapibilities(): Unit = pushStack { stack =>
+  def enumerateCapabilities(print: Boolean = false): Unit = pushStack { stack =>
     val ip = stack.ints(1)
     vkEnumerateInstanceLayerProperties(ip, null)
     val availableLayers = VkLayerProperties.malloc(ip.get(0), stack)
@@ -30,13 +28,19 @@ object Instance {
     vkEnumerateInstanceExtensionProperties(null.asInstanceOf[String], ip, null)
     val instance_extensions = VkExtensionProperties.malloc(ip.get(0), stack)
     vkEnumerateInstanceExtensionProperties(null.asInstanceOf[String], ip, instance_extensions)
+
+    if (print)
+      println(s"Available extensions:")
+      instance_extensions.forEach(x => println(s"\t${x.extensionNameString()}"))
+      println(s"Available layers:")
+      availableLayers.forEach(x => println(s"\t${x.layerNameString()}"))
   }
 }
 
 class Instance(enableValidationLayers: Boolean) extends VulkanObject {
 
   private val instance: VkInstance = pushStack { stack =>
-    Instance.printCapibilities()
+    Instance.enumerateCapabilities(enableValidationLayers)
     val appInfo = VkApplicationInfo
       .calloc(stack)
       .sType$Default()

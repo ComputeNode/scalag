@@ -22,7 +22,8 @@ trait Executable[H <: Value, R <: Value] {
 }
 
 trait GContext {
-  val vkContext = new VulkanContext()
+  private val sdkPresent = org.lwjgl.system.Configuration.VULKAN_LIBRARY_NAME.get() != null
+  val vkContext = new VulkanContext(enableValidationLayers = sdkPresent)
 
   def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline
   def compile[H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GArray2DFunction[H, R]): ComputePipeline
