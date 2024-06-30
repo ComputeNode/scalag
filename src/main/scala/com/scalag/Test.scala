@@ -32,7 +32,7 @@ def main =
   val fovDeg = 60
   val fovRad = fovDeg * math.Pi.toFloat / 180.0f
   val maxBounces = 8
-  val pixelIterationsPerFrame = 10000
+  val pixelIterationsPerFrame =5 
   val bgColor = (0.2f, 0.2f, 0.2f)
   val exposure = 0.5f
   case class Random[T <: Value](value: T, nextSeed: UInt32)

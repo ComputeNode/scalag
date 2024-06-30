@@ -5,16 +5,12 @@ import com.scalag.vulkan.command.{CommandPool, Fence, Queue}
 import com.scalag.vulkan.core.Device
 import com.scalag.vulkan.memory.{Allocator, Buffer, DescriptorPool, DescriptorSet}
 import com.scalag.vulkan.util.Util.{check, pushStack}
-import com.scalag.vulkan.util.VulkanAssertionError
 import org.lwjgl.BufferUtils
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.util.vma.Vma.VMA_MEMORY_USAGE_UNKNOWN
 import org.lwjgl.vulkan.*
 import org.lwjgl.vulkan.VK10.*
 
 import java.nio.ByteBuffer
-import scala.util.Using
 
 abstract class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAction], context: VulkanContext) {
   protected val device: Device = context.device
@@ -90,27 +86,4 @@ abstract class AbstractExecutor(dataLength: Int, val bufferActions: Seq[BufferAc
   protected def recordCommandBuffer(commandBuffer: VkCommandBuffer): Unit
 
   protected def getBiggestTransportData: Int
-
-  protected def createUpdatedDescriptorSet(descriptorSetLayout: Long, buffers: Seq[Buffer]): DescriptorSet = pushStack { stack =>
-    val descriptorSet = new DescriptorSet(device, descriptorSetLayout, descriptorPool)
-    val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
-    buffers.indices foreach { i =>
-      val descriptorBufferInfo = VkDescriptorBufferInfo
-        .calloc(1, stack)
-        .buffer(buffers(i).get)
-        .offset(0)
-        .range(VK_WHOLE_SIZE)
-
-      writeDescriptorSet
-        .get(i)
-        .sType$Default()
-        .dstSet(descriptorSet.get)
-        .dstBinding(i)
-        .descriptorCount(1)
-        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-        .pBufferInfo(descriptorBufferInfo)
-    }
-    vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)
-    descriptorSet
-  }
 }

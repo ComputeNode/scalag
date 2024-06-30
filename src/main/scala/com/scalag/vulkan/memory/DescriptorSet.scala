@@ -2,14 +2,10 @@ package com.scalag.vulkan.memory
 
 import com.scalag.vulkan.core.Device
 import com.scalag.vulkan.util.Util.{check, pushStack}
-import com.scalag.vulkan.util.{VulkanAssertionError, VulkanObjectHandle}
+import com.scalag.vulkan.util.VulkanObjectHandle
 import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.VkDescriptorSetAllocateInfo
-
-import java.nio.LongBuffer
-import scala.util.Using
+import org.lwjgl.vulkan.{VkDescriptorBufferInfo, VkDescriptorSetAllocateInfo, VkWriteDescriptorSet}
 
 /** @author
   *   MarconZet Created 15.04.2020
@@ -27,6 +23,27 @@ class DescriptorSet(device: Device, descriptorSetLayout: Long, descriptorPool: D
     val pDescriptorSet = stack.callocLong(1)
     check(vkAllocateDescriptorSets(device.get, descriptorSetAllocateInfo, pDescriptorSet), "Failed to allocate descriptor set")
     pDescriptorSet.get()
+  }
+
+  def update(buffers: Seq[Buffer]): Unit = pushStack { stack =>
+    val writeDescriptorSet = VkWriteDescriptorSet.calloc(buffers.length, stack)
+    buffers.indices foreach { i =>
+      val descriptorBufferInfo = VkDescriptorBufferInfo
+        .calloc(1, stack)
+        .buffer(buffers(i).get)
+        .offset(0)
+        .range(VK_WHOLE_SIZE)
+
+      writeDescriptorSet
+        .get(i)
+        .sType$Default()
+        .dstSet(handle)
+        .dstBinding(i)
+        .descriptorCount(1)
+        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+        .pBufferInfo(descriptorBufferInfo)
+    }
+    vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)
   }
 
   override protected def close(): Unit =

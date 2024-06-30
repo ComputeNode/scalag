@@ -39,27 +39,8 @@ class MapExecutor(dataLength: Int, bufferActions: Seq[BufferAction], computePipe
     val descriptorSets = for (i <- descriptorSetLayouts.indices) yield {
       val descriptorSet = new DescriptorSet(device, descriptorSetLayouts(i), descriptorPool)
       val layouts = shader.getLayoutsBySets(i)
-
-      val writeDescriptorSet = VkWriteDescriptorSet.calloc(layouts.size, stack)
-
-      for (j <- layouts.indices) do {
-        val descriptorBufferInfo = VkDescriptorBufferInfo
-          .calloc(1, stack)
-          .buffer(bufferDeque.removeHead().get)
-          .offset(0)
-          .range(VK_WHOLE_SIZE)
-
-        writeDescriptorSet
-          .get(j)
-          .sType$Default()
-          .dstSet(descriptorSet.get)
-          .dstBinding(layouts(j).binding)
-          .descriptorCount(1)
-          .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-          .pBufferInfo(descriptorBufferInfo)
-      }
-
-      vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)
+      descriptorSet.update(bufferDeque.take(layouts.size).toSeq)
+      bufferDeque.drop(layouts.size)
       descriptorSet
     }
     (descriptorSets, buffers)

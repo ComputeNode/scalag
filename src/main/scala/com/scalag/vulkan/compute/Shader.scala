@@ -19,7 +19,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 25.04.2020
   */
-class Shader(shaderCode: ByteBuffer, val workgroupDimensions: Vector3ic, val layoutInfos: Seq[LayoutInfo], val functionName: String, device: Device)
+class Shader(shaderCode: ByteBuffer, val workgroupDimensions: Vector3ic, val layoutInfo: LayoutInfo, val functionName: String, device: Device)
     extends VulkanObjectHandle {
 
   protected val handle: Long = pushStack { stack =>
@@ -35,11 +35,6 @@ class Shader(shaderCode: ByteBuffer, val workgroupDimensions: Vector3ic, val lay
     pShaderModule.get()
   }
 
-  def getLayoutsBySets: Seq[Seq[LayoutInfo]] = layoutInfos.map(_.set).distinct.sorted.map(getLayoutsBySet)
-
-  private def getLayoutsBySet(a: Int): Seq[LayoutInfo] =
-    layoutInfos.filter(_.set == a)
-
   protected def close(): Unit =
     vkDestroyShaderModule(device.get, handle, null)
 }
@@ -49,7 +44,7 @@ object Shader {
   def loadShader(path: String): ByteBuffer =
     loadShader(path, getClass.getClassLoader)
 
-  def loadShader(path: String, classLoader: ClassLoader): ByteBuffer =
+  private def loadShader(path: String, classLoader: ClassLoader): ByteBuffer =
     try {
       val file = new File(Objects.requireNonNull(classLoader.getResource(path)).getFile)
       val fis = new FileInputStream(file)
