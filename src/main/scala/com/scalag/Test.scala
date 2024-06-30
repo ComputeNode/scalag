@@ -189,11 +189,10 @@ def main =
         (mX, mY, z),
         (x, mY, z),
         (1f, 1f, 1f),
-        (20f, 20f, 20f)
+        (30f, 30f, 30f)
       )
     }
   ).map(quad => quad.copy(a = quad.a + sceneTranslation.xyz, b = quad.b + sceneTranslation.xyz, c = quad.c + sceneTranslation.xyz, d = quad.d + sceneTranslation.xyz))
-
   val function: GArray2DFunction[Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
     case ((xi: Int32, yi: Int32), _) =>
       def wangHash(seed: UInt32): UInt32 = {
@@ -225,10 +224,11 @@ def main =
 
       val scalaBase = vec3(0f, 0f, 15.0f)
       val scalaRadius = 3f
-      val scalaHeight = 6f
+      val spiralHeight = 6f
+      val scalaHeight = 7f
       val scalaColor = vec3(0.8f, 0.2f, 0.2f)
       val rotations = 2.5f
-      val angleHole = Math.PI.toFloat / 2f
+      val angleHole = 3f
 
       def testScala(
         rayPos: Vec3[Float32],
@@ -251,29 +251,39 @@ def main =
           
           when(h >= scalaBase.y && (h <= scalaBase.y + scalaHeight)) {
             // front face
-            val l = scalaHeight / (2f * math.Pi.toFloat * rotations)
+            val l = spiralHeight / (2f * math.Pi.toFloat * rotations)
+            val spiralAngle = acos(l)
+            val ct = 1.0f / tan(spiralAngle)
             val x = h / l
-            val spiralX = (cos(x), sin(x))
+            val segmentI = (x / (2f * math.Pi.toFloat)).asInt
+            val spiralX = cos(x mod (2f * math.Pi.toFloat))
+            val spiralZ = -sin(x mod (2f * math.Pi.toFloat))
+            val distToSpiral = length((spiralX * scalaRadius, h, spiralZ * scalaRadius) - (hitPos - scalaBase))
+            val angleToSpiral = asin((distToSpiral / 2f) / scalaRadius) * 2f
+            val distOnSphereToSpiral = angleToSpiral * scalaRadius
+            val distToNearestOnSpiral = distOnSphereToSpiral * ct
             val centerToHit = normalize(hitPos.x - scalaBase.x, hitPos.y - scalaBase.y)
-            val angleToSpiral = acos(centerToHit dot spiralX)
-            when(angleToSpiral < angleHole) {
+            when(distToNearestOnSpiral < angleHole) {
+              val normal = normalize(hitPos - scalaBase)
+              RayHitInfo(t, normal, scalaColor, (0f, 0f, 0f))
+            } otherwise {
               // back face
               val tb = when(t1 < t2)(t2).otherwise(t1)
               val hitPosb = rayPos + rayDir * tb
               val hb = hitPosb.y - scalaBase.y
               val xb = hb / l
-              val spiralXb = (cos(xb), sin(xb))
-              val centerToHitb = normalize(hitPosb.x - scalaBase.x, hitPosb.y - scalaBase.y)
-              val angleToSpiralb = acos(centerToHitb dot spiralXb)
-              when(angleToSpiralb < angleHole) {
-                currentHit
-              } otherwise {
+              val spiralXb = cos(xb mod (2f * math.Pi.toFloat))
+              val spiralZb = -sin(xb mod (2f * math.Pi.toFloat))
+              val distToSpiralb = length((spiralXb * scalaRadius, hb, spiralZb * scalaRadius) - (hitPosb - scalaBase))
+              val angleToSpiralb = asin((distToSpiralb / 2f) / scalaRadius) * 2f
+              val distOnSphereToSpiralb = angleToSpiralb * scalaRadius
+              val distToNearestOnSpiralb = distOnSphereToSpiralb * ct
+              when(hb >= scalaBase.y && (hb <= scalaBase.y + scalaHeight) && distToNearestOnSpiralb < angleHole) {
                 val normal = normalize(hitPosb - scalaBase)
                 RayHitInfo(tb, normal, scalaColor, (0f, 0f, 0f))
+              } otherwise {
+                currentHit
               }
-            } otherwise {
-              val normal = normalize(hitPos - scalaBase)
-              RayHitInfo(t, normal, scalaColor, (0f, 0f, 0f))
             }
           } otherwise {
             currentHit
