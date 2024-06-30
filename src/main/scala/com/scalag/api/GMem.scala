@@ -37,12 +37,12 @@ trait WritableGMem[T <: Value, R] extends GMem[T]:
     }
 
   def map(fn: GFunction[T, T])(implicit context: GContext): Future[Array[R]] = {
-    val actions = List(BufferAction.LOAD_INTO, BufferAction.LOAD_FROM)
+    val actions = List(BufferAction.LoadTo, BufferAction.LoadFrom)
     execute(new MapExecutor(size, actions, fn.pipeline, context.vkContext))
   }
 
   def map(fn: GArray2DFunction[T, T])(implicit context: GContext): Future[Array[R]] = {
-    val actions = List(BufferAction.LOAD_INTO, (BufferAction.LOAD_FROM))
+    val actions = List(BufferAction.LoadTo, (BufferAction.LoadFrom))
     execute(new MapExecutor(size, actions, fn.pipeline, context.vkContext))
   }
 
