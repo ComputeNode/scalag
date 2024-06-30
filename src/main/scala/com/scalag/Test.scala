@@ -449,6 +449,6 @@ def main =
       // val srgb = linearToSRGB(aces)
       (color.r, color.g, color.b, 1.0f)
   })
-  
+
   val r = Await.result(Vec4FloatMem(dim * dim).map(function), 10.hours)
   ImageUtility.renderToImage(r, dim, Paths.get("generated.png"))
