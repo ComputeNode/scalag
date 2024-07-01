@@ -146,7 +146,7 @@ object DSLCompiler {
           Instruction(Op.OpTypeVector, List(ResultRef(typeDefIndex + 5), ResultRef(typeDefIndex), IntWord(3))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 6), StorageClass.Function, IntWord(typeDefIndex + 4))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 7), StorageClass.Uniform, IntWord(typeDefIndex + 4))),
-          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 8), StorageClass.Input, IntWord(typeDefIndex + 4))),
+          Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 8), StorageClass.Input, IntWord(typeDefIndex + 5))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 9), StorageClass.Function, IntWord(typeDefIndex + 5))),
           Instruction(Op.OpTypePointer, List(ResultRef(typeDefIndex + 10), StorageClass.Uniform, IntWord(typeDefIndex + 5))),
           Instruction(Op.OpTypeVector, List(ResultRef(typeDefIndex + 11), ResultRef(typeDefIndex), IntWord(4))),
