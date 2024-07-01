@@ -465,7 +465,11 @@ object DSLCompiler {
     Functions.Atan -> GlslOp.Atan,
     Functions.Acos -> GlslOp.Acos,
     Functions.Asin -> GlslOp.Asin,
-    Functions.Atan2 -> GlslOp.Atan2
+    Functions.Atan2 -> GlslOp.Atan2,
+    Functions.Reflect -> GlslOp.Reflect,
+    Functions.Exp -> GlslOp.Exp,
+    Functions.Max -> GlslOp.FMax,
+    Functions.Refract -> GlslOp.Refract
   )
 
   def compileFunctionCall(expr: DigestedExpression, call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =

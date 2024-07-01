@@ -13,11 +13,6 @@ layout (set = 0, binding = 2) buffer NextOrderBuffer {
     uint n_order[];
 };
 
-layout (set = 0, binding = 3) buffer ThisExecution {
-    uint l;
-    uint p;
-};
-
 layout (set = 0, binding = 4) buffer NextExecution {
     uint n_l;
     uint n_p;

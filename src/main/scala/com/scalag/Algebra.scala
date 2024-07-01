@@ -192,6 +192,9 @@ object Algebra:
   given Conversion[(FloatOrFloat32, FloatOrFloat32, FloatOrFloat32, FloatOrFloat32), Vec4[Float32]] = {
     case (x, y, z, w) => Vec4(ComposeVec4(toFloat32(x), toFloat32(y), toFloat32(z), toFloat32(w)))
   }
+  given Conversion[(Vec3[Float32], FloatOrFloat32), Vec4[Float32]] = {
+    case (v, w) => Vec4(ComposeVec4(v.x, v.y, v.z, toFloat32(w)))
+  }
   
   extension [T <: Scalar: FromExpr: Tag] (v2: Vec2[T])
     def x: T = summon[FromExpr[T]].fromExpr(ExtractScalar(v2, Int32(ConstInt32(0))))
@@ -232,7 +235,7 @@ object Algebra:
   def vec4(f: FloatOrFloat32): Vec4[Float32] = (f, f, f, f)
   def vec3(f: FloatOrFloat32): Vec3[Float32] = (f, f, f)
   
-  // todo replace below ones w/ ext functions
+  // todo below is temporary cache for functions not put as direct functions, replace below ones w/ ext functions
   extension (v: Vec3[Float32])
     def mulV(v2: Vec3[Float32]): Vec3[Float32] = (v.x * v2.x, v.y * v2.y, v.z * v2.z)
     def addV(v2: Vec3[Float32]): Vec3[Float32] = (v.x + v2.x, v.y + v2.y, v.z + v2.z)
@@ -251,5 +254,6 @@ object Algebra:
     val len = sqrt(v dot v)
     v * (1.0f / len)
   }
+
   
   
