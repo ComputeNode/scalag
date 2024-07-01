@@ -8,13 +8,17 @@ import com.scalag.vulkan.memory.{Allocator, DescriptorPool}
   *   MarconZet Created 13.04.2020
   */
 object VulkanContext {
-  val VALIDATION_LAYERS: Array[String] = Array("VK_LAYER_KHRONOS_validation")
+  final val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
+  final val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
 }
 
 class VulkanContext(val enableValidationLayers: Boolean = false) {
-  val instance: Instance = new Instance(enableValidationLayers)
-  val debugCallback: DebugCallback = if (enableValidationLayers) new DebugCallback(instance) else null
-  val device: Device = new Device(enableValidationLayers, instance)
+  private val sdkPresent = org.lwjgl.system.Configuration.VULKAN_LIBRARY_NAME.get() != null
+  private val validationLayers = enableValidationLayers && sdkPresent
+
+  val instance: Instance = new Instance(validationLayers)
+  val debugCallback: DebugCallback = if (validationLayers) new DebugCallback(instance) else null
+  val device: Device = new Device(instance)
   val computeQueue: Queue = new Queue(device.computeQueueFamily, 0, device)
   val allocator: Allocator = new Allocator(instance, device)
   val descriptorPool: DescriptorPool = new DescriptorPool(device)
@@ -26,7 +30,7 @@ class VulkanContext(val enableValidationLayers: Boolean = false) {
     allocator.destroy()
     computeQueue.destroy()
     device.destroy()
-    if (enableValidationLayers)
+    if (validationLayers)
       debugCallback.destroy()
     instance.destroy()
   }

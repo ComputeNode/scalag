@@ -11,5 +11,5 @@ layout (binding = 0, set = 1) buffer OutputBuffer {
 
 void main(void){
     uint index = gl_GlobalInvocationID.x;
-    outArray[index] = inArray[index];
+    outArray[index] = inArray[index] + 10000;
 }

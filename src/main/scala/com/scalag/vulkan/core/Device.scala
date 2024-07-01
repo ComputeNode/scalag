@@ -1,31 +1,28 @@
 package com.scalag.vulkan.core
 
-import com.scalag.vulkan.VulkanContext.VALIDATION_LAYERS
-import com.scalag.vulkan.core.Device.{MacOsExtension, VmaAllocatorExtension}
+import com.scalag.vulkan.VulkanContext.ValidationLayer
+import com.scalag.vulkan.core.Device.{MacOsExtension, SyncExtension}
 import com.scalag.vulkan.util.Util.{check, pushStack}
-import com.scalag.vulkan.util.{VulkanAssertionError, VulkanObject}
-import org.lwjgl.PointerBuffer
-import org.lwjgl.system.MemoryStack
-import org.lwjgl.system.MemoryStack.stackPush
-import org.lwjgl.system.MemoryUtil.*
+import com.scalag.vulkan.util.VulkanObject
 import org.lwjgl.vulkan.*
-import org.lwjgl.vulkan.KHRGetMemoryRequirements2.VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
+import org.lwjgl.vulkan.VK11.*
 
-import java.nio.{ByteBuffer, FloatBuffer, IntBuffer}
-import scala.util.Using
+import java.nio.ByteBuffer
+import scala.jdk.CollectionConverters.given
 
 /** @author
   *   MarconZet Created 13.04.2020
   */
 
 object Device {
-  val VmaAllocatorExtension: Seq[String] = Seq.empty
-  val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+  final val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+  final val SyncExtension = VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 }
 
-class Device(enableValidationLayers: Boolean, instance: Instance) extends VulkanObject {
+class Device(instance: Instance) extends VulkanObject {
 
   val physicalDevice: VkPhysicalDevice = pushStack { stack =>
 
@@ -79,6 +76,26 @@ class Device(enableValidationLayers: Boolean, instance: Instance) extends Vulkan
         "Failed to get extension properties"
       )
 
+      val deviceExtensions = pProperties.iterator().asScala.map(_.extensionNameString())
+      val deviceExtensionsSet = deviceExtensions.toSet
+      deviceExtensions.foreach(println(_))
+
+      val vulkan12Features = VkPhysicalDeviceVulkan12Features
+        .calloc(stack)
+        .sType$Default()
+
+      val vulkan13Features = VkPhysicalDeviceVulkan13Features
+        .calloc(stack)
+        .sType$Default()
+
+      val physicalDeviceFeatures = VkPhysicalDeviceFeatures2
+        .calloc(stack)
+        .sType$Default()
+        .pNext(vulkan12Features)
+        .pNext(vulkan13Features)
+
+      vkGetPhysicalDeviceFeatures2(physicalDevice, physicalDeviceFeatures)
+
       val additionalExtension = pProperties.stream().anyMatch(x => x.extensionNameString().equals(MacOsExtension))
 
       val pQueuePriorities = stack.callocFloat(1).put(1.0f)
@@ -93,27 +110,29 @@ class Device(enableValidationLayers: Boolean, instance: Instance) extends Vulkan
         .queueFamilyIndex(computeQueueFamily)
         .pQueuePriorities(pQueuePriorities)
 
-      val ppExtensionNames = stack.callocPointer(VmaAllocatorExtension.length + 1)
-      VmaAllocatorExtension.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
-
-      if (additionalExtension)
-        ppExtensionNames.put(stack.ASCII(MacOsExtension))
+      val extensions = Seq(MacOsExtension, SyncExtension).filter(deviceExtensionsSet)
+      val ppExtensionNames = stack.callocPointer(extensions.length)
+      extensions.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
       ppExtensionNames.flip()
 
-      val deviceFeatures = VkPhysicalDeviceFeatures.calloc(stack)
+      val sync2 = VkPhysicalDeviceSynchronization2Features
+        .calloc(stack)
+        .sType$Default()
+        .synchronization2(true)
+
       val pCreateInfo = VkDeviceCreateInfo
         .create()
         .sType$Default()
-        .pNext(NULL)
+        .pNext(sync2)
         .pQueueCreateInfos(pQueueCreateInfo)
-        .pEnabledFeatures(deviceFeatures)
         .ppEnabledExtensionNames(ppExtensionNames)
 
-      if (enableValidationLayers) {
-        val ppValidationLayers = stack.callocPointer(VALIDATION_LAYERS.length)
-        VALIDATION_LAYERS.foreach(layer => ppValidationLayers.put(stack.ASCII(layer)))
+      if (instance.enabledLayers.contains(ValidationLayer)) {
+        val ppValidationLayers = stack.callocPointer(1).put(stack.ASCII(ValidationLayer))
         pCreateInfo.ppEnabledLayerNames(ppValidationLayers.flip())
       }
+
+      assert(vulkan13Features.synchronization2() || extensions.contains(SyncExtension))
 
       val pDevice = stack.callocPointer(1)
       check(vkCreateDevice(physicalDevice, pCreateInfo, null, pDevice), "Failed to create device")

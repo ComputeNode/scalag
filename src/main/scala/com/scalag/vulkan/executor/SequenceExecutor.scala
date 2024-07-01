@@ -10,8 +10,9 @@ import com.scalag.vulkan.util.Util.*
 import org.lwjgl.BufferUtils
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.vulkan.*
-import org.lwjgl.vulkan.KHRSynchronization2.{VK_ACCESS_2_SHADER_READ_BIT_KHR, VK_ACCESS_2_SHADER_WRITE_BIT_KHR, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR, vkCmdPipelineBarrier2KHR}
+import org.lwjgl.vulkan.KHRSynchronization2.vkCmdPipelineBarrier2KHR
 import org.lwjgl.vulkan.VK10.*
+import org.lwjgl.vulkan.VK13.*
 
 import java.nio.ByteBuffer
 
@@ -45,7 +46,7 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
       .foldLeft(numberedSets.map(_.toArray)) { case (sets, (from, fromSet, to, toSet)) =>
         val a = sets(from)(fromSet)
         val b = sets(to)(toSet)
-        assert(a._1 == b._1)
+        assert(a._1.bindings == b._1.bindings)
         val nextIndex = a._2 min b._2
         sets(from).update(fromSet, (a._1, nextIndex))
         sets(to).update(toSet, (b._1, nextIndex))
@@ -70,7 +71,7 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
   private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack { stack =>
-
+    val pipelinesHasDependencies = computeSequence.dependencies.map(_.from).toSet
     val commandBuffer = commandPool.createCommandBuffer()
 
     val commandBufferBeginInfo = VkCommandBufferBeginInfo
@@ -82,28 +83,29 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
 
     computeSequence.sequence.foreach {
       case Compute(pipeline, _) =>
+        if(pipelinesHasDependencies(pipeline))
+          val memoryBarrier = VkMemoryBarrier2
+            .calloc(1, stack)
+            .sType$Default()
+            .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+            .srcAccessMask(VK_ACCESS_2_SHADER_WRITE_BIT)
+            .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT)
+            .dstAccessMask(VK_ACCESS_2_SHADER_READ_BIT)
+
+          val dependencyInfo = VkDependencyInfo
+            .calloc(stack)
+            .sType$Default()
+            .pMemoryBarriers(memoryBarrier)
+
+          vkCmdPipelineBarrier2KHR(commandBuffer, dependencyInfo)
+
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get)
 
         val pDescriptorSets = stack.longs(pipelineToDescriptorSets(pipeline).map(_.get): _*)
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipelineLayout, 0, pDescriptorSets, null)
 
         val workgroup = pipeline.computeShader.workgroupDimensions
-        vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch, then we can eliminate dataLength from constructor
-      case MemoryBarrier =>
-        val memoryBarrier = VkMemoryBarrier2KHR
-          .calloc(1, stack)
-          .sType$Default()
-          .srcStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR)
-          .srcAccessMask(VK_ACCESS_2_SHADER_WRITE_BIT_KHR)
-          .dstStageMask(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT_KHR)
-          .dstStageMask(VK_ACCESS_2_SHADER_READ_BIT_KHR)
-
-        val dependencyInfo = VkDependencyInfoKHR
-          .calloc(stack)
-          .sType$Default()
-          .pMemoryBarriers(memoryBarrier)
-
-        vkCmdPipelineBarrier2KHR(commandBuffer, dependencyInfo)
+        vkCmdDispatch(commandBuffer, dataLength / workgroup.x, 1 / workgroup.y, 1 / workgroup.z) // TODO this can be changed to indirect dispatch, this would unlock options like filters
     }
 
     check(vkEndCommandBuffer(commandBuffer), "Failed to finish recording command buffer")
@@ -115,7 +117,7 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
         pipelineToDescriptorSets(pipeline).zipWithIndex.map { case (descriptorSet, i) =>
-          val descriptorBufferActions = descriptorSet.bindings.map(_.id).map(LayoutLocation(i, _)).map(bufferActions)
+          val descriptorBufferActions = descriptorSet.bindings.map(_.id).map(LayoutLocation(i, _)).map(bufferActions.getOrElse(_, BufferAction.DoNothing))
           (descriptorSet, descriptorBufferActions)
         }
       }
@@ -204,8 +206,6 @@ object SequenceExecutor {
     def pumpLayoutLocations: Seq[Seq[BufferAction]] =
       pipeline.computeShader.layoutInfo.sets
         .map(x => x.bindings.map(y => (x.id, y.id)).map(x => bufferActions.getOrElse(LayoutLocation.apply.tupled(x), BufferAction.DoNothing)))
-
-  case object MemoryBarrier extends ComputationStep
 
   case class LayoutLocation(set: Int, binding: Int)
 
