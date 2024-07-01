@@ -14,17 +14,12 @@ import scala.language.postfixOps
 
 trait GMem[H <: Value]:
   def size: Int
-  def data: ByteBuffer
+  val data: ByteBuffer
 
 trait WritableGMem[T <: Value, R] extends GMem[T]:
   def stride: Int
-  def data = MemoryUtil.memAlloc(size * stride)
-
-  def write(index: Int, writeData: ByteBuffer): Unit = {
-    data.rewind()
-    data.put(writeData)
-    data.rewind()
-  }
+  val data = MemoryUtil.memAlloc(size * stride)
+  
 
   protected def toResultArray(buffer: ByteBuffer): Array[R]
 
@@ -88,13 +83,12 @@ class Vec4FloatMem(val size: Int) extends WritableGMem[Vec4[Float32], RGBA]:
   }
 
   def write(vecs: Array[RGBA]): Unit = {
-    val floatBuffer = data.asFloatBuffer()
     data.rewind()
     vecs.foreach { case (x, y, z, a) =>
-      floatBuffer.put(x)
-      floatBuffer.put(y)
-      floatBuffer.put(z)
-      floatBuffer.put(a)
+      data.putFloat(x)
+      data.putFloat(y)
+      data.putFloat(z)
+      data.putFloat(a)
     }
     data.rewind()
   }
