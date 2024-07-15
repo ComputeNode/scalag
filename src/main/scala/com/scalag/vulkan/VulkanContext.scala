@@ -9,12 +9,10 @@ import com.scalag.vulkan.memory.{Allocator, DescriptorPool}
   */
 object VulkanContext {
   final val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
-  final val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
 }
 
 class VulkanContext(val enableValidationLayers: Boolean = false) {
-  private val sdkPresent = org.lwjgl.system.Configuration.VULKAN_LIBRARY_NAME.get() != null
-  private val validationLayers = enableValidationLayers && sdkPresent
+  private val validationLayers = enableValidationLayers || true
 
   val instance: Instance = new Instance(validationLayers)
   val debugCallback: DebugCallback = if (validationLayers) new DebugCallback(instance) else null
