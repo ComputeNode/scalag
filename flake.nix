@@ -17,12 +17,12 @@
         with pkgs; [
           glslang
           vulkan-loader
-          vulkan-headers
           vulkan-validation-layers
+          spirv-tools
         ];
       runScript = pkgs.writeShellScript "idea-wrapper.sh" ''
-        export LD_LIBRARY_PATH=${pkgs.vulkan-loader}/lib:$LD_LIBRARY_PATH
-        exec idea-ultimate
+        export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
+        exec bash
       '';
     };
   in {
