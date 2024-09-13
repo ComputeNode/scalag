@@ -11,8 +11,8 @@ import org.lwjgl.vulkan.VK10.*
 import scala.util.Using
 
 /** @author
-  *   MarconZet Created 13.04.2020 Copied from Wrap
-  */
+ * MarconZet Created 13.04.2020 Copied from Wrap
+ */
 abstract class CommandPool(device: Device, queue: Queue) extends VulkanObjectHandle {
   protected val handle: Long = pushStack { stack =>
     val createInfo = VkCommandPoolCreateInfo
@@ -28,6 +28,12 @@ abstract class CommandPool(device: Device, queue: Queue) extends VulkanObjectHan
   }
 
   private val commandPool = handle
+
+  def singleTimeCommands(f: VkCommandBuffer => Unit): Fence = {
+    val commandBuffer = beginSingleTimeCommands()
+    f(commandBuffer)
+    endSingleTimeCommands(commandBuffer)
+  }
 
   def beginSingleTimeCommands(): VkCommandBuffer =
     pushStack { stack =>

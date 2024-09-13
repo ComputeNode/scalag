@@ -6,7 +6,7 @@ package com.scalag.vulkan.util
 abstract class VulkanObject {
   protected var alive: Boolean = true
 
-  def destroy(): Unit = {
+  final def destroy(): Unit = {
     if (!alive)
       throw new IllegalStateException()
     close()
