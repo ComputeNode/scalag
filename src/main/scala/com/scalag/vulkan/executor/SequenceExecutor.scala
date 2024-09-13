@@ -71,7 +71,7 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
   private val descriptorSets = pipelineToDescriptorSets.toSeq.flatMap(_._2).distinctBy(_.get)
 
   private def recordCommandBuffer(dataLength: Int): VkCommandBuffer = pushStack { stack =>
-    val pipelinesHasDependencies = computeSequence.dependencies.map(_.from).toSet
+    val pipelinesHasDependencies = computeSequence.dependencies.map(_.to).toSet
     val commandBuffer = commandPool.createCommandBuffer()
 
     val commandBufferBeginInfo = VkCommandBufferBeginInfo
