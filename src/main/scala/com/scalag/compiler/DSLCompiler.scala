@@ -1,15 +1,14 @@
 package com.scalag.compiler
 
-import com.scalag.compiler.Digest.DigestedExpression
-import com.scalag.compiler.Opcodes.*
-import com.scalag.Value
-import com.scalag.Value.*
+import com.scalag.Control.*
 import com.scalag.Expression.*
 import com.scalag.*
-import com.scalag.Control.*
-import org.lwjgl.BufferUtils
+import com.scalag.Value.*
+import com.scalag.compiler.Digest.DigestedExpression
+import com.scalag.compiler.Opcodes.*
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
+import org.lwjgl.BufferUtils
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -45,8 +44,6 @@ object DSLCompiler {
   val Vec2Tag = summon[Tag[Vec2[_]]]
   val Vec3Tag = summon[Tag[Vec3[_]]]
   val Vec4Tag = summon[Tag[Vec4[_]]]
-  
-  
 
   def scalarTypeDefInsn(tag: Tag[_], typeDefIndex: Int) = tag match {
     case t if t == Int32Tag => Instruction(Op.OpTypeInt, List(ResultRef(typeDefIndex), IntWord(32), IntWord(1)))
@@ -104,18 +101,12 @@ object DSLCompiler {
 
   case class Context(
     valueTypeMap: Map[LightTypeTag, Int] = Map(),
-    scalarTypeMap: Map[Tag[_], Int] = Map(),
     funPointerTypeMap: Map[Int, Int] = Map(),
     uniformPointerMap: Map[Int, Int] = Map(),
     inputPointerMap: Map[Int, Int] = Map(),
-    vectorTypeMap: Map[LightTypeTag, Int] = Map(),
-    funVecPointerTypeMap: Map[Int, Int] = Map(),
-    uniformVecPointerMap: Map[Int, Int] = Map(),
-    inputVecPointerMap: Map[Int, Int] = Map(),
     voidTypeRef: Int = -1,
     voidFuncTypeRef: Int = -1,
     workerIndexRef: Int = -1,
-
     constRefs: Map[(Tag[_], Any), Int] = Map(), // todo not sure about float eq on this one (but is the same so?)
     exprRefs: Map[String, Int] = Map(),
     inBufferBlocks: List[ArrayBufferBlock] = List(),
@@ -162,33 +153,22 @@ object DSLCompiler {
               (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5),
               (summon[LTag[Vec4C]].tag.combine(valType.tag)) -> (typeDefIndex + 11)
             ),
-            scalarTypeMap = ctx.scalarTypeMap + (valType -> typeDefIndex),
             funPointerTypeMap = ctx.funPointerTypeMap ++ Map(
               typeDefIndex -> (typeDefIndex + 1),
               (typeDefIndex + 4) -> (typeDefIndex + 6),
               (typeDefIndex + 5) -> (typeDefIndex + 9),
               (typeDefIndex + 11) -> (typeDefIndex + 12)
             ),
-            uniformPointerMap = ctx.uniformPointerMap + (
+            uniformPointerMap = ctx.uniformPointerMap ++ Map(
               typeDefIndex -> (typeDefIndex + 2),
               (typeDefIndex + 4) -> (typeDefIndex + 7),
               (typeDefIndex + 5) -> (typeDefIndex + 10),
               (typeDefIndex + 11) -> (typeDefIndex + 13)
             ),
-            inputPointerMap = ctx.inputPointerMap + (typeDefIndex -> (typeDefIndex + 3)),
-            vectorTypeMap = ctx.vectorTypeMap ++ Map(
-              (summon[LTag[Vec2C]].tag.combine(valType.tag)) -> (typeDefIndex + 4),
-              (summon[LTag[Vec3C]].tag.combine(valType.tag)) -> (typeDefIndex + 5),
-              (summon[LTag[Vec4C]].tag.combine(valType.tag)) -> (typeDefIndex + 11)
+            inputPointerMap = ctx.inputPointerMap ++ Map(
+              typeDefIndex -> (typeDefIndex + 3),
+              (typeDefIndex + 5) -> (typeDefIndex + 8)
             ),
-            funVecPointerTypeMap = ctx.funVecPointerTypeMap ++ Map(
-              typeDefIndex -> (typeDefIndex + 6),
-              (typeDefIndex + 4) -> (typeDefIndex + 6),
-              (typeDefIndex + 5) -> (typeDefIndex + 9),
-              (typeDefIndex + 11) -> (typeDefIndex + 12)
-            ),
-            uniformVecPointerMap = ctx.uniformVecPointerMap + (typeDefIndex -> (typeDefIndex + 7)),
-            inputVecPointerMap = ctx.inputVecPointerMap + (typeDefIndex -> (typeDefIndex + 8)),
             nextResultId = ctx.nextResultId + 15
           )
         )
@@ -316,11 +296,11 @@ object DSLCompiler {
 
   def createInvocationId(context: Context): (List[Words], Context) = {
     val definitionInstructions = List(
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(UInt32Tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(UInt32Tag)), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
-      Instruction(Op.OpConstant, List(ResultRef(context.scalarTypeMap(UInt32Tag)), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
+      Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 0), IntWord(localSizeX))),
+      Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 1), IntWord(localSizeY))),
+      Instruction(Op.OpConstant, List(ResultRef(context.valueTypeMap(UInt32Tag.tag)), ResultRef(context.nextResultId + 2), IntWord(localSizeZ))),
       Instruction(Op.OpConstantComposite, List(
-        IntWord(context.vectorTypeMap(summon[Tag[Vec3[UInt32]]].tag)),
+        IntWord(context.valueTypeMap(summon[Tag[Vec3[UInt32]]].tag)),
         ResultRef(GL_WORKGROUP_SIZE_REF),
         ResultRef(context.nextResultId + 0),
         ResultRef(context.nextResultId + 1),
@@ -352,7 +332,7 @@ object DSLCompiler {
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {
       case ((instructions, context), const) =>
         val insn = Instruction(Op.OpConstant, List(
-          ResultRef(context.scalarTypeMap(const._1)),
+          ResultRef(context.valueTypeMap(const._1.tag)),
           ResultRef(context.nextResultId),
           toWord(const._1, const._2)
         ))
@@ -364,11 +344,11 @@ object DSLCompiler {
     }
     val withBool = insns ::: List(
       Instruction(Op.OpConstantTrue, List(
-        ResultRef(ctx.scalarTypeMap(GBooleanTag)),
+        ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
         ResultRef(newC.nextResultId)
       )),
       Instruction(Op.OpConstantFalse, List(
-        ResultRef(ctx.scalarTypeMap(GBooleanTag)),
+        ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
         ResultRef(newC.nextResultId + 1)
       ))
     )
@@ -386,7 +366,7 @@ object DSLCompiler {
       List(Instruction(
         Op.OpVariable,
         List(
-          ResultRef(ctx.inputVecPointerMap(ctx.scalarTypeMap(Int32Tag))),
+          ResultRef(ctx.inputPointerMap(ctx.valueTypeMap(summon[Tag[Vec3[Int32]]].tag))),
           ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
           StorageClass.Input
         ))),
@@ -416,19 +396,19 @@ object DSLCompiler {
       Instruction(subOpcode, List(
         ResultRef(typeRef),
         ResultRef(ctx.nextResultId),
-        ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-        ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+        ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+        ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
       ))
     )
     val updatedContext = ctx.copy(
-      exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+      exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
 
   private def compileConvertExpression(expr: DigestedExpression, cexpr: ConvertExpression[_, _], ctx: Context): (List[Instruction], Context) =
     val tpe = cexpr.tag
-    val typeRef = ctx.scalarTypeMap(tpe)
+    val typeRef = ctx.valueTypeMap(tpe.tag)
     val tfOpcode = (cexpr.fromTag, expr.expr) match {
       case (from, _: ToFloat32[_]) if from.tag =:= Int32Tag.tag => Op.OpConvertSToF
       case (from, _: ToFloat32[_]) if from.tag =:= UInt32Tag.tag => Op.OpConvertUToF
@@ -441,10 +421,10 @@ object DSLCompiler {
       Instruction(tfOpcode, List(
         ResultRef(typeRef),
         ResultRef(ctx.nextResultId),
-        ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
+        ResultRef(ctx.exprRefs(expr.dependencies(0).exprId))
       )))
     val updatedContext = ctx.copy(
-        exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+        exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
         nextResultId = ctx.nextResultId + 1
       )
     (instructions, updatedContext)
@@ -465,27 +445,28 @@ object DSLCompiler {
     Functions.Atan -> GlslOp.Atan,
     Functions.Acos -> GlslOp.Acos,
     Functions.Asin -> GlslOp.Asin,
-    Functions.Atan2 -> GlslOp.Atan2
+    Functions.Atan2 -> GlslOp.Atan2,
+    Functions.Reflect -> GlslOp.Reflect,
+    Functions.Exp -> GlslOp.Exp,
+    Functions.Max -> GlslOp.FMax,
+    Functions.Refract -> GlslOp.Refract,
+    Functions.Normalize -> GlslOp.Normalize,
   )
 
   def compileFunctionCall(expr: DigestedExpression, call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =
     val fnOp = fnOpMap(call.fn)
     val tp = call.tag
-    val typeRef = if(tp.tag <:< summon[Tag[Vec[_]]].tag.withoutArgs) {
-      ctx.vectorTypeMap(tp.tag)
-    } else {
-      ctx.scalarTypeMap(tp)
-    }
+    val typeRef = ctx.valueTypeMap(tp.tag)
     val instructions = List(
       Instruction(Op.OpExtInst, List(
         ResultRef(typeRef),
         ResultRef(ctx.nextResultId),
         ResultRef(GLSL_EXT_REF),
         fnOp
-      ) ::: expr.dependencies.map(d => ResultRef(ctx.exprRefs(d.digest)))
+      ) ::: expr.dependencies.map(d => ResultRef(ctx.exprRefs(d.exprId)))
     ))
     val updatedContext = ctx.copy(
-      exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+      exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
@@ -500,7 +481,7 @@ object DSLCompiler {
 
   private def compileBitwiseExpression(expr: DigestedExpression, bexpr: BitwiseOpExpression[_], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
-    val typeRef = ctx.scalarTypeMap(tpe)
+    val typeRef = ctx.valueTypeMap(tpe.tag)
     val subOpcode = bexpr match {
       case _: BitwiseAnd[_] => Op.OpBitwiseAnd
       case _: BitwiseOr[_] => Op.OpBitwiseOr
@@ -513,10 +494,10 @@ object DSLCompiler {
       Instruction(subOpcode, List(
         ResultRef(typeRef),
         ResultRef(ctx.nextResultId),
-      ) ::: expr.dependencies.map(d => ResultRef(ctx.exprRefs(d.digest))))
+      ) ::: expr.dependencies.map(d => ResultRef(ctx.exprRefs(d.exprId))))
     )
     val updatedContext = ctx.copy(
-      exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+      exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
@@ -527,20 +508,20 @@ object DSLCompiler {
       if (exprs.isEmpty) (acc, ctx)
       else {
         val expr = exprs.head
-        if(ctx.exprRefs.contains(expr.digest)) {
+        if(ctx.exprRefs.contains(expr.exprId)) {
           compileExpressions(exprs.tail, ctx, acc)
         } else {
           val (instructions, updatedCtx) = expr.expr match {
             case c@Const(x) =>
               val constRef = ctx.constRefs((c.tag, x))
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> constRef)
+                exprRefs = ctx.exprRefs + (expr.exprId -> constRef)
               )
               (List(), updatedContext)
 
             case d@Dynamic("worker_index") =>
               (Nil, ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.workerIndexRef),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.workerIndexRef),
               ))
 
             case c: ConvertExpression[_, _] =>
@@ -557,11 +538,11 @@ object DSLCompiler {
                 Instruction(op, List(
                   ResultRef(ctx.valueTypeMap(negate.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -572,14 +553,14 @@ object DSLCompiler {
             case and: And =>
               val instructions = List(
                 Instruction(Op.OpLogicalAnd, List(
-                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
+                  ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -587,14 +568,14 @@ object DSLCompiler {
             case or: Or =>
               val instructions = List(
                 Instruction(Op.OpLogicalOr, List(
-                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
+                  ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -602,13 +583,13 @@ object DSLCompiler {
             case not: Not =>
               val instructions = List(
                 Instruction(Op.OpLogicalNot, List(
-                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
+                  ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -616,13 +597,13 @@ object DSLCompiler {
             case sp: ScalarProd[_, _] =>
               val instructions = List(
                 Instruction(Op.OpVectorTimesScalar, List(
-                  ResultRef(ctx.vectorTypeMap(sp.tag.tag)),
+                  ResultRef(ctx.valueTypeMap(sp.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest)))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId)))
                 ))
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -630,14 +611,14 @@ object DSLCompiler {
             case dp: DotProd[_, _] =>
               val instructions = List(
                 Instruction(Op.OpDot, List(
-                  ResultRef(ctx.scalarTypeMap(dp.tag)),
+                  ResultRef(ctx.valueTypeMap(dp.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -647,14 +628,14 @@ object DSLCompiler {
               val op = if (co.operandTag.tag <:< summon[Tag[FloatType]].tag) floatOp else intOp
               val instructions = List(
                 Instruction(op, List(
-                  ResultRef(ctx.scalarTypeMap(GBooleanTag)),
+                  ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -663,14 +644,14 @@ object DSLCompiler {
             case e: ExtractScalar[_, _] =>
               val instructions = List(
                 Instruction(Op.OpVectorExtractDynamic, List(
-                  ResultRef(ctx.scalarTypeMap(e.tag)),
+                  ResultRef(ctx.valueTypeMap(e.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -678,14 +659,14 @@ object DSLCompiler {
             case composeVec2: ComposeVec2[_] =>
               val instructions = List(
                 Instruction(Op.OpCompositeConstruct, List(
-                  ResultRef(ctx.vectorTypeMap(composeVec2.tag.tag)),
+                  ResultRef(ctx.valueTypeMap(composeVec2.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -693,15 +674,15 @@ object DSLCompiler {
             case composeVec3: ComposeVec3[_] =>
               val instructions = List(
                 Instruction(Op.OpCompositeConstruct, List(
-                  ResultRef(ctx.vectorTypeMap(composeVec3.tag.tag)),
+                  ResultRef(ctx.valueTypeMap(composeVec3.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(2).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(2).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -709,16 +690,16 @@ object DSLCompiler {
             case composeVec4: ComposeVec4[_] =>
               val instructions = List(
                 Instruction(Op.OpCompositeConstruct, List(
-                  ResultRef(ctx.vectorTypeMap(composeVec4.tag.tag)),
+                  ResultRef(ctx.valueTypeMap(composeVec4.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(2).digest)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(3).digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(2).exprId)),
+                  ResultRef(ctx.exprRefs(expr.dependencies(3).exprId))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -733,7 +714,7 @@ object DSLCompiler {
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.inBufferBlocks(index).blockVarRef),
                   ResultRef(ctx.constRefs((Int32Tag, 0))),
-                  ResultRef(ctx.exprRefs(expr.dependencies.head.digest))
+                  ResultRef(ctx.exprRefs(expr.dependencies.head.exprId))
                 )),
                 Instruction(Op.OpLoad, List(
                   IntWord(ctx.valueTypeMap(ga.tag.tag)),
@@ -742,7 +723,7 @@ object DSLCompiler {
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> (ctx.nextResultId + 1)),
+                exprRefs = ctx.exprRefs + (expr.exprId -> (ctx.nextResultId + 1)),
                 nextResultId = ctx.nextResultId + 2
               )
               (instructions, updatedContext)
@@ -761,11 +742,11 @@ object DSLCompiler {
                   ResultRef(ctx.valueTypeMap(cs.tag.tag)),
                   ResultRef(ctx.nextResultId),
                 ) ::: fields.zipWithIndex.map {
-                  case (f, i) => ResultRef(ctx.exprRefs(expr.dependencies(i).digest))
+                  case (f, i) => ResultRef(ctx.exprRefs(expr.dependencies(i).exprId))
                 })
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (insns, updatedContext)
@@ -775,12 +756,12 @@ object DSLCompiler {
                 Instruction(Op.OpCompositeExtract, List(
                   ResultRef(ctx.valueTypeMap(gf.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies.head.digest)),
+                  ResultRef(ctx.exprRefs(expr.dependencies.head.exprId)),
                   IntWord(gf.fieldIndex)
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.digest -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (insns, updatedContext)
@@ -809,7 +790,7 @@ object DSLCompiler {
         )
         val elseWithStore = elseInstructions :+ Instruction(Op.OpStore, List(
           ResultRef(resultVar),
-          ResultRef(elseCtx.exprRefs(elseCode.digest))
+          ResultRef(elseCtx.exprRefs(elseCode.exprId))
         ))
         (elseWithStore, elseCtx)
       case (caseWhen :: cTail, tCode :: tTail) =>
@@ -823,7 +804,7 @@ object DSLCompiler {
         )
         val thenWithStore = thenInstructions :+ Instruction(Op.OpStore, List(
           ResultRef(resultVar),
-          ResultRef(thenCtx.exprRefs(tCode.digest))
+          ResultRef(thenCtx.exprRefs(tCode.exprId))
         ))
         val postCtx = whenCtx.joinNested(thenCtx)
         val endIfLabel = postCtx.nextResultId
@@ -844,7 +825,7 @@ object DSLCompiler {
               SelectionControlMask.MaskNone
             )),
             Instruction(Op.OpBranchConditional, List(
-              ResultRef(postCtx.exprRefs(caseWhen.digest)),
+              ResultRef(postCtx.exprRefs(caseWhen.exprId)),
               ResultRef(thenLabel),
               ResultRef(elseLabel)
             )),
@@ -888,7 +869,7 @@ object DSLCompiler {
           ResultRef(resultVar)
         ))
       )
-    (instructions, caseCtx.copy(exprRefs = caseCtx.exprRefs + (expr.digest -> resultLoaded)))
+    (instructions, caseCtx.copy(exprRefs = caseCtx.exprRefs + (expr.exprId -> resultLoaded)))
   }
 
   def bubbleUpVars(exprs: List[Words]) = {
@@ -914,13 +895,13 @@ object DSLCompiler {
 
     val initWorkerIndex = List(
       Instruction(Op.OpAccessChain, List(
-        ResultRef(ctx.inputPointerMap(ctx.scalarTypeMap(Int32Tag))),
+        ResultRef(ctx.inputPointerMap(ctx.valueTypeMap(Int32Tag.tag))),
         ResultRef(ctx.nextResultId + 1),
         ResultRef(GL_GLOBAL_INVOCATION_ID_REF),
         ResultRef(ctx.constRefs(Int32Tag, 0))
       )),
       Instruction(Op.OpLoad, List(
-        ResultRef(ctx.scalarTypeMap(Int32Tag)),
+        ResultRef(ctx.valueTypeMap(Int32Tag.tag)),
         ResultRef(ctx.nextResultId + 2),
         ResultRef(ctx.nextResultId + 1)
       ))
@@ -944,7 +925,7 @@ object DSLCompiler {
 
       Instruction(Op.OpStore, List(
         ResultRef(codeCtx.nextResultId),
-        ResultRef(codeCtx.exprRefs(sortedTree.last.digest))
+        ResultRef(codeCtx.exprRefs(sortedTree.last.exprId))
       )),
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List())
@@ -985,7 +966,7 @@ object DSLCompiler {
     val tree = returnVal.tree
     println("Compiling...")
     println("Digesting...")
-    val (digestTree, hash) = Digest.digest(tree)
+    val digestTree = Digest.digest(tree)
     println("Digest done!")
     val sorted = BlockBuilder.buildBlock(digestTree)
  

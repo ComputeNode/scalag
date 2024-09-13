@@ -64,11 +64,10 @@ class MVPContext extends GContext {
         }
       printTreeRec(product, indent)
     }
-    println("Printing tree!")
-    // printTree(tree.asInstanceOf[Product])
 
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
     println("Compiled!")
+    
     // dump spv to file
     val fc: FileChannel = new FileOutputStream("program.spv").getChannel
     fc.write(shaderCode)

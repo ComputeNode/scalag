@@ -9,7 +9,7 @@ import com.scalag.Control.when
 import com.scalag.Expression.{ConstInt32, E}
 import com.scalag.GSeq.*
 import com.scalag.compiler.Digest
-import com.scalag.compiler.Digest.{CustomDependencies, CustomDigest, DigestedExpression}
+import com.scalag.compiler.Digest.{CustomDependencies, CustomExprId, DigestedExpression}
 
 import java.util.Base64
 import scala.util.Random
@@ -41,8 +41,8 @@ class GSeq[T <: Value : Tag : FromExpr](
   private def aggregateElem[R <: Value : Tag: FromExpr]: R = summon[FromExpr[R]].fromExpr(AggregateElem[R](aggregateElemExprTreeId))
 
   // todo get rid of base64
-  val currentElemDigest = Base64.getEncoder.encodeToString(BigInt(currentElemExprTreeId).toByteArray)
-  val aggregateElemDigest = Base64.getEncoder.encodeToString(BigInt(aggregateElemExprTreeId).toByteArray)
+  val currentElemDigest = currentElemExprTreeId.toString
+  val aggregateElemDigest = aggregateElemExprTreeId.toString
   
 
   
@@ -89,19 +89,23 @@ object GSeq:
       val first = when(i === 0) {
         xs(0)
       }
-      xs.init.zipWithIndex.tail.foldLeft(first) {
-        case (acc, (x, j)) =>
-          acc.elseWhen(i === j) {
-            x
-          }
-      }.otherwise(xs.last)
+      (if(xs.length == 1) {
+        first
+      } else {
+        xs.init.zipWithIndex.tail.foldLeft(first) {
+          case (acc, (x, j)) =>
+            acc.elseWhen(i === j) {
+              x
+            }
+        }
+      }).otherwise(xs.last)
     }.limit(xs.length)
   
-  case class CurrentElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomDigest:
-    override def digest: Array[Byte] = BigInt(tid).toByteArray
+  case class CurrentElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomExprId:
+    override def exprId: String = tid.toString
   
-  case class AggregateElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomDigest:
-    override def digest: Array[Byte] = BigInt(tid).toByteArray
+  case class AggregateElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomExprId:
+    override def exprId: String = tid.toString
     
   sealed trait ElemOp[T <: Value : Tag]:
     def tag: Tag[T] = summon[Tag[T]]
@@ -114,26 +118,22 @@ object GSeq:
   case class GSeqStream[T <: Value: Tag](init: T, next: Expression[_]) extends GSeqSource[T]
   
   case class FoldSeq[R <: Value : Tag, T <: Value : Tag](zero: R, fn: Expression[_], seq: GSeq[T]) extends Expression[R] with CustomDependencies:
-    val (zeroExpr, zeroDigest) = Digest.digest(zero.tree)
-    val (fnExpr, fnDigest) = Digest.digest(fn)
-    val (streamInitExpr, streamInitDigest) = Digest.digest(seq.source.init.tree)
-    val (streamNextExpr, streamNextDigest) = Digest.digest(seq.source.next)
-    val (seqExprs, seqDigest) = seq.elemOps.map {
+    val zeroExpr = Digest.digest(zero.tree)
+    val fnExpr = Digest.digest(fn)
+    val streamInitExpr = Digest.digest(seq.source.init.tree)
+    val streamNextExpr = Digest.digest(seq.source.next)
+    val seqExprs = seq.elemOps.map {
       case MapOp(fn) => Digest.digest(fn)
       case FilterOp(fn) => Digest.digest(fn)
       case TakeUntilOp(fn) => Digest.digest(fn)
-    }.foldLeft((List.empty[DigestedExpression], Array.empty[Byte])) {
-      case ((exprs, digest), (expr, d)) => (exprs :+ expr, Digest.combineDigest(List(digest, d)))
     }
-    val (limitExpr, limitDigest) = Digest.digest(
+    
+    val limitExpr = Digest.digest(
       ConstInt32(seq.limit.getOrElse(throw new IllegalArgumentException("Reduce on infinite stream is not supported")))
     )
+    
     val dependencies: List[DigestedExpression] = List(zeroExpr, streamInitExpr, limitExpr)
     val blockDeps: List[DigestedExpression] = fnExpr :: streamNextExpr :: seqExprs
-    val digest: Array[Byte] = Digest.combineDigest(List(
-      zeroDigest, fnDigest, streamInitDigest, streamNextDigest, seqDigest, limitDigest
-    ))
-
 
 
 

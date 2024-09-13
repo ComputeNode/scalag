@@ -65,7 +65,7 @@ object GSeqCompiler:
           ) ::: reduceOps ::: List(
             Instruction(Op.OpStore, List(
               ResultRef(resultVar),
-              ResultRef(reduceCtx.exprRefs(foldFnExpr.digest))
+              ResultRef(reduceCtx.exprRefs(foldFnExpr.exprId))
             ))
           )
           (instructions, ctx.joinNested(reduceCtx))
@@ -75,13 +75,13 @@ object GSeqCompiler:
             case MapOp(_) =>
               val mapBlock = BlockBuilder.buildBlock(dExpr)
               val (mapOps, mapContext) = DSLCompiler.compileBlock(mapBlock, withElemRefCtx)
-              val newElemRef = mapContext.exprRefs(dExpr.digest)
+              val newElemRef = mapContext.exprRefs(dExpr.exprId)
               val (tailOps, tailContext) = generateSeqOps(tail, context.joinNested(mapContext), newElemRef)
               (mapOps ++ tailOps, tailContext)
             case FilterOp(_) =>
               val filterBlock = BlockBuilder.buildBlock(dExpr)
               val (filterOps, filterContext) = DSLCompiler.compileBlock(filterBlock, withElemRefCtx)
-              val condResultRef = filterContext.exprRefs(dExpr.digest)
+              val condResultRef = filterContext.exprRefs(dExpr.exprId)
               val mergeBlock = filterContext.nextResultId
               val trueLabel = filterContext.nextResultId + 1
               val (tailOps, tailContext) = generateSeqOps(
@@ -108,7 +108,7 @@ object GSeqCompiler:
             case TakeUntilOp(_) =>
               val takeUntilBlock = BlockBuilder.buildBlock(dExpr)
               val (takeUntilOps, takeUntilContext) = DSLCompiler.compileBlock(takeUntilBlock, withElemRefCtx)
-              val condResultRef = takeUntilContext.exprRefs(dExpr.digest)
+              val condResultRef = takeUntilContext.exprRefs(dExpr.exprId)
               val mergeBlock = takeUntilContext.nextResultId
               val trueLabel = takeUntilContext.nextResultId + 1
               val (tailOps, tailContext) = generateSeqOps(
@@ -182,11 +182,11 @@ object GSeqCompiler:
       )),
       Instruction(Op.OpStore, List( // acc = genInitExpr
         ResultRef(accVar),
-        ResultRef(ctx.exprRefs(genInitExpr.digest))
+        ResultRef(ctx.exprRefs(genInitExpr.exprId))
       )),
       Instruction(Op.OpStore, List( // result = foldZeroExpr
         ResultRef(resultVar),
-        ResultRef(ctx.exprRefs(foldZeroExpr.digest))
+        ResultRef(ctx.exprRefs(foldZeroExpr.exprId))
       )),
       Instruction(Op.OpBranch, List(ResultRef(loopBack))),
       Instruction(Op.OpLabel, List(ResultRef(loopBack))),
@@ -207,7 +207,7 @@ object GSeqCompiler:
         ResultRef(boolType),
         ResultRef(isLessThanLimitInCheck),
         ResultRef(iInCheck),
-        ResultRef(ctx.exprRefs(fold.limitExpr.digest))
+        ResultRef(ctx.exprRefs(fold.limitExpr.exprId))
       )),
       Instruction(Op.OpLogicalAnd, List(
         ResultRef(boolType),
@@ -230,7 +230,7 @@ object GSeqCompiler:
       List(
         Instruction(Op.OpStore, List(
           ResultRef(accVar),
-          ResultRef(generatorCtx.exprRefs(genNextExpr.digest))
+          ResultRef(generatorCtx.exprRefs(genNextExpr.exprId))
         )),
         Instruction(Op.OpLoad, List(
           ResultRef(int32Type),
@@ -262,5 +262,5 @@ object GSeqCompiler:
 
 
     (instructions, generatorCtx.copy(
-      exprRefs = generatorCtx.exprRefs + (expr.digest -> finalResult)
+      exprRefs = generatorCtx.exprRefs + (expr.exprId -> finalResult)
     ))

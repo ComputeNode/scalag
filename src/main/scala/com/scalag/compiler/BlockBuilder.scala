@@ -10,7 +10,7 @@ object BlockBuilder {
       else {
         bfsAcc(
           children,
-          children.map(_.digest).toSet ++ visited,
+          children.map(_.exprId).toSet ++ visited,
           acc ++ children 
         )
       }
@@ -18,7 +18,7 @@ object BlockBuilder {
     val childrenWithDuplicates = bfsAcc(List(tree), Set(), List())
     val withoutDuplicates = childrenWithDuplicates.reverse.foldLeft((Set[String](), List[DigestedExpression]())){
       case ((visited, acc), next) =>
-        if(visited.contains(next.digest)) (visited, acc) else (visited + next.digest, acc :+ next)
+        if(visited.contains(next.exprId)) (visited, acc) else (visited + next.exprId, acc :+ next)
     }._2.reverse // we can replace it with BFS with inverted edges if it's too slow, but it was the simplest solution
     (tree :: withoutDuplicates).reverse
   }

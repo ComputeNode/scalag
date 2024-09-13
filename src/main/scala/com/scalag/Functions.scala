@@ -1,6 +1,6 @@
 package com.scalag
 
-import com.scalag.Algebra.FromExpr
+import com.scalag.Algebra.{FromExpr, vec3}
 import com.scalag.Expression.*
 import com.scalag.Value.*
 import izumi.reflect.Tag
@@ -56,6 +56,16 @@ object Functions:
   case object Clamp extends FunctionName
   def clamp(f: Float32, from: Float32, to: Float32): Float32 =
     Float32(FunctionCall(Clamp, List(f, from, to)))
+
+  case object Exp extends FunctionName
+  def exp(f: Float32): Float32 = Float32(FunctionCall(Exp, List(f)))
+  def exp[V <: Vec[Float32] : Tag : FromExpr](v: V): V =
+    summon[FromExpr[V]].fromExpr(FunctionCall(Exp, List(v)))
+
+  case object Max extends FunctionName
+  def max(f1: Float32, f2: Float32): Float32 = Float32(FunctionCall(Max, List(f1, f2)))
+  def max[V <: Vec[Float32] : Tag : FromExpr](v1: V, v2: V): V =
+    summon[FromExpr[V]].fromExpr(FunctionCall(Max, List(v1, v2)))
     
   // todo add F/U/S to all functions that need it
   case object Abs extends FunctionName
@@ -67,5 +77,17 @@ object Functions:
   def mix[V <: Vec[Float32] : Tag : FromExpr](a: V, b: V, t: V) =
     summon[FromExpr[V]].fromExpr(FunctionCall(Mix, List(a, b, t)))
   def mix(a: Float32, b: Float32, t: Float32) = Float32(FunctionCall(Mix, List(a, b, t)))
+  def mix[V <: Vec[Float32] : Tag : FromExpr](a: V, b: V, t: Float32) =
+    summon[FromExpr[V]].fromExpr(FunctionCall(Mix, List(a, b, vec3(t))))
+    
+  case object Reflect extends FunctionName
+  def reflect[I <: Vec[Float32] : Tag : FromExpr, N <: Vec[Float32] : Tag : FromExpr](I: I, N: N): I =
+    summon[FromExpr[I]].fromExpr(FunctionCall(Reflect, List(I, N)))
 
+  case object Refract extends FunctionName
+  def refract[V <: Vec[Float32] : Tag : FromExpr](I: V, N: V, eta: Float32): V =
+    summon[FromExpr[V]].fromExpr(FunctionCall(Refract, List(I, N, eta)))
 
+  case object Normalize extends FunctionName
+  def normalize[V <: Vec[Float32] : Tag : FromExpr](v: V): V =
+    summon[FromExpr[V]].fromExpr(FunctionCall(Normalize, List(v)))
