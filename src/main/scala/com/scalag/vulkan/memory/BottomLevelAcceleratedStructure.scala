@@ -18,8 +18,13 @@ import scala.util.chaining.*
 import java.nio.{ByteBuffer, LongBuffer}
 import java.lang.Long as JLong
 
-class BottomLevelAcceleratedStructure(as: Long, buffer: Buffer, device: Device) extends VulkanObjectHandle {
-  override protected val handle: Long = as
+class BottomLevelAcceleratedStructure(blas: Long, buffer: Buffer, device: Device) extends VulkanObjectHandle {
+  override protected val handle: Long = blas
+
+  def deviceAddress: Long = pushStack { stack =>
+    val addressInfo = VkAccelerationStructureDeviceAddressInfoKHR.calloc(stack).sType$Default.accelerationStructure(blas)
+    vkGetAccelerationStructureDeviceAddressKHR(device.get, addressInfo)
+  }
 
   override protected def close(): Unit = {
     vkDestroyAccelerationStructureKHR(device.get, handle, null)
@@ -28,7 +33,7 @@ class BottomLevelAcceleratedStructure(as: Long, buffer: Buffer, device: Device) 
 }
 
 object BottomLevelAcceleratedStructure {
-  def create(model: Mesh, device: Device, allocator: Allocator, commandPool: CommandPool): BottomLevelAcceleratedStructure = pushStack { stack =>
+  def apply(model: Mesh, device: Device, allocator: Allocator, commandPool: CommandPool): BottomLevelAcceleratedStructure = pushStack { stack =>
     given MemoryStack = stack
 
     val vertBuffer = new Buffer(
