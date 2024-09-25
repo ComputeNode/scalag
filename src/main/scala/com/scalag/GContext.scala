@@ -23,7 +23,7 @@ trait Executable[H <: Value, R <: Value] {
 
 trait GContext {
   
-  val vkContext = new VulkanContext(enableValidationLayers = true)
+  val vkContext = new VulkanContext()
 
   def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline
   def compile[H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GArray2DFunction[H, R]): ComputePipeline

@@ -9,8 +9,16 @@ import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
 import org.lwjgl.util.vma.Vma.*
 import org.lwjgl.util.vma.VmaAllocationCreateInfo
+import org.lwjgl.vulkan.KHRBufferDeviceAddress.vkGetBufferDeviceAddressKHR
 import org.lwjgl.vulkan.VK10.*
-import org.lwjgl.vulkan.{VkBufferCopy, VkBufferCreateInfo, VkCommandBuffer}
+import org.lwjgl.vulkan.{
+  VkBufferCopy,
+  VkBufferCreateInfo,
+  VkBufferDeviceAddressInfo,
+  VkCommandBuffer,
+  VkDeviceOrHostAddressConstKHR,
+  VkDeviceOrHostAddressKHR
+}
 
 import java.nio.{ByteBuffer, LongBuffer}
 import scala.util.Using
@@ -19,6 +27,9 @@ import scala.util.Using
   *   MarconZet Created 11.05.2019
   */
 class Buffer(val size: Int, usage: Int, flags: Int, memUsage: Int, val allocator: Allocator) extends VulkanObjectHandle {
+
+  def this(size: Long, usage: Int, flags: Int, memUsage: Int, allocator: Allocator) =
+    this(size.toInt, usage, flags, memUsage, allocator)
 
   val (handle, allocation) = pushStack { stack =>
     val bufferInfo = VkBufferCreateInfo
@@ -49,8 +60,20 @@ class Buffer(val size: Int, usage: Int, flags: Int, memUsage: Int, val allocator
     memFree(byteBuffer)
   }
 
+  def deviceAddress(using stack: MemoryStack): VkDeviceOrHostAddressKHR =
+    VkDeviceOrHostAddressKHR.calloc(stack).deviceAddress(bufferAddress)
+
+  def deviceAddressConst(using stack: MemoryStack): VkDeviceOrHostAddressConstKHR =
+    VkDeviceOrHostAddressConstKHR.calloc(stack).deviceAddress(bufferAddress)
+
+  private def bufferAddress(using stack: MemoryStack): Long = {
+    val addressInfo = VkBufferDeviceAddressInfo.calloc(stack).sType$Default.buffer(get)
+    vkGetBufferDeviceAddressKHR(allocator.device.get, addressInfo)
+  }
+
   protected def close(): Unit =
     vmaDestroyBuffer(allocator.get, handle, allocation)
+
 }
 
 object Buffer {
@@ -75,16 +98,14 @@ object Buffer {
 
   def copyBuffer(src: Buffer, dst: Buffer, bytes: Long, commandPool: CommandPool): Fence =
     pushStack { stack =>
-      val commandBuffer = commandPool.beginSingleTimeCommands()
-
-      val copyRegion = VkBufferCopy
-        .calloc(1, stack)
-        .srcOffset(0)
-        .dstOffset(0)
-        .size(bytes)
-      vkCmdCopyBuffer(commandBuffer, src.get, dst.get, copyRegion)
-
-      commandPool.endSingleTimeCommands(commandBuffer)
+      commandPool.singleTimeCommands { commandBuffer =>
+        val copyRegion = VkBufferCopy
+          .calloc(1, stack)
+          .srcOffset(0)
+          .dstOffset(0)
+          .size(bytes)
+        vkCmdCopyBuffer(commandBuffer, src.get, dst.get, copyRegion)
+      }
     }
 
 }

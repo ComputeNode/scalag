@@ -1,6 +1,6 @@
 package com.scalag.vulkan.core
 
-import com.scalag.vulkan.VulkanContext.{SyncLayer, ValidationLayer}
+import com.scalag.vulkan.VulkanContext.ValidationLayer
 import com.scalag.vulkan.util.Util.{check, pushStack}
 import com.scalag.vulkan.util.VulkanObject
 import org.lwjgl.system.MemoryStack

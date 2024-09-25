@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 import org.lwjgl.BufferUtils
 
 class SequenceExecutorTest {
-  private val vulkanContext = VulkanContext(true)
+  private val vulkanContext = VulkanContext()
 
   @Test
   def testMemoryBarrier(): Unit = {

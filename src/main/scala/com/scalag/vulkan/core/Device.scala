@@ -1,7 +1,7 @@
 package com.scalag.vulkan.core
 
 import com.scalag.vulkan.VulkanContext.ValidationLayer
-import com.scalag.vulkan.core.Device.{MacOsExtension, SyncExtension}
+import com.scalag.vulkan.core.Device.{MacOsExtension, SyncExtension, RayTracingExtensions}
 import com.scalag.vulkan.util.Util.{check, pushStack}
 import com.scalag.vulkan.util.VulkanObject
 import org.lwjgl.vulkan.*
@@ -9,9 +9,12 @@ import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION
 import org.lwjgl.vulkan.KHRSynchronization2.VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 import org.lwjgl.vulkan.VK10.*
 import org.lwjgl.vulkan.VK11.*
-
+import org.lwjgl.vulkan.KHRDeferredHostOperations.VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
 import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters.given
+import org.lwjgl.vulkan.KHRAccelerationStructure.VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRRayTracingPipeline.VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
+import org.lwjgl.vulkan.KHRRayTracingPipeline.*
 
 /** @author
   *   MarconZet Created 13.04.2020
@@ -20,6 +23,9 @@ import scala.jdk.CollectionConverters.given
 object Device {
   final val MacOsExtension = VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
   final val SyncExtension = VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+
+  final val RayTracingExtensions =
+    Seq(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME)
 }
 
 class Device(instance: Instance) extends VulkanObject {
@@ -78,7 +84,6 @@ class Device(instance: Instance) extends VulkanObject {
 
       val deviceExtensions = pProperties.iterator().asScala.map(_.extensionNameString())
       val deviceExtensionsSet = deviceExtensions.toSet
-      deviceExtensions.foreach(println(_))
 
       val vulkan12Features = VkPhysicalDeviceVulkan12Features
         .calloc(stack)
@@ -88,13 +93,22 @@ class Device(instance: Instance) extends VulkanObject {
         .calloc(stack)
         .sType$Default()
 
+      val rayTracingPipelineFeatures = VkPhysicalDeviceRayTracingPipelineFeaturesKHR.calloc(stack).sType$Default()
+      val accelerationStructureFeatures = VkPhysicalDeviceAccelerationStructureFeaturesKHR.calloc(stack).sType$Default()
+
       val physicalDeviceFeatures = VkPhysicalDeviceFeatures2
         .calloc(stack)
         .sType$Default()
         .pNext(vulkan12Features)
         .pNext(vulkan13Features)
+        .pNext(rayTracingPipelineFeatures)
+        .pNext(accelerationStructureFeatures)
 
       vkGetPhysicalDeviceFeatures2(physicalDevice, physicalDeviceFeatures)
+
+      val rayTracingPipelineProperties = VkPhysicalDeviceRayTracingPipelinePropertiesKHR.calloc(stack).sType$Default()
+      val physicalDeviceProperties = VkPhysicalDeviceProperties2.calloc(stack).sType$Default().pNext(rayTracingPipelineProperties)
+      vkGetPhysicalDeviceProperties2(physicalDevice, physicalDeviceProperties)
 
       val additionalExtension = pProperties.stream().anyMatch(x => x.extensionNameString().equals(MacOsExtension))
 
@@ -110,7 +124,7 @@ class Device(instance: Instance) extends VulkanObject {
         .queueFamilyIndex(computeQueueFamily)
         .pQueuePriorities(pQueuePriorities)
 
-      val extensions = Seq(MacOsExtension, SyncExtension).filter(deviceExtensionsSet)
+      val extensions = Seq(MacOsExtension, SyncExtension).concat(RayTracingExtensions).filter(deviceExtensionsSet)
       val ppExtensionNames = stack.callocPointer(extensions.length)
       extensions.foreach(extension => ppExtensionNames.put(stack.ASCII(extension)))
       ppExtensionNames.flip()
@@ -124,6 +138,8 @@ class Device(instance: Instance) extends VulkanObject {
         .create()
         .sType$Default()
         .pNext(sync2)
+        .pNext(rayTracingPipelineFeatures)
+        .pNext(accelerationStructureFeatures)
         .pQueueCreateInfos(pQueueCreateInfo)
         .ppEnabledExtensionNames(ppExtensionNames)
 
@@ -133,6 +149,7 @@ class Device(instance: Instance) extends VulkanObject {
       }
 
       assert(vulkan13Features.synchronization2() || extensions.contains(SyncExtension))
+      assert(rayTracingPipelineFeatures.rayTracingPipeline() && accelerationStructureFeatures.accelerationStructure())
 
       val pDevice = stack.callocPointer(1)
       check(vkCreateDevice(physicalDevice, pCreateInfo, null, pDevice), "Failed to create device")
