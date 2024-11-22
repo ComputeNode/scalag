@@ -1,4 +1,4 @@
-package com.scalag.api
+package com.scalag
 
 import com.scalag.*
 import com.scalag.Algebra.*
@@ -26,17 +26,31 @@ trait GContext {
   val vkContext = new VulkanContext(enableValidationLayers = true)
 
   def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline
-  def compile[H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GArray2DFunction[H, R]): ComputePipeline
+  def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GArray2DFunction[G, H, R]): ComputePipeline
 }
 
-val WorkerIndex: Int32 = Int32(Dynamic("worker_index"))
+
+val WorkerIndexTag = "worker_index"
+val WorkerIndex: Int32 = Int32(Dynamic(WorkerIndexTag))
+val UniformStructRefTag = "uniform_struct"
+def UniformStructRef[G <: Value : Tag] = Dynamic(UniformStructRefTag)
+
+class UniformContext[G <: GStruct[G] : Tag: GStructSchema](val uniform: G)
+object UniformContext:
+  def withUniform[G <: GStruct[G] : Tag: GStructSchema, T](uniform: G)(fn: UniformContext[G] ?=> T): T =
+    fn(using UniformContext(uniform))
+  given empty: UniformContext[Empty] = new UniformContext(Empty())
+
+case class Empty() extends GStruct[Empty]
+object Empty:
+  given GStructSchema[Empty] = derived
 
 class MVPContext extends GContext {
   implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
 
   override def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline = {
     val tree = function.fn.apply(GArray[H](0).at(WorkerIndex))
-    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
+    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, Empty().schema)
 
     val layoutInfo = LayoutInfo(Seq(LayoutSet(0, 0 to 1 map (Binding(_, InputBufferSize(DSLCompiler.typeStride(summon[Tag[H]])))))))
     val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfo, "main", vkContext.device)
@@ -44,8 +58,10 @@ class MVPContext extends GContext {
     new ComputePipeline(shader, vkContext)
   }
 
-  override def compile[H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GArray2DFunction[H, R]): ComputePipeline = {
-    val tree = function.fn.apply((WorkerIndex mod function.width, WorkerIndex / function.width), new GArray2D(function.width, function.height, GArray[H](0)))
+  override def compile[G <: GStruct[G] : Tag : GStructSchema, H <: Value : Tag : FromExpr, R <: Value : Tag : FromExpr](function: GArray2DFunction[G, H, R]): ComputePipeline = {
+    val uniformStructSchema = summon[GStructSchema[G]]
+    val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
+    val tree = function.fn.apply(uniformStruct, (WorkerIndex mod function.width, WorkerIndex / function.width), new GArray2D(function.width, function.height, GArray[H](0)))
  
     val file = new File("output.txt")
     val writer = new FileOutputStream(file, true)
@@ -65,7 +81,7 @@ class MVPContext extends GContext {
       printTreeRec(product, indent)
     }
 
-    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs)
+    val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
     println("Compiled!")
     
     // dump spv to file
@@ -73,7 +89,9 @@ class MVPContext extends GContext {
     fc.write(shaderCode)
     fc.close()
     shaderCode.rewind()
-    val layoutInfo = LayoutInfo(Seq(LayoutSet(0, 0 to 1 map (Binding(_, InputBufferSize(DSLCompiler.typeStride(summon[Tag[H]])))))))
+    val inOut = 0 to 1 map (Binding(_, InputBufferSize(DSLCompiler.typeStride(summon[Tag[H]]))))
+    val uniform = Binding(2, UniformSize(uniformStructSchema.totalStride))
+    val layoutInfo = LayoutInfo(Seq(LayoutSet(0, inOut :+ uniform)))
     val shader = new Shader(shaderCode, new org.joml.Vector3i(128, 1, 1), layoutInfo, "main", vkContext.device)
 
     new ComputePipeline(shader, vkContext)

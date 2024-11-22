@@ -1,25 +1,26 @@
-package com.scalag
+package com.scalag.samples
 
 
 import com.scalag.Expression.*
 import com.scalag.Value.*
-
+import com.scalag.*
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.{Await, ExecutionContext}
+import com.scalag.*
 import Algebra.*
 import Algebra.given
 
 import scala.concurrent.duration.DurationInt
-import com.scalag.api.*
 import Functions.*
 import Control.*
 
 import java.nio.file.Paths
 import scala.compiletime.error
 import scala.collection.mutable
+import com.scalag.given
 
 given GContext = new MVPContext()
 given ExecutionContext = Implicits.global
@@ -107,8 +108,8 @@ def main =
 
   case class Quad(
     a: Vec3[Float32],
-    b: Vec3[Float32], 
-    c: Vec3[Float32], 
+    b: Vec3[Float32],
+    c: Vec3[Float32],
     d: Vec3[Float32],
     color: Vec3[Float32],
     emissive: Vec3[Float32],
@@ -245,8 +246,10 @@ def main =
     ),
   ).map(quad => quad.copy(a = quad.a + sceneTranslation.xyz, b = quad.b + sceneTranslation.xyz, c = quad.c + sceneTranslation.xyz, d = quad.d + sceneTranslation.xyz))
 
-  def function(frame: Int): GArray2DFunction[Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
-    case ((xi: Int32, yi: Int32), lastFrame) =>
+  case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
+
+  def function(): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+    case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
       def wangHash(seed: UInt32): UInt32 = {
         val s1 = (seed ^ 61) ^ (seed >> 16)
         val s2 = s1 * 9
@@ -532,19 +535,21 @@ def main =
           }).limit(pixelIterationsPerFrame)
             .fold((0f,0f,0f), {case (acc, RenderIteration(color, _)) => acc + (color * (1.0f / pixelIterationsPerFrame.toFloat))})
   
-      when(frame == 0) {
+      when(frame === 0) {
         (color, 1.0f)
       } otherwise {
-        mix(lastFrame.at(xi, yi), (color, 1.0f), vec4(1.0f / (frame.toFloat + 1f)))
+        mix(lastFrame.at(xi, yi), (color, 1.0f), vec4(1.0f / (frame.asFloat + 1f)))
       }
   })
   
   val initialMem = Array.fill(dim * dim)((0.5f,0.5f,0.5f,0.5f))
   val renders = 100
+  val code = function()
   List.range(0, renders).foldLeft(initialMem) {
     case(mem, i) =>
-      val newMem = Await.result(Vec4FloatMem(mem).map(function(i)), 1.minute)
-      ImageUtility.renderToImage(newMem, dim, Paths.get(s"generated.png"))
-      println(s"Finished render $i")
-      newMem
+      UniformContext.withUniform(RaytracingIteration(i)):
+        val newMem = Await.result(Vec4FloatMem(mem).map(code), 1.minute)
+        ImageUtility.renderToImage(newMem, dim, Paths.get(s"generated.png"))
+        println(s"Finished render $i")
+        newMem
   }

@@ -117,29 +117,29 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
     val setToActions = computeSequence.sequence
       .collect { case Compute(pipeline, bufferActions) =>
         pipelineToDescriptorSets(pipeline).zipWithIndex.map { case (descriptorSet, i) =>
-          val descriptorBufferActions = descriptorSet.bindings.map(_.id).map(LayoutLocation(i, _)).map(bufferActions.getOrElse(_, BufferAction.DoNothing))
+          val descriptorBufferActions = descriptorSet.bindings
+            .map(_.id)
+            .map(LayoutLocation(i, _))
+            .map(bufferActions.getOrElse(_, BufferAction.DoNothing))
           (descriptorSet, descriptorBufferActions)
         }
       }
       .flatten
       .groupMapReduce(_._1)(_._2)((a, b) => a.zip(b).map(x => x._1 | x._2))
+    
 
-    val setWithSize = descriptorSets.map(x =>
-      val size = x.bindings.map(_.size match
-        case InputBufferSize(elemSize) => elemSize * dataLength
-        case UniformSize(size)         => size
-      )
-      (x, size)
-    )
-
-    val setToBuffers = setWithSize.map { case (set, sizes) =>
+    val setToBuffers = descriptorSets.map(set =>
       val actions = setToActions(set)
-      val buffers = sizes.zip(actions).map { case (size, action) =>
-        new Buffer(size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
-      }
+      val buffers = set.bindings.zip(actions).map { case (binding, action) =>
+        binding.size match
+          case InputBufferSize(elemSize) =>
+            new Buffer(elemSize * dataLength, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+          case UniformSize(size) =>
+            new Buffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | action.action, 0, VMA_MEMORY_USAGE_GPU_ONLY, allocator)
+      }     
       set.update(buffers)
       (set, buffers)
-    }.toMap
+    ).toMap
 
     setToBuffers
   }

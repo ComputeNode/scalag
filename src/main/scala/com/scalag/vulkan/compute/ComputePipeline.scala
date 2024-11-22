@@ -69,7 +69,10 @@ class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends
       descriptorSetLayoutBindings
         .get()
         .binding(binding.id)
-        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+        .descriptorType(binding.size match
+          case InputBufferSize(_) => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+          case UniformSize(_) => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+        )
         .descriptorCount(1)
         .stageFlags(VK_SHADER_STAGE_COMPUTE_BIT)
         .pImmutableSamplers(null)

@@ -8,7 +8,7 @@ import com.scalag.Algebra.*
 import com.scalag.Algebra.given
 
 import scala.concurrent.duration.DurationInt
-import com.scalag.api.*
+import com.scalag.*
 import com.scalag.*
 import Functions.*
 import Control.*
@@ -31,8 +31,8 @@ class JuliaSet {
     val RECURSION_LIMIT = 1000
     val const = (0.355f, 0.355f)
 
-    val function: GArray2DFunction[Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
-      case ((xi: Int32, yi: Int32), _) =>
+    val function: GArray2DFunction[Empty, Vec4[Float32], Vec4[Float32]] = GArray2DFunction(dim, dim, {
+      case (_, (xi: Int32, yi: Int32), _) =>
         val x = 3.0f * (xi - (dim / 2)).asFloat / dim.toFloat
         val y = 3.0f * (yi - (dim / 2)).asFloat / dim.toFloat
         val uv = (x, y)
@@ -85,3 +85,4 @@ class JuliaSet {
     ImageTests.assertImagesEquals(outputTemp, new File(referenceImage.getPath))
   }
 }
+

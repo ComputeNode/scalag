@@ -34,14 +34,16 @@ class DescriptorSet(device: Device, descriptorSetLayout: Long, val bindings: Seq
         .buffer(buffers(i).get)
         .offset(0)
         .range(VK_WHOLE_SIZE)
-
+      val descriptorType = buffers(i).usage match
+        case storage if (storage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) != 0 => VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+        case uniform if (uniform & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) != 0 => VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
       writeDescriptorSet
         .get(i)
         .sType$Default()
         .dstSet(handle)
         .dstBinding(i)
         .descriptorCount(1)
-        .descriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+        .descriptorType(descriptorType)
         .pBufferInfo(descriptorBufferInfo)
     }
     vkUpdateDescriptorSets(device.get, writeDescriptorSet, null)

@@ -3,6 +3,7 @@ package com.scalag
 import com.scalag.Algebra.{FromExpr, given_Conversion_Int_Int32}
 import com.scalag.Expression.*
 import com.scalag.Value.*
+import com.scalag.compiler.DSLCompiler
 import izumi.reflect.Tag
 
 import scala.compiletime.*
@@ -45,6 +46,9 @@ case class GStructSchema[T <: GStruct[T]: Tag](
             tag.asInstanceOf[Tag[Value]]
           ).asInstanceOf[E[Value]])
     }, this.copy(dependsOn = Some(e)))
+    
+  // todo won't work for nested Structs
+  val totalStride = fields.map(_._3).map(DSLCompiler.typeStride).sum
 
 given [T <: GStruct[T] : GStructSchema]: FromExpr[T] with
   def fromExpr(expr: E[T]): T = summon[GStructSchema[T]].fromTree(expr)

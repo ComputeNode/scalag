@@ -249,8 +249,8 @@ object GSeqCompiler:
         )),
       )
     ::: List(
-      Instruction(Op.OpBranch, List(ResultRef(continueTarget))), // OpBranch continuteTarget
-      Instruction(Op.OpLabel, List(ResultRef(continueTarget))), // OpLabel continuteTarget
+      Instruction(Op.OpBranch, List(ResultRef(continueTarget))), // OpBranch continueTarget
+      Instruction(Op.OpLabel, List(ResultRef(continueTarget))), // OpLabel continueTarget
       Instruction(Op.OpBranch, List(ResultRef(loopBack))), // OpBranch loopBack
       Instruction(Op.OpLabel, List(ResultRef(mergeBlock))), // OpLabel mergeBlock
       Instruction(Op.OpLoad, List(

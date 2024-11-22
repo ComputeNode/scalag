@@ -17,6 +17,7 @@ import scala.math.random
 import scala.runtime.stdLibPatches.Predef.summon
 import scala.util.Random
 
+// TODO Author is fully aware that this is a mess, but decides to chase fun features instead of cleaning it up (~Author)
 object DSLCompiler {
   val scalagVendorId: Byte = 44 // https://github.com/KhronosGroup/SPIRV-Headers/blob/main/include/spirv/spir-v.xml#L52
 
@@ -56,6 +57,7 @@ object DSLCompiler {
     Int32Tag -> 4,
     UInt32Tag -> 4,
     Float32Tag -> 4,
+    GBooleanTag -> 4,
     summon[Tag[Vec2[Float32]]] -> 8,
     summon[Tag[Vec2[Int32]]] -> 8,
     summon[Tag[Vec2[UInt32]]] -> 8,
@@ -107,6 +109,7 @@ object DSLCompiler {
     voidTypeRef: Int = -1,
     voidFuncTypeRef: Int = -1,
     workerIndexRef: Int = -1,
+    uniformVarRef: Int = -1,
     constRefs: Map[(Tag[_], Any), Int] = Map(), // todo not sure about float eq on this one (but is the same so?)
     exprRefs: Map[String, Int] = Map(),
     inBufferBlocks: List[ArrayBufferBlock] = List(),
@@ -274,6 +277,61 @@ object DSLCompiler {
     })
     (decoration, definition, newContext)
   }
+
+  def createAndInitUniformBlock(schema: GStructSchema[_], ctx: Context): (List[Words], List[Words], Context) =
+    val uniformStructTypeRef = ctx.valueTypeMap(schema.structTag.tag)
+
+    val (offsetDecorations, _) = schema.fields.zipWithIndex.foldLeft[(List[Words], Int)](List.empty[Word], 0):
+      case ((acc, offset), ((name, _, tag), idx)) =>
+        val offsetDecoration = Instruction(Op.OpMemberDecorate, List(
+          ResultRef(uniformStructTypeRef),
+          IntWord(idx),
+          Decoration.Offset,
+          IntWord(offset)
+        ))
+        (acc :+ offsetDecoration, offset + typeStride(tag))
+
+    val uniformBlockDecoration = Instruction(Op.OpDecorate, List(
+      ResultRef(uniformStructTypeRef),
+      Decoration.Block
+    ))
+
+    val uniformPointerUniformRef = ctx.nextResultId
+    val uniformPointerUniform = Instruction(Op.OpTypePointer, List(
+      ResultRef(uniformPointerUniformRef),
+      StorageClass.Uniform,
+      ResultRef(uniformStructTypeRef)
+    ))
+
+    val uniformVarRef = ctx.nextResultId + 1
+    val uniformVar = Instruction(Op.OpVariable, List(
+      ResultRef(uniformPointerUniformRef),
+      ResultRef(uniformVarRef),
+      StorageClass.Uniform
+    ))
+
+    val uniformDecorateDescriptorSet = Instruction(Op.OpDecorate, List(
+      ResultRef(uniformVarRef),
+      Decoration.DescriptorSet,
+      IntWord(0)
+    ))
+    
+    // todo current limitation
+    assert(ctx.nextBinding == 2, "Currently the only legal layout is (in, out, uniform)")
+    val uniformDecorateBinding = Instruction(Op.OpDecorate, List(
+      ResultRef(uniformVarRef),
+      Decoration.Binding,
+      IntWord(ctx.nextBinding)
+    ))
+
+    (offsetDecorations ::: List(uniformDecorateDescriptorSet, uniformDecorateBinding, uniformBlockDecoration),
+      List(uniformPointerUniform, uniformVar),
+      ctx.copy(
+        nextResultId = ctx.nextResultId + 2,
+        nextBinding = ctx.nextBinding + 1,
+        uniformVarRef = uniformVarRef,
+        uniformPointerMap = ctx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef)
+      ))
 
   def defineVoids(context: Context): (List[Words], Context) = {
     val voidDef = List[Words](
@@ -519,9 +577,14 @@ object DSLCompiler {
               )
               (List(), updatedContext)
 
-            case d@Dynamic("worker_index") =>
+            case d@Dynamic(WorkerIndexTag) =>
               (Nil, ctx.copy(
                 exprRefs = ctx.exprRefs + (expr.exprId -> ctx.workerIndexRef),
+              ))
+
+            case d@Dynamic(UniformStructRefTag) =>
+              (Nil, ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.uniformVarRef),
               ))
 
             case c: ConvertExpression[_, _] =>
@@ -750,7 +813,25 @@ object DSLCompiler {
                 nextResultId = ctx.nextResultId + 1
               )
               (insns, updatedContext)
-
+            case gf @ GetField(dynamic @ Dynamic(UniformStructRefTag), fieldIndex) =>
+              val insns: List[Instruction] = List(
+                Instruction(Op.OpAccessChain, List(
+                  ResultRef(ctx.uniformPointerMap(ctx.valueTypeMap(gf.tag.tag))),
+                  ResultRef(ctx.nextResultId),
+                  ResultRef(ctx.uniformVarRef),
+                  ResultRef(ctx.constRefs((Int32Tag, gf.fieldIndex)))
+                )),
+                Instruction(Op.OpLoad, List(
+                  IntWord(ctx.valueTypeMap(gf.tag.tag)),
+                  ResultRef(ctx.nextResultId + 1),
+                  ResultRef(ctx.nextResultId)
+                ))
+              )
+              val updatedContext = ctx.copy(
+                exprRefs = ctx.exprRefs + (expr.exprId -> (ctx.nextResultId + 1)),
+                nextResultId = ctx.nextResultId + 2
+              )
+              (insns, updatedContext)
             case gf: GetField[_, _] =>
               val insns: List[Instruction] = List(
                 Instruction(Op.OpCompositeExtract, List(
@@ -962,7 +1043,7 @@ object DSLCompiler {
     result
   }
   
-  def compile[T <: Value](returnVal: T, inTypes: List[Tag[_]], outTypes: List[Tag[_]]): ByteBuffer = {
+  def compile[T <: Value](returnVal: T, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer = {
     val tree = returnVal.tree
     println("Compiling...")
     println("Digesting...")
@@ -978,25 +1059,27 @@ object DSLCompiler {
     val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes)
-    val structsInCode = allBlockExprs.map(_.expr).collect {
+    val structsInCode = (allBlockExprs.map(_.expr).collect {
       case cs: ComposeStruct[_] => cs.resultSchema
       case gf: GetField[_, _] => gf.resultSchema
-    }.distinct
+    } :+ uniformSchema).distinct
     val (structDefs, structCtx) = defineStructTypes(structsInCode, typedContext)
     val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, structCtx)
-    val (inputDefs, inputContext) = createInvocationId(uniformContext)
+    val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlock(uniformSchema, uniformContext)
+    val (inputDefs, inputContext) = createInvocationId(uniformStructContext)
     val (constDefs, constCtx) = defineConstants(allBlockExprs, inputContext)
     val (varDefs, varCtx) = defineVars(constCtx)
-//    println("preC")
     val resultType = returnVal.tree.tag
     val (main, finalCtx) = compileMain(sorted, resultType, varCtx)
 
     val code: List[Words] =
       insnWithHeader :::
         decorations :::
+        uniformStructDecorations :::
         typeDefs :::
         structDefs :::
         uniformDefs :::
+        uniformStructInsns :::
         inputDefs :::
         constDefs :::
         varDefs :::
@@ -1006,7 +1089,7 @@ object DSLCompiler {
       case WordVariable(name) if name == BOUND_VARIABLE => IntWord(finalCtx.nextResultId)
       case x => x
     }
-//    dumpCode(fullCode)
+    //dumpCode(fullCode)
 
     val bytes = fullCode.flatMap(_.toWords).toArray
 
