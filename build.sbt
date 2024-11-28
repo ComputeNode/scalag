@@ -1,20 +1,20 @@
 ThisBuild / organization := "com.scalag"
 ThisBuild / scalaVersion := "3.3.3"
-ThisBuild / version      := "0.1.0-SNAPSHOT"
+ThisBuild / version := "0.1.0-SNAPSHOT"
 
 lazy val osName = System.getProperty("os.name").toLowerCase
 lazy val osArch = System.getProperty("os.arch")
 lazy val lwjglNatives = {
   osName.toLowerCase match {
-    case mac if mac.contains("mac")  =>
-      if(osArch.startsWith("aarch64")) "natives-macos-arm64" else "natives-macos"
+    case mac if mac.contains("mac") =>
+      if (osArch.startsWith("aarch64")) "natives-macos-arm64" else "natives-macos"
     case win if win.contains("win") =>
       val is64 = osArch.contains("64")
       val isArm = osArch.contains("aarch64")
       s"natives-windows${if (isArm) "-arm64" else if (is64) "" else "-x86"}"
     case linux if linux.contains("linux") =>
-      if(osArch.startsWith("arm") || osArch.startsWith("aarch64"))
-        if(osArch.contains("64") || osArch.contains("armv8"))
+      if (osArch.startsWith("arm") || osArch.startsWith("aarch64"))
+        if (osArch.contains("64") || osArch.contains("armv8"))
           "natives-linux-arm64"
         else
           "natives-linux-arm32"
@@ -42,8 +42,10 @@ lazy val root = (project in file("."))
       "org.lwjgl" % "lwjgl" % lwjglVersion,
       "org.lwjgl" % "lwjgl-vulkan" % lwjglVersion,
       "org.lwjgl" % "lwjgl-vma" % lwjglVersion,
+      "org.lwjgl" % "lwjgl-assimp" % lwjglVersion,
       "org.lwjgl" % "lwjgl" % lwjglVersion classifier lwjglNatives,
       "org.lwjgl" % "lwjgl-vma" % lwjglVersion classifier lwjglNatives,
+      "org.lwjgl" % "lwjgl-assimp" % lwjglVersion classifier lwjglNatives,
       "org.joml" % "joml" % jomlVersion,
       "commons-io" % "commons-io" % "2.16.1",
       "org.slf4j" % "slf4j-api" % "1.7.30",
@@ -55,5 +57,5 @@ lazy val root = (project in file("."))
   )
 
 lazy val vulkanSdk = System.getenv("VULKAN_SDK")
-javaOptions +=  s"-Dorg.lwjgl.vulkan.libname=$vulkanSdk/lib/libvulkan.1.dylib"
+javaOptions += s"-Dorg.lwjgl.vulkan.libname=$vulkanSdk/lib/libvulkan.1.dylib"
 
