@@ -1,4 +1,4 @@
-# Scalag
+# Cyfra
 
 Library that allows to compile Scala 3 DSL to SPIR-V and to run it with Vulkan runtime on GPUs.
 
