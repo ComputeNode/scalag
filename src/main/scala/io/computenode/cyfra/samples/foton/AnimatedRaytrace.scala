@@ -9,6 +9,7 @@ import io.computenode.cyfra.foton.*
 import io.computenode.cyfra.foton.rt.animation.{AnimatedScene, AnimationRtRenderer}
 import io.computenode.cyfra.foton.rt.shapes.{Plane, Shape, Sphere}
 import io.computenode.cyfra.foton.rt.{Camera, Material}
+import scala.concurrent.duration.DurationInt
 
 import java.nio.file.{Path, Paths}
 
@@ -80,10 +81,14 @@ object AnimatedRaytrace:
 
     val scene = AnimatedScene(
       shapes = staticShapes ::: List(
-        Sphere((3f, smooth(from = -5f, to = 1.5f, duration = Milliseconds(2000f)), 10f), 2f, sphere2Material),
+        Sphere(
+          center = (3f, smooth(from = -5f, to = 1.5f, duration = 2.seconds), 10f),
+          2f,
+          sphere2Material
+        ),
       ),
-      camera = Camera(position = (2f, 0f, smooth(from = -5f, to = -1f, duration = Milliseconds(2000f)))),
-      duration = Milliseconds(3000f)
+      camera = Camera(position = (2f, 0f, smooth(from = -5f, to = -1f, 2.seconds))),
+      duration = 3.seconds
     )
 
     val parameters = AnimationRtRenderer.Parameters(
