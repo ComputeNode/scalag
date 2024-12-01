@@ -1,9 +1,9 @@
-package io.computenode.cyfra.foton.shapes
+package io.computenode.cyfra.foton.rt.shapes
 
 import io.computenode.cyfra.Value.*
 import io.computenode.cyfra.Algebra.{*, given}
 import io.computenode.cyfra.GStruct
-import io.computenode.cyfra.foton.Renderer.RayHitInfo
+import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 
 // type Shape = Box | Sphere | Quad
 

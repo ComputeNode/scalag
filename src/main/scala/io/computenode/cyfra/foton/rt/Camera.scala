@@ -1,4 +1,4 @@
-package io.computenode.cyfra.foton
+package io.computenode.cyfra.foton.rt
 
 import io.computenode.cyfra.Value.*
 

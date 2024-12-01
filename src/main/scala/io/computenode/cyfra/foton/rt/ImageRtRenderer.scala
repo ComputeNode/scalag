@@ -1,30 +1,28 @@
-package io.computenode.cyfra.foton
+package io.computenode.cyfra.foton.rt
 
-import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.*
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Algebra.given
-
-import scala.concurrent.duration.DurationInt
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Control.*
-
-import java.nio.file.{Path, Paths}
-import scala.collection.mutable
-import io.computenode.cyfra.given
-import Renderer.RayHitInfo
 import io.computenode.cyfra
+import io.computenode.cyfra.Algebra.{*, given}
+import io.computenode.cyfra.Control.*
+import io.computenode.cyfra.Functions.*
 import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.foton.ImageRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.shapes.{Box, Sphere}
-import io.computenode.cyfra.{GArray2DFunction, GContext, GSeq, GStruct, ImageUtility, MVPContext, RGBA, UniformContext, Vec4FloatMem}
+import ImageRtRenderer.RaytracingIteration
+import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import io.computenode.cyfra.foton.utility.Color.*
 import io.computenode.cyfra.foton.utility.Math3D.*
 import io.computenode.cyfra.foton.utility.Random
 import io.computenode.cyfra.foton.utility.Utility.timed
+import io.computenode.cyfra.foton.rt.ImageRtRenderer
+import io.computenode.cyfra.*
+import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
+import io.computenode.cyfra.given 
 
-class ImageRenderer(params: ImageRenderer.Parameters) extends Renderer(params):
+import java.nio.file.{Path, Paths}
+import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext}
+
+class ImageRtRenderer(params: ImageRtRenderer.Parameters) extends RtRenderer(params):
 
   def renderToFile(scene: Scene, destinationPath: Path): Unit =
     val images = render(scene)
@@ -49,7 +47,7 @@ class ImageRenderer(params: ImageRenderer.Parameters) extends Renderer(params):
         renderFrame(xi, yi, frame, lastFrame, scene)
     })
 
-object ImageRenderer:
+object ImageRtRenderer:
 
   private case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
 
@@ -62,4 +60,4 @@ object ImageRenderer:
     pixelIterations: Int = 1000,
     iterations: Int = 5,
     bgColor: (Float, Float, Float) = (0.2f, 0.2f, 0.2f)
-  ) extends Renderer.Parameters
+  ) extends RtRenderer.Parameters

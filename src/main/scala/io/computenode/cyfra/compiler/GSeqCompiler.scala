@@ -55,7 +55,7 @@ object GSeqCompiler:
           val forReduceCtx = withElemRefCtx.copy(
             exprRefs = withElemRefCtx.exprRefs + (fold.seq.aggregateElemDigest -> resultRef)
           ).copy(nextResultId = context.nextResultId + 1)
-          val (reduceOps, reduceCtx) = DSLCompiler.compileBlock(BlockBuilder.buildBlock(foldFnExpr), forReduceCtx)
+          val (reduceOps, reduceCtx) = DSLCompiler.compileBlock(ScopeBuilder.buildScope(foldFnExpr), forReduceCtx)
           val instructions = List(
             Instruction(Op.OpLoad, List(
               ResultRef(foldZeroType),
@@ -73,13 +73,13 @@ object GSeqCompiler:
 
           op match {
             case MapOp(_) =>
-              val mapBlock = BlockBuilder.buildBlock(dExpr)
+              val mapBlock = ScopeBuilder.buildScope(dExpr)
               val (mapOps, mapContext) = DSLCompiler.compileBlock(mapBlock, withElemRefCtx)
               val newElemRef = mapContext.exprRefs(dExpr.exprId)
               val (tailOps, tailContext) = generateSeqOps(tail, context.joinNested(mapContext), newElemRef)
               (mapOps ++ tailOps, tailContext)
             case FilterOp(_) =>
-              val filterBlock = BlockBuilder.buildBlock(dExpr)
+              val filterBlock = ScopeBuilder.buildScope(dExpr)
               val (filterOps, filterContext) = DSLCompiler.compileBlock(filterBlock, withElemRefCtx)
               val condResultRef = filterContext.exprRefs(dExpr.exprId)
               val mergeBlock = filterContext.nextResultId
@@ -106,7 +106,7 @@ object GSeqCompiler:
               )
               (instructions, tailContext)
             case TakeUntilOp(_) =>
-              val takeUntilBlock = BlockBuilder.buildBlock(dExpr)
+              val takeUntilBlock = ScopeBuilder.buildScope(dExpr)
               val (takeUntilOps, takeUntilContext) = DSLCompiler.compileBlock(takeUntilBlock, withElemRefCtx)
               val condResultRef = takeUntilContext.exprRefs(dExpr.exprId)
               val mergeBlock = takeUntilContext.nextResultId
@@ -150,7 +150,7 @@ object GSeqCompiler:
     val withElemRefInitCtx = seqOpsCtx.copy(
       exprRefs = ctx.exprRefs + (fold.seq.currentElemDigest -> accLoaded),
     )
-    val (generatorOps, generatorCtx) = DSLCompiler.compileBlock(BlockBuilder.buildBlock(genNextExpr), withElemRefInitCtx)
+    val (generatorOps, generatorCtx) = DSLCompiler.compileBlock(ScopeBuilder.buildScope(genNextExpr), withElemRefInitCtx)
     val instructions = List(
       Instruction(Op.OpVariable, List( // bool shouldTake
         ResultRef(boolPointerType),

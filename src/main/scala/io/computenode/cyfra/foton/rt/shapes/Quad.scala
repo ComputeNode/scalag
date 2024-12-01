@@ -1,4 +1,4 @@
-package io.computenode.cyfra.foton.shapes
+package io.computenode.cyfra.foton.rt.shapes
 
 import io.computenode.cyfra.Algebra.{*, given}
 import io.computenode.cyfra.Control.*
@@ -6,9 +6,9 @@ import io.computenode.cyfra.Functions.*
 import io.computenode.cyfra.Value.*
 import io.computenode.cyfra.{*, given}
 import io.computenode.cyfra.GStruct
+import io.computenode.cyfra.foton.rt.Material
 import io.computenode.cyfra.foton.utility.Math3D.scalarTriple
-import io.computenode.cyfra.foton.Renderer.{MinRayHitTime, RayHitInfo}
-import io.computenode.cyfra.foton.Material
+import io.computenode.cyfra.foton.rt.RtRenderer.{MinRayHitTime, RayHitInfo}
 
 import java.nio.file.Paths
 import scala.collection.mutable

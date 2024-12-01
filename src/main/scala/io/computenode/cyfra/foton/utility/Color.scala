@@ -26,6 +26,16 @@ object Color:
       lessThan(clampedRgb, 0.0031308f)
     )
   }
+  
+  object InterpolationThemes:
+    val Blue = ((8f, 22f, 104f) * (1 / 255f), (62f, 82f, 199f) * (1 / 255f), (221f, 233f, 255f) * (1 / 255f))
+    
+  def interpolate3(colors: (Vec3[Float32], Vec3[Float32], Vec3[Float32]), f: Float32): Vec3[Float32] = 
+    val (c1, c2, c3) = colors
+    val ratio1 = (1f - f) * (1f - f)
+    val ratio2 = 2f * f * (1f - f)
+    val ratio3 = f * f
+    c1 * ratio1 + c2 * ratio2 + c3 * ratio3
 
   transparent inline def hex(inline color: String): Any = ${hexImpl('{color})}
 

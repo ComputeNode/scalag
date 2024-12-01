@@ -2,8 +2,8 @@ package io.computenode.cyfra.compiler
 
 import Digest.DigestedExpression
 
-object BlockBuilder {
-  def buildBlock(tree: DigestedExpression): List[DigestedExpression] = {
+object ScopeBuilder {
+  def buildScope(tree: DigestedExpression): List[DigestedExpression] = {
     def bfsAcc(curr: List[DigestedExpression], visited: Set[String], acc: List[DigestedExpression]): List[DigestedExpression] = {
       val children = curr.flatMap(_.dependencies)
       if(children.isEmpty) acc

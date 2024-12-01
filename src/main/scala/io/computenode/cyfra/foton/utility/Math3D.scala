@@ -42,3 +42,8 @@ object Math3D:
     (when(f.x < f2)(1.0f).otherwise(0.0f),
       when(f.y < f2)(1.0f).otherwise(0.0f),
       when(f.z < f2)(1.0f).otherwise(0.0f))
+
+  def rotate(uv: Vec2[Float32], angle: Float32): Vec2[Float32] =
+    val newXAxis = (cos(angle), sin(angle))
+    val newYAxis = (-newXAxis.y, newXAxis.x)
+    (uv dot newXAxis, uv dot newYAxis) * 0.9f

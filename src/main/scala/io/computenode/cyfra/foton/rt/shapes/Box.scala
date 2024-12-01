@@ -1,4 +1,4 @@
-package io.computenode.cyfra.foton.shapes
+package io.computenode.cyfra.foton.rt.shapes
 
 import io.computenode.cyfra.Algebra.{*, given}
 import io.computenode.cyfra.Control.*
@@ -7,8 +7,8 @@ import io.computenode.cyfra.*
 import io.computenode.cyfra.given
 import io.computenode.cyfra.Functions.*
 import io.computenode.cyfra.GStruct
-import io.computenode.cyfra.foton.Renderer.RayHitInfo
-import io.computenode.cyfra.foton.Material
+import io.computenode.cyfra.foton.rt.Material
+import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 
 case class Box(
   minV: Vec3[Float32],

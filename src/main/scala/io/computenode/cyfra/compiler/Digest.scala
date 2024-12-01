@@ -1,6 +1,6 @@
 package io.computenode.cyfra.compiler
 
-import io.computenode.cyfra.Control.Block
+import io.computenode.cyfra.Control.Scope
 import io.computenode.cyfra.{Expression, GSeq, Value}
 
 import java.security.MessageDigest
@@ -27,7 +27,7 @@ object Digest {
     def digestChildren(children: List[Any]): (List[DigestedExpression], List[DigestedExpression]) =
       (for (elem <- children) yield {
        elem match {
-          case b: Block[_] =>
+          case b: Scope[_] =>
             val digestedChild = digest(b.expr)
             (None, Some(digestedChild))
           case x: Expression[_] =>
@@ -38,7 +38,7 @@ object Digest {
             (Some(digestedChild), None)
           case list: List[Any] =>
             (digestChildren(list.filter(_.isInstanceOf[Value]).map(_.asInstanceOf[Value].tree))._1,
-              digestChildren(list.filter(_.isInstanceOf[Block[_]]).map(_.asInstanceOf[Block[_]].expr))._1)
+              digestChildren(list.filter(_.isInstanceOf[Scope[_]]).map(_.asInstanceOf[Scope[_]].expr))._1)
           case _ => (None, None)
         }
       }).foldLeft((List.empty[DigestedExpression], List.empty[DigestedExpression])) {

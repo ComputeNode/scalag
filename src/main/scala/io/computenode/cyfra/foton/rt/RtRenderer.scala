@@ -1,30 +1,27 @@
-package io.computenode.cyfra.foton
+package io.computenode.cyfra.foton.rt
 
-import io.computenode.cyfra.Value.*
-
-import scala.concurrent.ExecutionContext.Implicits
-import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.*
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Algebra.given
-
-import scala.concurrent.duration.DurationInt
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Control.*
-
-import java.nio.file.{Path, Paths}
-import scala.collection.mutable
-import io.computenode.cyfra.given
-import Renderer.RayHitInfo
 import io.computenode.cyfra
-import io.computenode.cyfra.foton.shapes.{Box, Sphere}
-import io.computenode.cyfra.{GArray2DFunction, GContext, GSeq, GStruct, ImageUtility, MVPContext, RGBA, UniformContext, Vec4FloatMem}
+import io.computenode.cyfra.Algebra.{*, given}
+import io.computenode.cyfra.Control.*
+import io.computenode.cyfra.Functions.*
+import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import io.computenode.cyfra.foton.utility.Color.*
 import io.computenode.cyfra.foton.utility.Math3D.*
 import io.computenode.cyfra.foton.utility.Random
 import io.computenode.cyfra.foton.utility.Utility.timed
+import io.computenode.cyfra.foton.rt.{RtRenderer}
+import io.computenode.cyfra.given 
+import io.computenode.cyfra.*
+import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
 
-class Renderer(params: Renderer.Parameters):
+import java.nio.file.{Path, Paths}
+import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext}
+
+class RtRenderer(params: RtRenderer.Parameters):
 
   given GContext = new MVPContext()
 
@@ -167,7 +164,7 @@ class Renderer(params: Renderer.Parameters):
     val rngSeed = xi * 1973 + yi * 9277 + frame * 26699 | 1
     case class RenderIteration(color: Vec3[Float32], random: Random) extends GStruct[RenderIteration]
     val color =
-      GSeq.gen(first = RenderIteration((0f, 0f, 0f), utility.Random(rngSeed.unsigned)), next = {
+      GSeq.gen(first = RenderIteration((0f, 0f, 0f), Random(rngSeed.unsigned)), next = {
           case RenderIteration(_, random) =>
             val (random2, wiggleX) = random.next[Float32]
             val (random3, wiggleY) = random2.next[Float32]
@@ -194,7 +191,7 @@ class Renderer(params: Renderer.Parameters):
       mix(lastFrame.at(xi, yi), (colorCorrected, 1.0f), vec4(1.0f / (frame.asFloat + 1f)))
     }
     
-object Renderer:
+object RtRenderer:
   trait Parameters:
     def width: Int
     def height: Int

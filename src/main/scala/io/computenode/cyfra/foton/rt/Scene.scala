@@ -1,14 +1,12 @@
-package io.computenode.cyfra.foton
+package io.computenode.cyfra.foton.rt
 
-import io.computenode.cyfra.foton.shapes.*
 import io.computenode.cyfra.Algebra.{*, given}
 import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.*
-import io.computenode.cyfra.given
 import io.computenode.cyfra.Functions.*
-import Renderer.RayHitInfo
-import io.computenode.cyfra.foton.shapes.{Shape, ShapeCollection}
+import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
+import io.computenode.cyfra.foton.rt.shapes.{Shape, ShapeCollection}
+import io.computenode.cyfra.{*, given}
 import izumi.reflect.Tag
 
 import scala.util.chaining.*

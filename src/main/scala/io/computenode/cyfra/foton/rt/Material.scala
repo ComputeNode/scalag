@@ -1,12 +1,9 @@
-package io.computenode.cyfra.foton
+package io.computenode.cyfra.foton.rt
 
-import io.computenode.cyfra.Value.{Float32, Vec3}
+import io.computenode.cyfra.Algebra.{*, given}
 import io.computenode.cyfra.Value.*
 import io.computenode.cyfra.*
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Algebra.given
 import io.computenode.cyfra.given
-import io.computenode.cyfra.{GStruct, Value}
 
 case class Material(
   color: Vec3[Float32],

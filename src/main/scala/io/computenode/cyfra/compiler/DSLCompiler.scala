@@ -886,7 +886,7 @@ object DSLCompiler {
     ): (List[Words], Context) = (conditions, thenCodes) match {
       case (Nil, Nil) =>
         val (elseInstructions, elseCtx) = compileBlock(
-          BlockBuilder.buildBlock(elseCode),
+          ScopeBuilder.buildScope(elseCode),
           ctx
         )
         val elseWithStore = elseInstructions :+ Instruction(Op.OpStore, List(
@@ -896,11 +896,11 @@ object DSLCompiler {
         (elseWithStore, elseCtx)
       case (caseWhen :: cTail, tCode :: tTail) =>
         val (whenInstructions, whenCtx) = compileBlock(
-          BlockBuilder.buildBlock(caseWhen),
+          ScopeBuilder.buildScope(caseWhen),
           ctx
         )
         val (thenInstructions, thenCtx) = compileBlock(
-          BlockBuilder.buildBlock(tCode),
+          ScopeBuilder.buildScope(tCode),
           whenCtx.nested
         )
         val thenWithStore = thenInstructions :+ Instruction(Op.OpStore, List(
@@ -1069,7 +1069,7 @@ object DSLCompiler {
     println("Digesting...")
     val digestTree = Digest.digest(tree)
     println("Digest done!")
-    val sorted = BlockBuilder.buildBlock(digestTree)
+    val sorted = ScopeBuilder.buildScope(digestTree)
  
     val allBlockExprs = getAllBlocksExprs(digestTree)
     println("Generated all blocks tree")
