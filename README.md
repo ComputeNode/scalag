@@ -26,7 +26,7 @@ Included Foton library provides a clean and fun way to animate functions and ray
 <img src="https://github.com/user-attachments/assets/1030d968-014a-4c2c-8f21-26b999fe57fc" width="650">
 
 ### Animated ray traced scene
-<img src="https://github.com/user-attachments/assets/60438385-e335-4695-827b-cd0baf693feb" width="750">
+<img src="https://github.com/user-attachments/assets/a4189bc3-e2a9-4e52-9363-93f83b530595" width="750">
 
 ## Coding features examples
 
