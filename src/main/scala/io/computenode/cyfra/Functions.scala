@@ -1,6 +1,6 @@
 package io.computenode.cyfra
 
-import Algebra.{FromExpr, vec3}
+import Algebra.{/, FromExpr, vec3}
 import Expression.*
 import Value.*
 import izumi.reflect.Tag
@@ -105,3 +105,7 @@ object Functions:
   case object Normalize extends FunctionName
   def normalize[V <: Vec[Float32] : Tag : FromExpr](v: V): V =
     summon[FromExpr[V]].fromExpr(FunctionCall(Normalize, List(v)))
+
+  case object Log extends FunctionName
+  def logn(f: Float32): Float32 = Float32(FunctionCall(Log, List(f)))
+  def log(f: Float32, base: Float32): Float32 = logn(f) / logn(base)

@@ -30,26 +30,6 @@ class Renderer(params: Renderer.Parameters):
 
   given ExecutionContext = Implicits.global
   
-  def renderScene(scene: Scene, fn: GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] ): LazyList[Array[RGBA]] =
-    val initialMem = Array.fill(params.width * params.height)((0.5f, 0.5f, 0.5f, 0.5f))
-    LazyList.iterate((initialMem, 0), params.iterations + 1) { case (mem, render) =>
-      UniformContext.withUniform(RaytracingIteration(render)):
-        val fmem = Vec4FloatMem(mem)
-        val result = timed(Await.result(fmem.map(fn), 1.minute))
-        (result, render + 1)
-    }.drop(1).map(_._1)
-  
-  def renderScene(scene: Scene): LazyList[Array[RGBA]] =
-    renderScene(scene, renderFunction(scene))
-  
-  def renderSceneToFile(scene: Scene, destinationPath: String): Unit =
-    val images = renderScene(scene)
-    for image <- images do
-      ImageUtility.renderToImage(image, params.width, params.height, Paths.get(destinationPath))
-
-  case class RaytracingIteration(frame: Int32) extends GStruct[RaytracingIteration]
-
-
   private case class RayTraceState(
     rayPos: Vec3[Float32],
     rayDir: Vec3[Float32],
@@ -182,53 +162,48 @@ class Renderer(params: Renderer.Parameters):
           }
       }
     ).limit(params.maxBounces).takeWhile(!_.finished).lastOr(initState)
-  
-  protected def renderFunction(scene: Scene): GArray2DFunction[RaytracingIteration, Vec4[Float32], Vec4[Float32]] = 
-    GArray2DFunction(params.width, params.height, {
-      case (RaytracingIteration(frame), (xi: Int32, yi: Int32), lastFrame) =>
-  
-        val rngSeed = xi * 1973 + yi * 9277 + frame * 26699 | 1
-        case class RenderIteration(color: Vec3[Float32], random: Random) extends GStruct[RenderIteration]
-        val color =
-          GSeq.gen(first = RenderIteration((0f, 0f, 0f), utility.Random(rngSeed.unsigned)), next = {
-              case RenderIteration(_, random) =>
-                val (random2, wiggleX) = random.next[Float32]
-                val (random3, wiggleY) = random2.next[Float32]
-                val aspectRatio = params.width.toFloat / params.height.toFloat
-                val x = ((xi.asFloat + wiggleX) / params.width.toFloat) * 2f - 1f
-                val y = (((yi.asFloat + wiggleY) / params.height.toFloat) * 2f - 1f) / aspectRatio
-  
-                val rayPosition = scene.camera.position
-                val cameraDist = 1.0f / tan(params.fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
-                val rayTarget = (x, y, cameraDist) addV rayPosition
-  
-                val rayDir = normalize(rayTarget - rayPosition)
-                val rtResult = bounceRay(rayPosition, rayDir, random3, scene)
-                val withBg = vclamp(rtResult.color + (SRGBToLinear(params.bgColor) mulV rtResult.throughput), 0.0f, 20.0f)
-                RenderIteration(withBg, rtResult.random)
-            }).limit(params.pixelIterations)
-              .fold((0f, 0f, 0f), { case (acc, RenderIteration(color, _)) => acc + (color * (1.0f / params.pixelIterations.toFloat)) })
 
-        val colorCorrected = linearToSRGB(color)
+  def renderFrame(xi: Int32, yi: Int32, frame: Int32, lastFrame: GArray2D[Vec4[Float32]], scene: Scene) =
+    val rngSeed = xi * 1973 + yi * 9277 + frame * 26699 | 1
+    case class RenderIteration(color: Vec3[Float32], random: Random) extends GStruct[RenderIteration]
+    val color =
+      GSeq.gen(first = RenderIteration((0f, 0f, 0f), utility.Random(rngSeed.unsigned)), next = {
+          case RenderIteration(_, random) =>
+            val (random2, wiggleX) = random.next[Float32]
+            val (random3, wiggleY) = random2.next[Float32]
+            val aspectRatio = params.width.toFloat / params.height.toFloat
+            val x = ((xi.asFloat + wiggleX) / params.width.toFloat) * 2f - 1f
+            val y = (((yi.asFloat + wiggleY) / params.height.toFloat) * 2f - 1f) / aspectRatio
 
-        when(frame === 0) {
-          (colorCorrected, 1.0f)
-        } otherwise {
-          mix(lastFrame.at(xi, yi), (colorCorrected, 1.0f), vec4(1.0f / (frame.asFloat + 1f)))
-        }
-    })
+            val rayPosition = scene.camera.position
+            val cameraDist = 1.0f / tan(params.fovDeg * 0.6f * math.Pi.toFloat / 180.0f)
+            val rayTarget = (x, y, cameraDist) addV rayPosition
+
+            val rayDir = normalize(rayTarget - rayPosition)
+            val rtResult = bounceRay(rayPosition, rayDir, random3, scene)
+            val withBg = vclamp(rtResult.color + (SRGBToLinear(params.bgColor) mulV rtResult.throughput), 0.0f, 20.0f)
+            RenderIteration(withBg, rtResult.random)
+        }).limit(params.pixelIterations)
+        .fold((0f, 0f, 0f), { case (acc, RenderIteration(color, _)) => acc + (color * (1.0f / params.pixelIterations.toFloat)) })
+
+    val colorCorrected = linearToSRGB(color)
+
+    when(frame === 0) {
+      (colorCorrected, 1.0f)
+    } otherwise {
+      mix(lastFrame.at(xi, yi), (colorCorrected, 1.0f), vec4(1.0f / (frame.asFloat + 1f)))
+    }
     
 object Renderer:
-  case class Parameters(
-    width: Int,
-    height: Int,
-    fovDeg: Float = 60.0f,
-    superFar: Float = 1000.0f,
-    maxBounces: Int = 8,
-    pixelIterations: Int = 1000,
-    iterations: Int = 5,
-    bgColor: (Float, Float, Float) = (0.2f, 0.2f, 0.2f)
-  )
+  trait Parameters:
+    def width: Int
+    def height: Int
+    def fovDeg: Float
+    def superFar: Float
+    def maxBounces: Int 
+    def pixelIterations: Int
+    def iterations: Int
+    def bgColor: (Float, Float, Float)
 
   case class RayHitInfo(
     dist: Float32,

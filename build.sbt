@@ -1,4 +1,4 @@
-ThisBuild / organization := "com.scalag"
+ThisBuild / organization := "com.computenode.cyfra"
 ThisBuild / scalaVersion := "3.3.3"
 ThisBuild / version      := "0.1.0-SNAPSHOT"
 
@@ -34,7 +34,7 @@ val jomlVersion = "1.10.0"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "Scalag",
+    name := "Cyfra",
     libraryDependencies ++= Seq(
       "dev.zio" % "izumi-reflect_3" % "2.3.10",
       "com.lihaoyi" % "pprint_3" % "0.9.0",

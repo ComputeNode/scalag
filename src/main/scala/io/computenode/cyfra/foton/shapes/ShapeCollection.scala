@@ -6,7 +6,7 @@ import io.computenode.cyfra.Control.*
 import io.computenode.cyfra.Value.*
 import io.computenode.cyfra.*
 import io.computenode.cyfra.given
-import io.computenode.cyfra.Functions.*
+
 import io.computenode.cyfra.{GSeq, GStruct}
 import io.computenode.cyfra.foton.Renderer.RayHitInfo
 import io.computenode.cyfra.foton.Material

@@ -20,7 +20,6 @@ object ImageUtility {
 
     val outputFile = location.toFile
     ImageIO.write(image, "png", outputFile)
-    println(s"Image saved to ${outputFile.getAbsolutePath}")
   }
 
 }

@@ -15,8 +15,7 @@ import scala.util.chaining.*
 
 case class Scene(
   shapes: List[Shape],
-  camera: Camera,
-  directionalLight: DirectionalLight = DirectionalLight.NoLight
+  camera: Camera
 ):
 
   private val shapesCollection: ShapeCollection = ShapeCollection(shapes)

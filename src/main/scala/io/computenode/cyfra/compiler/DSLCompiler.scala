@@ -528,6 +528,7 @@ object DSLCompiler {
     Functions.Min -> GlslOp.FMin,
     Functions.Refract -> GlslOp.Refract,
     Functions.Normalize -> GlslOp.Normalize,
+    Functions.Log -> GlslOp.Log,
   )
 
   def compileFunctionCall(expr: DigestedExpression, call: Expression.FunctionCall[_], ctx: Context): (List[Instruction], Context) =
