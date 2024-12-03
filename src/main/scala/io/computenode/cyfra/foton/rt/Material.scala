@@ -1,9 +1,9 @@
 package io.computenode.cyfra.foton.rt
 
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.*
-import io.computenode.cyfra.given
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.*
+import io.computenode.cyfra.dsl.given
 
 case class Material(
   color: Vec3[Float32],

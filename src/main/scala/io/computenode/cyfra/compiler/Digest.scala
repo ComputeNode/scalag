@@ -1,7 +1,7 @@
 package io.computenode.cyfra.compiler
 
-import io.computenode.cyfra.Control.Scope
-import io.computenode.cyfra.{Expression, GSeq, Value}
+import io.computenode.cyfra.dsl.Control.Scope
+import io.computenode.cyfra.dsl.{Expression, GSeq, Value}
 
 import java.security.MessageDigest
 import java.util.Base64
@@ -18,10 +18,10 @@ object Digest {
     def blockDeps: List[DigestedExpression]
 
 
-  case class DigestedExpression(exprId: String, expr: Expression[_ <: Value], dependencies: List[DigestedExpression], blockDeps: List[DigestedExpression])
+  case class DigestedExpression(exprId: String, expr: Expression[_ <: Value], dependencies: List[DigestedExpression], blockDeps: List[DigestedExpression], name: String)
   
   val treeCache: mutable.Map[Int, DigestedExpression] = mutable.Map.empty[Int, DigestedExpression]
-  def digest(tree: Expression[_]): DigestedExpression = {
+  def digest(tree: Expression[_], name: String = "value"): DigestedExpression = {
     if(treeCache.contains(tree.treeid)) return treeCache(tree.treeid)
     val products = tree.productIterator.toList // non-lazy
     def digestChildren(children: List[Any]): (List[DigestedExpression], List[DigestedExpression]) =
@@ -34,10 +34,10 @@ object Digest {
             val digestedChild = digest(x)
             (Some(digestedChild), None)
           case x: Value =>
-            val digestedChild = digest(x.tree)
+            val digestedChild = digest(x.tree, x.name.value)
             (Some(digestedChild), None)
           case list: List[Any] =>
-            (digestChildren(list.filter(_.isInstanceOf[Value]).map(_.asInstanceOf[Value].tree))._1,
+            (digestChildren(list.filter(_.isInstanceOf[Value]).map(_.asInstanceOf[Value]))._1,
               digestChildren(list.filter(_.isInstanceOf[Scope[_]]).map(_.asInstanceOf[Scope[_]].expr))._1)
           case _ => (None, None)
         }
@@ -54,7 +54,7 @@ object Digest {
       case c: CustomExprId => c.exprId
       case _ => tree.treeid.toString
     }
-    DigestedExpression(ds, tree, children, blockChildren)
+    DigestedExpression(ds, tree, children, blockChildren, name)
   }
   
 }

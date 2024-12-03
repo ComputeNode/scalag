@@ -1,14 +1,13 @@
 package io.computenode.cyfra.foton.rt.shapes
 
 import io.computenode.cyfra.foton.rt.shapes.*
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.foton.rt.Material
-import io.computenode.cyfra.given
-
-import io.computenode.cyfra.{GSeq, GStruct}
+import io.computenode.cyfra.dsl.given
+import io.computenode.cyfra.dsl.{GSeq, GStruct}
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import izumi.reflect.Tag
 

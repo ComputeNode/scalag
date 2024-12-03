@@ -1,8 +1,8 @@
 package io.computenode.cyfra.samples.slides
 
-import io.computenode.cyfra.Value.{Float32, Int32, Vec4}
-import io.computenode.cyfra.Expression.*
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Value.{Float32, Int32, Vec4}
+import io.computenode.cyfra.dsl.Expression.*
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.*
 
 import java.awt.image.BufferedImage
@@ -10,14 +10,15 @@ import java.io.File
 import javax.imageio.ImageIO
 import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Algebra.given
-import io.computenode.cyfra.given
+import io.computenode.cyfra.dsl.Algebra.*
+import io.computenode.cyfra.dsl.Algebra.given
+import io.computenode.cyfra.dsl.given
 
 import scala.concurrent.duration.DurationInt
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.{Empty, GArray2DFunction, GSeq, GStruct, ImageUtility, Vec4FloatMem}
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.{Empty, GArray2DFunction, GSeq, GStruct, Vec4FloatMem}
+import io.computenode.cyfra.{ImageUtility}
 
 import java.nio.file.Paths
 import scala.compiletime.error

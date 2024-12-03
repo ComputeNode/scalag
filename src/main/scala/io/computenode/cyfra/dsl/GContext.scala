@@ -1,15 +1,12 @@
-package io.computenode.cyfra
+package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.vulkan.{compute}
-import io.computenode.cyfra.*
-import Algebra.*
-import Algebra.given
-import Expression.Dynamic
-import Value.Int32
-import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.compiler.DSLCompiler
-import io.computenode.cyfra.vulkan.VulkanContext
-import io.computenode.cyfra.vulkan.compute.{Binding, ComputePipeline, InputBufferSize, LayoutInfo, LayoutSet, Shader, UniformSize}
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Expression.Dynamic
+import io.computenode.cyfra.dsl.Value.Int32
+import io.computenode.cyfra.vulkan.{VulkanContext, compute}
+import io.computenode.cyfra.vulkan.compute.*
+import io.computenode.cyfra.*
 import izumi.reflect.Tag
 
 import java.io.{File, FileOutputStream}
@@ -43,7 +40,7 @@ object UniformContext:
     fn(using UniformContext(uniform))
   given empty: UniformContext[Empty] = new UniformContext(Empty())
 
-case class Empty() extends GStruct[Empty]
+case class Empty()extends GStruct[Empty]
 object Empty:
   given GStructSchema[Empty] = derived
 

@@ -2,14 +2,16 @@ package io.computenode.cyfra.samples.foton
 
 import io.computenode.cyfra
 import io.computenode.cyfra.*
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.GSeq
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.animation.AnimatedFunctionRenderer.Parameters
 import io.computenode.cyfra.foton.animation.AnimationFunctions.*
 import io.computenode.cyfra.foton.animation.{AnimatedFunction, AnimatedFunctionRenderer}
-import io.computenode.cyfra.foton.utility.Color.*
-import io.computenode.cyfra.foton.utility.Math3D.*
+import io.computenode.cyfra.utility.Color.*
+import io.computenode.cyfra.utility.Math3D.*
+
 import scala.concurrent.duration.DurationInt
 import java.nio.file.Paths
 

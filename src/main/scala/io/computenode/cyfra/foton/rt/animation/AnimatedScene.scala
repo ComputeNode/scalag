@@ -1,12 +1,12 @@
 package io.computenode.cyfra.foton.rt.animation
 
-import io.computenode.cyfra.GStruct
-import io.computenode.cyfra.Value.Float32
+import io.computenode.cyfra.dsl.Value.Float32
+import io.computenode.cyfra.dsl.GStruct
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.shapes.Shape
 import io.computenode.cyfra.foton.rt.{Camera, Scene}
-import io.computenode.cyfra.foton.utility.Units.Milliseconds
+import io.computenode.cyfra.utility.Units.Milliseconds
 
 class AnimatedScene(
   val shapes: AnimationInstant ?=> List[Shape],

@@ -1,10 +1,10 @@
 package io.computenode.cyfra.samples
 
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.{given}
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Algebra.given
-import io.computenode.cyfra.{FloatMem, GArray, GContext, GFunction, MVPContext}
+import io.computenode.cyfra.dsl.Algebra.*
+import io.computenode.cyfra.dsl.Algebra.given
+import io.computenode.cyfra.dsl.{FloatMem, GArray, GContext, GFunction, MVPContext}
 
 import scala.concurrent.duration.given
 import scala.concurrent.Await

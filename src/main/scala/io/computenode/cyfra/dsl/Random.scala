@@ -1,11 +1,10 @@
-package io.computenode.cyfra.foton.utility
+package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.*
-import io.computenode.cyfra.given
-import io.computenode.cyfra.{GStruct, Value}
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.{GStruct, Value, *, given}
+
 
 case class Random(seed: UInt32) extends GStruct[Random]:
   def next[R <: Value : Random.Generator]: (Random, R) =

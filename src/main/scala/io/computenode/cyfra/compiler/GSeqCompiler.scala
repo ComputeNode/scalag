@@ -1,10 +1,9 @@
 package io.computenode.cyfra.compiler
 
-import io.computenode.cyfra.GSeq.*
-import DSLCompiler.Context
+import io.computenode.cyfra.dsl.GSeq.*
 import Digest.DigestedExpression
 import Opcodes.*
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Value.*
 import izumi.reflect.Tag
 
 object GSeqCompiler:

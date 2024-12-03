@@ -1,17 +1,17 @@
 package io.computenode.cyfra.samples.foton
 
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.animation.AnimationFunctions.smooth
-import io.computenode.cyfra.foton.utility.Color.hex
-import io.computenode.cyfra.foton.utility.Units.Milliseconds
+import io.computenode.cyfra.utility.Color.hex
+import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra.foton.*
 import io.computenode.cyfra.foton.rt.animation.{AnimatedScene, AnimationRtRenderer}
 import io.computenode.cyfra.foton.rt.shapes.{Plane, Shape, Sphere}
 import io.computenode.cyfra.foton.rt.{Camera, Material}
 import scala.concurrent.duration.DurationInt
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Paths
 
 object AnimatedRaytrace:
   @main

@@ -1,17 +1,18 @@
 package io.computenode.cyfra.foton.animation
 
-import io.computenode.cyfra.foton.utility.Units.Milliseconds
+import io.computenode.cyfra.utility.Units.Milliseconds
 import io.computenode.cyfra
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.GArray2D
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.animation.AnimatedFunction.FunctionArguments
 import io.computenode.cyfra.foton.animation.AnimationFunctions.AnimationInstant
 import io.computenode.cyfra.foton.animation.AnimationRenderer
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.RtRenderer
-import io.computenode.cyfra.foton.utility.Units.Milliseconds
-import io.computenode.cyfra.foton.utility.Utility.timed
+import io.computenode.cyfra.utility.Units.Milliseconds
+import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.{*, given}
 
 import java.nio.file.{Path, Paths}

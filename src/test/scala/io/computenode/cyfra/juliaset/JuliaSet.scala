@@ -1,18 +1,19 @@
 package io.computenode.cyfra.juliaset
 
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Value.*
 
 import scala.concurrent.ExecutionContext.Implicits
 import scala.concurrent.{Await, ExecutionContext}
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Algebra.given
+import io.computenode.cyfra.dsl.Algebra.*
+import io.computenode.cyfra.dsl.Algebra.given
 
 import scala.concurrent.duration.DurationInt
 import io.computenode.cyfra.*
 import io.computenode.cyfra.*
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.{Empty, GArray2DFunction, GContext, GSeq, ImageTests, ImageUtility, MVPContext, Vec4FloatMem}
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.{Empty, GArray2DFunction, GContext, GSeq, MVPContext, Vec4FloatMem}
+import io.computenode.cyfra.{ImageTests, ImageUtility}
 import org.apache.commons.io.IOUtils
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test

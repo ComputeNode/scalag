@@ -1,15 +1,17 @@
 package io.computenode.cyfra.compiler
 
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Expression.*
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.*
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Value.*
 import Digest.DigestedExpression
 import Opcodes.*
-import io.computenode.cyfra.{ComposeStruct, Expression, FunctionName, Functions, GArrayElem, GSeq, GStruct, GStructSchema, GetField, PhantomExpression, UniformStructRefTag, Value, WorkerIndexTag}
+import io.computenode.cyfra.dsl.{ComposeStruct, Expression, FunctionName, Functions, GArrayElem, GSeq, GStruct, GStructSchema, GetField, PhantomExpression, UniformStructRefTag, Value, WorkerIndexTag}
 import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
 import org.lwjgl.BufferUtils
+import SpirvConstants.*
+import io.computenode.cyfra.compiler.Context.initialContext
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -20,21 +22,6 @@ import scala.util.Random
 
 // TODO Author is fully aware that this is a mess, but decides to chase fun features instead of cleaning it up (~Author)
 object DSLCompiler {
-  val cyfraVendorId: Byte = 44 // https://github.com/KhronosGroup/SPIRV-Headers/blob/main/include/spirv/spir-v.xml#L52
-
-  val localSizeX = 256
-  val localSizeY = 1
-  val localSizeZ = 1
-
-  val BOUND_VARIABLE = "bound"
-  val GLSL_EXT_NAME = "GLSL.std.450"
-  val GLSL_EXT_REF = 1
-  val TYPE_VOID_REF = 2
-  val VOID_FUNC_TYPE_REF = 3
-  val MAIN_FUNC_REF = 4
-  val GL_GLOBAL_INVOCATION_ID_REF = 5
-  val GL_WORKGROUP_SIZE_REF = 6
-  val HEADER_REFS_TOP = 7
   
   val Int32Tag = summon[Tag[Int32]]
   val UInt32Tag = summon[Tag[UInt32]]
@@ -101,29 +88,7 @@ object DSLCompiler {
      memberArrayTypeRef: Int, // %_runtimearr_float_X
      binding: Int
    )
-
-  case class Context(
-    valueTypeMap: Map[LightTypeTag, Int] = Map(),
-    funPointerTypeMap: Map[Int, Int] = Map(),
-    uniformPointerMap: Map[Int, Int] = Map(),
-    inputPointerMap: Map[Int, Int] = Map(),
-    voidTypeRef: Int = -1,
-    voidFuncTypeRef: Int = -1,
-    workerIndexRef: Int = -1,
-    uniformVarRef: Int = -1,
-    constRefs: Map[(Tag[_], Any), Int] = Map(), // todo not sure about float eq on this one (but is the same so?)
-    exprRefs: Map[String, Int] = Map(),
-    inBufferBlocks: List[ArrayBufferBlock] = List(),
-    outBufferBlocks: List[ArrayBufferBlock] = List(),
-    nextResultId: Int = HEADER_REFS_TOP,
-    nextBinding: Int = 0,
-  ):
-    def nested: Context = this.copy()
-
-    def joinNested(ctx: Context): Context =
-      this.copy(nextResultId = ctx.nextResultId)
-
-  def initialContext: Context = Context()
+  
   type Vec2C[T <: Value] = Vec2[T]
   type Vec3C[T <: Value] = Vec3[T]
   type Vec4C[T <: Value] = Vec4[T]
@@ -402,7 +367,7 @@ object DSLCompiler {
 
   def defineConstants(exprs: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
     val consts = (exprs.collect {
-      case DigestedExpression(_, c@Const(x), _, _) =>
+      case DigestedExpression(_, c@Const(x), _, _, _) =>
         (c.tag, x)
     } ::: List((Int32Tag, 0), (UInt32Tag, 0))).distinct.filterNot(_._1 == GBooleanTag)
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {
@@ -581,14 +546,17 @@ object DSLCompiler {
     (instructions, updatedContext)
 
   def compileBlock(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
+
     @tailrec
-    def compileExpressions(exprs: List[DigestedExpression], ctx: Context, acc: List[Words]): (List[Words], Context) = {
+    def compileExpressions(exprs: List[DigestedExpression], ctx: Context, acc: List[Words], usedNames: Set[String]): (List[Words], Context) = {
       if (exprs.isEmpty) (acc, ctx)
       else {
         val expr = exprs.head
         if(ctx.exprRefs.contains(expr.exprId)) {
-          compileExpressions(exprs.tail, ctx, acc)
+          compileExpressions(exprs.tail, ctx, acc, usedNames)
         } else {
+          val name: Option[String] = if usedNames.contains(expr.name) then None else Some(expr.name)
+          val updatedUsedNames = usedNames ++ name
           val (instructions, updatedCtx) = expr.expr match {
             case c@Const(x) =>
               val constRef = ctx.constRefs((c.tag, x))
@@ -869,11 +837,14 @@ object DSLCompiler {
 
             case ph: PhantomExpression[_] => (List(), ctx)
           }
-          compileExpressions(exprs.tail, updatedCtx, acc ::: instructions)
+          val ctxWithName = updatedCtx.copy(
+            exprNames = updatedCtx.exprNames ++ name.map(n => (updatedCtx.nextResultId - 1, n)).toMap
+          )
+          compileExpressions(exprs.tail, ctxWithName, acc ::: instructions, updatedUsedNames)
         }
       }
     }
-    compileExpressions(sortedTree, ctx, Nil)
+    compileExpressions(sortedTree, ctx, Nil, Set.empty)
   }
 
   def compileWhen(expr: DigestedExpression, when: WhenExpr[_], ctx: Context): (List[Words], Context) = {
@@ -901,7 +872,7 @@ object DSLCompiler {
         )
         val (thenInstructions, thenCtx) = compileBlock(
           ScopeBuilder.buildScope(tCode),
-          whenCtx.nested
+          whenCtx
         )
         val thenWithStore = thenInstructions :+ Instruction(Op.OpStore, List(
           ResultRef(resultVar),
@@ -938,7 +909,7 @@ object DSLCompiler {
             Instruction(Op.OpBranch, List(ResultRef(endIfLabel))),
             Instruction(Op.OpLabel, List(ResultRef(endIfLabel))) // end
           ),
-          postCtx.copy(nextResultId = elseCtx.nextResultId)
+          postCtx.joinNested(elseCtx)
         )
     }
 
@@ -1047,7 +1018,7 @@ object DSLCompiler {
         return allBlocksCache(root.expr.treeid)
       }
       val result = List(root).flatMap {
-        case d@DigestedExpression(_, _, deps, blockDeps) =>
+        case d@DigestedExpression(_, _, deps, blockDeps, _) =>
           d :: deps.flatMap(b => getAllBlocksExprsAcc(b)) ::: blockDeps.flatMap(b => getAllBlocksExprsAcc(b))
       }
       visited += root.expr.treeid
@@ -1062,6 +1033,15 @@ object DSLCompiler {
     blockI += 1
     result
   }
+
+  def getNameDecorations(ctx: Context): List[Instruction] =
+    ctx.exprNames.map {
+      case (id, name) =>
+        Instruction(Op.OpName, List(
+          ResultRef(id),
+          Text(name)
+        ))
+    }.toList
   
   def compile[T <: Value](returnVal: T, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer = {
     val tree = returnVal.tree
@@ -1091,10 +1071,12 @@ object DSLCompiler {
     val (varDefs, varCtx) = defineVars(constCtx)
     val resultType = returnVal.tree.tag
     val (main, finalCtx) = compileMain(sorted, resultType, varCtx)
+    val nameDecorations = getNameDecorations(finalCtx)
 
     val code: List[Words] =
       insnWithHeader :::
         decorations :::
+        nameDecorations :::
         uniformStructDecorations :::
         typeDefs :::
         structDefs :::

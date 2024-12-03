@@ -1,9 +1,9 @@
-package io.computenode.cyfra
+package io.computenode.cyfra.dsl
 
-import Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.{GArray, GArrayElem}
 import izumi.reflect.Tag
-import Algebra.*
-import Algebra.given
 
 case class GArray[T <: Value : Tag : FromExpr](index: Int) {
   def at(i: Int32): T = {

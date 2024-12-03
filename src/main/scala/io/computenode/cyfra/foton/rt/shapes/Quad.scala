@@ -1,13 +1,13 @@
 package io.computenode.cyfra.foton.rt.shapes
 
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.{*, given}
-import io.computenode.cyfra.GStruct
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.GStruct
+import io.computenode.cyfra.dsl.{*, given}
 import io.computenode.cyfra.foton.rt.Material
-import io.computenode.cyfra.foton.utility.Math3D.scalarTriple
+import io.computenode.cyfra.utility.Math3D.scalarTriple
 import io.computenode.cyfra.foton.rt.RtRenderer.{MinRayHitTime, RayHitInfo}
 
 import java.nio.file.Paths

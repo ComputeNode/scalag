@@ -1,10 +1,10 @@
-package io.computenode.cyfra.foton.utility
+package io.computenode.cyfra.utility
 
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Algebra.given 
-import io.computenode.cyfra.Functions.{mix, pow}
-import io.computenode.cyfra.Value.{Float32, Vec3}
+import io.computenode.cyfra.dsl.Algebra.*
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.Algebra.given
+import io.computenode.cyfra.dsl.Functions.{cos, mix, pow}
+import io.computenode.cyfra.dsl.Value.{Float32, Vec3}
 import Math3D.lessThan
 
 object Color:
@@ -17,6 +17,16 @@ object Color:
       lessThan(clampedRgb, 0.04045f)
     )
   }
+
+  // https://www.youtube.com/shorts/TH3OTy5fTog
+  def igPallette(
+    brightness: Vec3[Float32],
+    contrast: Vec3[Float32],
+    freq: Vec3[Float32],
+    offsets: Vec3[Float32],
+    f: Float32
+  ): Vec3[Float32] =
+    brightness addV (contrast mulV cos(((freq * f) addV offsets) * 2f * math.Pi.toFloat))
 
   def linearToSRGB(rgb: Vec3[Float32]): Vec3[Float32] = {
     val clampedRgb = vclamp(rgb, 0.0f, 1.0f)

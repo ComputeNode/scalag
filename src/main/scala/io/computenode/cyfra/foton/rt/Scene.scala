@@ -1,9 +1,9 @@
 package io.computenode.cyfra.foton.rt
 
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 import io.computenode.cyfra.foton.rt.shapes.{Shape, ShapeCollection}
 import io.computenode.cyfra.{*, given}

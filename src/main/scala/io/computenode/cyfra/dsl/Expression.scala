@@ -1,9 +1,10 @@
-package io.computenode.cyfra
+package io.computenode.cyfra.dsl
 
-import Expression.Const
+import io.computenode.cyfra.dsl.Expression
+import io.computenode.cyfra.dsl.Expression.Const
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Value.*
 import izumi.reflect.Tag
-import Value.*
-import Functions.*
 
 import java.util.concurrent.atomic.AtomicInteger
 private[cyfra] val treeidState: AtomicInteger = new AtomicInteger(0)

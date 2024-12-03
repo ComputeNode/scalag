@@ -1,4 +1,4 @@
-package io.computenode.cyfra.foton.utility
+package io.computenode.cyfra.utility
 
 import scala.concurrent.duration.Duration
 

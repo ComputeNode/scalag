@@ -1,9 +1,10 @@
-package io.computenode.cyfra
+package io.computenode.cyfra.dsl
 
-import Algebra.{FromExpr, given_Conversion_Int_Int32}
-import Expression.*
-import Value.*
 import io.computenode.cyfra.compiler.DSLCompiler
+import io.computenode.cyfra.dsl.Algebra.{FromExpr, given_Conversion_Int_Int32}
+import io.computenode.cyfra.dsl.Expression.*
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.*
 import izumi.reflect.Tag
 
 import scala.compiletime.*
@@ -15,11 +16,13 @@ abstract class GStruct[T <: GStruct[T] : Tag : GStructSchema] extends Value with
   private[cyfra] var _schema: GStructSchema[T] = summon[GStructSchema[T]] // a nasty hack
   def schema: GStructSchema[T] = _schema
   lazy val tree: E[T] = schema.tree(self)
+  private[dsl] var _name = sourcecode.Name("Unknown")
+  override def name: sourcecode.Name = _name
 
 case class GStructSchema[T <: GStruct[T]: Tag](
   fields: List[(String, FromExpr[_], Tag[_])],
   dependsOn: Option[E[T]],
-  fromTuple: Tuple => T
+  fromTuple: (Tuple, sourcecode.Name) => T
 ):
   given GStructSchema[T] = this
   val structTag = summon[Tag[T]]
@@ -30,13 +33,13 @@ case class GStructSchema[T <: GStruct[T]: Tag](
       case None =>
         ComposeStruct[T](t.productIterator.toList.asInstanceOf[List[Value]], this)
 
-  def create(values: List[Value], schema: GStructSchema[T]): T =
+  def create(values: List[Value], schema: GStructSchema[T])(using name: sourcecode.Name): T =
     val valuesTuple = Tuple.fromArray(values.toArray)
-    val newStruct = fromTuple(valuesTuple)
+    val newStruct = fromTuple(valuesTuple, name)
     newStruct._schema = schema
     newStruct
 
-  def fromTree(e: E[T]): T =
+  def fromTree(e: E[T])(using sourcecode.Name): T =
     create(fields.zipWithIndex.map {
       case ((_, fromExpr, tag), i) =>
         fromExpr.asInstanceOf[FromExpr[Value]]
@@ -57,11 +60,11 @@ case class GStructSchema[T <: GStruct[T]: Tag](
 
 trait GStructConstructor[T <: GStruct[T]] extends FromExpr[T]:
   def schema: GStructSchema[T]
-  def fromExpr(expr: E[T]): T
+  def fromExpr(expr: E[T])(using sourcecode.Name): T
 
 given [T <: GStruct[T] : GStructSchema]: GStructConstructor[T] with
   def schema: GStructSchema[T] = summon[GStructSchema[T]]
-  def fromExpr(expr: E[T]): T = schema.fromTree(expr)
+  def fromExpr(expr: E[T])(using sourcecode.Name): T = schema.fromTree(expr)
 
 case class ComposeStruct[T <: GStruct[T] : Tag](
   fields: List[Value],
@@ -99,5 +102,9 @@ inline given derived[T <: GStruct[T] : Tag](using m: Mirror.Of[T]): GStructSchem
             .toList.asInstanceOf[List[FromExpr[_]]]
           val elemNames: List[String] = constValueTuple[m.MirroredElemLabels].toList.asInstanceOf[List[String]]
           val elements = elemNames.lazyZip(elemFromExpr).lazyZip(elemTags).toList
-          GStructSchema[T](elements, None, m.fromTuple.asInstanceOf[Tuple => T])
+          GStructSchema[T](elements, None, (tuple, name) => {
+            val inst = m.fromTuple.asInstanceOf[Tuple => T].apply(tuple)
+            inst._name = name
+            inst
+          })
         case _ => error("Only case classes are supported as GStructs")

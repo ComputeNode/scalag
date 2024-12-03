@@ -2,16 +2,16 @@ package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra.given
 import io.computenode.cyfra
-import io.computenode.cyfra.Algebra.*
-import io.computenode.cyfra.Algebra.given
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Algebra.*
+import io.computenode.cyfra.dsl.Algebra.given
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.*
-import io.computenode.cyfra.Functions.*
+import io.computenode.cyfra.dsl.Functions.*
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
-import io.computenode.cyfra.foton.utility.Units.Milliseconds
-import io.computenode.cyfra.foton.utility.Utility.timed
-import io.computenode.cyfra.Control.*
+import io.computenode.cyfra.utility.Units.Milliseconds
+import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.dsl.Control.*
 import io.computenode.cyfra.foton.rt.RtRenderer
 
 object AnimationFunctions:

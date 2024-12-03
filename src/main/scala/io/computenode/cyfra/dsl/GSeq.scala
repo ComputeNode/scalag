@@ -1,15 +1,14 @@
-package io.computenode.cyfra
+package io.computenode.cyfra.dsl
 
-import Algebra.*
-import Value.*
-import izumi.reflect.Tag
-import Algebra.*
-import Algebra.given
-import Control.when
-import Expression.{ConstInt32, E}
-import GSeq.*
 import io.computenode.cyfra.compiler.Digest
-import Digest.{CustomDependencies, CustomExprId, DigestedExpression}
+import io.computenode.cyfra.compiler.Digest.{CustomDependencies, CustomExprId, DigestedExpression}
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Control.when
+import io.computenode.cyfra.dsl.Expression.{ConstInt32, E}
+import io.computenode.cyfra.dsl.GSeq.*
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.{Expression, GSeq, PhantomExpression}
+import izumi.reflect.Tag
 
 import java.util.Base64
 import scala.util.Random
@@ -18,6 +17,7 @@ class GSeq[T <: Value : Tag : FromExpr](
   val uninitSource: Expression[_] => GSeqStream[_],
   val elemOps: List[GSeq.ElemOp[_]],
   val limit: Option[Int],
+  val name: sourcecode.Name,
   currentElemExprTreeId: Int = treeidState.getAndIncrement(),
   aggregateElemExprTreeId: Int = treeidState.getAndIncrement()
 ):
@@ -31,6 +31,7 @@ class GSeq[T <: Value : Tag : FromExpr](
     uninitSource,
     elemOps,
     limit,
+    name,
     currentElemExprTreeId,
     aggregateElemExprTreeId
   )
@@ -77,10 +78,11 @@ class GSeq[T <: Value : Tag : FromExpr](
 
 object GSeq:
 
-  def gen[T <: Value : Tag : FromExpr](first: T, next: T => T) = GSeq(
+  def gen[T <: Value : Tag : FromExpr](first: T, next: T => T)(using name: sourcecode.Name) = GSeq(
     ce => GSeqStream(first, next(summon[FromExpr[T]].fromExpr(ce.asInstanceOf[E[T]])).tree),
     Nil,
-    None
+    None,
+    name
   )
   
   // REALLY naive implementation, should be replaced with dynamic array (O(1)) access

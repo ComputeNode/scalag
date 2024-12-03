@@ -4,6 +4,7 @@ import io.computenode.cyfra.vulkan.command.*
 import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.vulkan.core.*
 import SequenceExecutor.*
+import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.vulkan.memory.*
 import io.computenode.cyfra.vulkan.VulkanContext
 import io.computenode.cyfra.vulkan.command.{CommandPool, Fence, Queue}
@@ -149,52 +150,54 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
   }
 
   def execute(inputs: Seq[ByteBuffer], dataLength: Int): Seq[ByteBuffer] = pushStack { stack =>
-    val setToBuffers = createBuffers(dataLength)
+    timed("Vulkan full execute"):
+      val setToBuffers = createBuffers(dataLength)
 
-    def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
-      computeSequence.sequence.collect { case x: Compute =>
-        pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
-          case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
-        }
-      }.flatten
+      def buffersWithAction(bufferAction: BufferAction): Seq[Buffer] =
+        computeSequence.sequence.collect { case x: Compute =>
+          pipelineToDescriptorSets(x.pipeline).map(setToBuffers).zip(x.pumpLayoutLocations).flatMap(x => x._1.zip(x._2)).collect {
+            case (buffer, action) if (action.action & bufferAction.action) != 0 => buffer
+          }
+        }.flatten
 
-    val stagingBuffer = new Buffer(
-      inputs.map(_.remaining()).max,
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-      VMA_MEMORY_USAGE_UNKNOWN,
-      allocator
-    )
+      val stagingBuffer = new Buffer(
+        inputs.map(_.remaining()).max,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        VMA_MEMORY_USAGE_UNKNOWN,
+        allocator
+      )
 
-    buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
-      Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
-      Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
-    }
+      buffersWithAction(BufferAction.LoadTo).zipWithIndex.foreach { case (buffer, i) =>
+        Buffer.copyBuffer(inputs(i), stagingBuffer, buffer.size)
+        Buffer.copyBuffer(stagingBuffer, buffer, buffer.size, commandPool).block().destroy()
+      }
 
-    val fence = new Fence(device)
-    val commandBuffer = recordCommandBuffer(dataLength)
-    val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
-    val submitInfo = VkSubmitInfo
-      .calloc(stack)
-      .sType$Default()
-      .pCommandBuffers(pCommandBuffer)
+      val fence = new Fence(device)
+      val commandBuffer = recordCommandBuffer(dataLength)
+      val pCommandBuffer = stack.callocPointer(1).put(0, commandBuffer)
+      val submitInfo = VkSubmitInfo
+        .calloc(stack)
+        .sType$Default()
+        .pCommandBuffers(pCommandBuffer)
 
-    check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
-    fence.block().destroy()
+      timed("Vulkan render command"):
+        check(vkQueueSubmit(queue.get, submitInfo, fence.get), "Failed to submit command buffer to queue")
+        fence.block().destroy()
 
-    val output = buffersWithAction(BufferAction.LoadFrom).map { buffer =>
-      Buffer.copyBuffer(buffer, stagingBuffer, buffer.size, commandPool).block().destroy()
-      val out = BufferUtils.createByteBuffer(buffer.size)
-      Buffer.copyBuffer(stagingBuffer, out, buffer.size)
-      out
-    }
+      val output = buffersWithAction(BufferAction.LoadFrom).map { buffer =>
+        Buffer.copyBuffer(buffer, stagingBuffer, buffer.size, commandPool).block().destroy()
+        val out = BufferUtils.createByteBuffer(buffer.size)
+        Buffer.copyBuffer(stagingBuffer, out, buffer.size)
+        out
+      }
 
-    stagingBuffer.destroy()
-    commandPool.freeCommandBuffer(commandBuffer)
-    setToBuffers.keys.foreach(_.update(Seq.empty))
-    setToBuffers.flatMap(_._2).foreach(_.destroy())
+      stagingBuffer.destroy()
+      commandPool.freeCommandBuffer(commandBuffer)
+      setToBuffers.keys.foreach(_.update(Seq.empty))
+      setToBuffers.flatMap(_._2).foreach(_.destroy())
 
-    output
+      output
   }
 
   def destroy(): Unit =

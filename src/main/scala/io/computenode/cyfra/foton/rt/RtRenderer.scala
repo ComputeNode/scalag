@@ -1,19 +1,18 @@
 package io.computenode.cyfra.foton.rt
 
 import io.computenode.cyfra
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
-import io.computenode.cyfra.foton.utility.Color.*
-import io.computenode.cyfra.foton.utility.Math3D.*
-import io.computenode.cyfra.foton.utility.Random
-import io.computenode.cyfra.foton.utility.Utility.timed
-import io.computenode.cyfra.foton.rt.{RtRenderer}
-import io.computenode.cyfra.given 
-import io.computenode.cyfra.*
+import io.computenode.cyfra.utility.Utility.timed
+import io.computenode.cyfra.foton.rt.RtRenderer
+import io.computenode.cyfra.dsl.{Random, given}
+import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.foton.rt.shapes.{Box, Sphere}
+import io.computenode.cyfra.utility.Color.*
+import io.computenode.cyfra.utility.Math3D.*
 
 import java.nio.file.{Path, Paths}
 import scala.collection.mutable

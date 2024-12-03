@@ -1,14 +1,15 @@
 package io.computenode.cyfra.foton.animation
 
 import io.computenode.cyfra
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.{GArray2DFunction, RGBA}
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.foton.rt.ImageRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.animation.AnimationRtRenderer.RaytracingIteration
 import io.computenode.cyfra.foton.rt.RtRenderer
 import io.computenode.cyfra.foton.rt.animation.AnimatedScene
-import io.computenode.cyfra.foton.utility.Units.Milliseconds
-import io.computenode.cyfra.foton.utility.Utility.timed
+import io.computenode.cyfra.utility.Units.Milliseconds
+import io.computenode.cyfra.utility.Utility.timed
 import io.computenode.cyfra.{*, given}
 
 import java.nio.file.{Path, Paths}
@@ -26,17 +27,17 @@ trait AnimationRenderer[S <: AnimationRenderer.Scene, F <: GArray2DFunction[_, V
     val requiredDigits = Math.ceil(Math.log10(totalFrames)).toInt
     images.zipWithIndex.foreach:
       case (image, i) =>
-        val frameFormatted = (i + 78).toString.reverse.padTo(requiredDigits, '0').reverse.mkString
+        val frameFormatted = i.toString.reverse.padTo(requiredDigits, '0').reverse.mkString
         val destionationFile = destinationPath.resolve(s"frame$frameFormatted.png")
         ImageUtility.renderToImage(image, params.width, params.height, destionationFile)
 
   def renderFrames(scene: S): LazyList[Array[RGBA]] =
     val function = renderFunction(scene)
     val totalFrames = Math.ceil(scene.duration.toFloat / msPerFrame).toInt
-    val timestamps = LazyList.range(78, totalFrames).map(_ * msPerFrame)
+    val timestamps = LazyList.range(0, totalFrames).map(_ * msPerFrame)
     timestamps.zipWithIndex.map {
       case (time, frame) =>
-        timed(s"Animated frame ${frame + 78}/${totalFrames}"):
+        timed(s"Animated frame ${frame}/${totalFrames}"):
           renderFrame(scene, time, function)
     }
 

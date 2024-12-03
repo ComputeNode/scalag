@@ -1,12 +1,13 @@
 package io.computenode.cyfra.samples.oldsamples
 
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.Control.*
-import io.computenode.cyfra.Expression.*
-import io.computenode.cyfra.Functions.*
-import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.{*, given}
-import io.computenode.cyfra.{GArray2DFunction, GContext, GSeq, GStruct, ImageUtility, MVPContext, UniformContext, Value, Vec4FloatMem}
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Control.*
+import io.computenode.cyfra.dsl.Expression.*
+import io.computenode.cyfra.dsl.Functions.*
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.{GArray2DFunction, GContext, GSeq, GStruct, MVPContext, UniformContext, Value, Vec4FloatMem}
+import io.computenode.cyfra.dsl.{*, given}
+import io.computenode.cyfra.{ImageUtility}
 
 import java.awt.image.BufferedImage
 import java.io.File

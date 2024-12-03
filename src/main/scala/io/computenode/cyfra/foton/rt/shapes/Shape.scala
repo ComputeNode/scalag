@@ -1,8 +1,8 @@
 package io.computenode.cyfra.foton.rt.shapes
 
-import io.computenode.cyfra.Value.*
-import io.computenode.cyfra.Algebra.{*, given}
-import io.computenode.cyfra.GStruct
+import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.GStruct
 import io.computenode.cyfra.foton.rt.RtRenderer.RayHitInfo
 
 // type Shape = Box | Sphere | Quad

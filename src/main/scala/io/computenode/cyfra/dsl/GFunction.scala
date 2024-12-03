@@ -1,9 +1,9 @@
-package io.computenode.cyfra
+package io.computenode.cyfra.dsl
 
-import Algebra.FromExpr
-import io.computenode.cyfra.*
-import Value.*
+import io.computenode.cyfra.dsl.Algebra.FromExpr
+import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.vulkan.compute.{ComputePipeline, Shader}
+import io.computenode.cyfra.*
 import izumi.reflect.Tag
 
 import scala.deriving.Mirror
