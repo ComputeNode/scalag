@@ -1,12 +1,15 @@
-package io.computenode.cyfra.compiler
+package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.dsl.GSeq.*
-import Digest.DigestedExpression
-import Opcodes.*
+import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Value.*
+import io.computenode.cyfra.spirv.Digest.DigestedExpression
+import io.computenode.cyfra.spirv.{Context, ScopeBuilder}
 import izumi.reflect.Tag
+import io.computenode.cyfra.spirv.SpirvConstants.*
+import io.computenode.cyfra.spirv.SpirvTypes.*
 
-object GSeqCompiler:
+private[cyfra] object GSeqCompiler:
   
   def compileFold(expr: DigestedExpression, fold: FoldSeq[_, _], ctx: Context): (List[Words], Context) =
     val loopBack = ctx.nextResultId
@@ -27,7 +30,7 @@ object GSeqCompiler:
     val iIncremented = ctx.nextResultId + 15
     val finalResult = ctx.nextResultId + 16
 
-    val boolType = ctx.valueTypeMap(DSLCompiler.GBooleanTag.tag)
+    val boolType = ctx.valueTypeMap(GBooleanTag.tag)
     val boolPointerType = ctx.funPointerTypeMap(boolType)
 
     val ops = fold.seq.elemOps
@@ -36,7 +39,7 @@ object GSeqCompiler:
     val genInitPointerType = ctx.funPointerTypeMap(genInitType)
     val genNextExpr = fold.streamNextExpr
 
-    val int32Type = ctx.valueTypeMap(DSLCompiler.Int32Tag.tag)
+    val int32Type = ctx.valueTypeMap(Int32Tag.tag)
     val int32PointerType = ctx.funPointerTypeMap(int32Type)
 
     val foldZeroExpr = fold.zeroExpr
@@ -54,7 +57,7 @@ object GSeqCompiler:
           val forReduceCtx = withElemRefCtx.copy(
             exprRefs = withElemRefCtx.exprRefs + (fold.seq.aggregateElemDigest -> resultRef)
           ).copy(nextResultId = context.nextResultId + 1)
-          val (reduceOps, reduceCtx) = DSLCompiler.compileBlock(ScopeBuilder.buildScope(foldFnExpr), forReduceCtx)
+          val (reduceOps, reduceCtx) = ExpressionCompiler.compileBlock(ScopeBuilder.buildScope(foldFnExpr), forReduceCtx)
           val instructions = List(
             Instruction(Op.OpLoad, List(
               ResultRef(foldZeroType),
@@ -73,13 +76,13 @@ object GSeqCompiler:
           op match {
             case MapOp(_) =>
               val mapBlock = ScopeBuilder.buildScope(dExpr)
-              val (mapOps, mapContext) = DSLCompiler.compileBlock(mapBlock, withElemRefCtx)
+              val (mapOps, mapContext) = ExpressionCompiler.compileBlock(mapBlock, withElemRefCtx)
               val newElemRef = mapContext.exprRefs(dExpr.exprId)
               val (tailOps, tailContext) = generateSeqOps(tail, context.joinNested(mapContext), newElemRef)
               (mapOps ++ tailOps, tailContext)
             case FilterOp(_) =>
               val filterBlock = ScopeBuilder.buildScope(dExpr)
-              val (filterOps, filterContext) = DSLCompiler.compileBlock(filterBlock, withElemRefCtx)
+              val (filterOps, filterContext) = ExpressionCompiler.compileBlock(filterBlock, withElemRefCtx)
               val condResultRef = filterContext.exprRefs(dExpr.exprId)
               val mergeBlock = filterContext.nextResultId
               val trueLabel = filterContext.nextResultId + 1
@@ -106,7 +109,7 @@ object GSeqCompiler:
               (instructions, tailContext)
             case TakeUntilOp(_) =>
               val takeUntilBlock = ScopeBuilder.buildScope(dExpr)
-              val (takeUntilOps, takeUntilContext) = DSLCompiler.compileBlock(takeUntilBlock, withElemRefCtx)
+              val (takeUntilOps, takeUntilContext) = ExpressionCompiler.compileBlock(takeUntilBlock, withElemRefCtx)
               val condResultRef = takeUntilContext.exprRefs(dExpr.exprId)
               val mergeBlock = takeUntilContext.nextResultId
               val trueLabel = takeUntilContext.nextResultId + 1
@@ -149,7 +152,7 @@ object GSeqCompiler:
     val withElemRefInitCtx = seqOpsCtx.copy(
       exprRefs = ctx.exprRefs + (fold.seq.currentElemDigest -> accLoaded),
     )
-    val (generatorOps, generatorCtx) = DSLCompiler.compileBlock(ScopeBuilder.buildScope(genNextExpr), withElemRefInitCtx)
+    val (generatorOps, generatorCtx) = ExpressionCompiler.compileBlock(ScopeBuilder.buildScope(genNextExpr), withElemRefInitCtx)
     val instructions = List(
       Instruction(Op.OpVariable, List( // bool shouldTake
         ResultRef(boolPointerType),
@@ -173,11 +176,11 @@ object GSeqCompiler:
       )),
       Instruction(Op.OpStore, List( // shouldTake = true
         ResultRef(shouldTakeVar),
-        ResultRef(ctx.constRefs((DSLCompiler.GBooleanTag, true)))
+        ResultRef(ctx.constRefs((GBooleanTag, true)))
       )),
       Instruction(Op.OpStore, List( // i = 0
         ResultRef(iVar),
-        ResultRef(ctx.constRefs((DSLCompiler.Int32Tag, 0)))
+        ResultRef(ctx.constRefs((Int32Tag, 0)))
       )),
       Instruction(Op.OpStore, List( // acc = genInitExpr
         ResultRef(accVar),
@@ -240,7 +243,7 @@ object GSeqCompiler:
           ResultRef(int32Type),
           ResultRef(iIncremented),
           ResultRef(iLoaded),
-          ResultRef(ctx.constRefs((DSLCompiler.Int32Tag, 1)))
+          ResultRef(ctx.constRefs((Int32Tag, 1)))
         )),
         Instruction(Op.OpStore, List(
           ResultRef(iVar),

@@ -1,10 +1,11 @@
 package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.compiler.DSLCompiler
 import io.computenode.cyfra.dsl.Algebra.{FromExpr, given_Conversion_Int_Int32}
 import io.computenode.cyfra.dsl.Expression.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.*
+import io.computenode.cyfra.spirv.SpirvTypes.typeStride
+import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import izumi.reflect.Tag
 
 import scala.compiletime.*
@@ -55,7 +56,7 @@ case class GStructSchema[T <: GStruct[T]: Tag](
       val constructor = fromExpr.asInstanceOf[GStructConstructor[_]]
       constructor.schema.totalStride
     case (_, _, t) =>
-      DSLCompiler.typeStride(t)
+      typeStride(t)
   }.sum
 
 trait GStructConstructor[T <: GStruct[T]] extends FromExpr[T]:

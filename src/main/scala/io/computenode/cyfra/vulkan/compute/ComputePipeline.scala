@@ -14,7 +14,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 14.04.2020
   */
-class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends VulkanObjectHandle {
+private[cyfra] class ComputePipeline(val computeShader: Shader, context: VulkanContext) extends VulkanObjectHandle {
   private val device: Device = context.device
   val descriptorSetLayouts: Seq[(Long, LayoutSet)] =
     computeShader.layoutInfo.sets.map(x => (createDescriptorSetLayout(x), x))

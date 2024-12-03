@@ -9,7 +9,7 @@ import org.lwjgl.vulkan.VK10.*
 /** @author
   *   MarconZet Created 13.04.2020
   */
-class VulkanAssertionError(msg: String, result: Int) extends AssertionError(s"$msg: ${VulkanAssertionError.translateVulkanResult(result)}")
+private[cyfra] class VulkanAssertionError(msg: String, result: Int) extends AssertionError(s"$msg: ${VulkanAssertionError.translateVulkanResult(result)}")
 
 object VulkanAssertionError {
   def translateVulkanResult(result: Int): String =

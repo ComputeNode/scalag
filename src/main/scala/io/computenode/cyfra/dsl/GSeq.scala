@@ -1,13 +1,13 @@
 package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.compiler.Digest
-import io.computenode.cyfra.compiler.Digest.{CustomDependencies, CustomExprId, DigestedExpression}
+import io.computenode.cyfra.spirv.Digest.{CustomDependencies, CustomExprId, DigestedExpression}
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.Expression.{ConstInt32, E}
 import io.computenode.cyfra.dsl.GSeq.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.{Expression, GSeq, PhantomExpression}
+import io.computenode.cyfra.spirv.Digest
 import izumi.reflect.Tag
 
 import java.util.Base64

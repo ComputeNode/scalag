@@ -1,8 +1,8 @@
-package io.computenode.cyfra.compiler
+package io.computenode.cyfra.spirv
 
-import Digest.DigestedExpression
+import io.computenode.cyfra.spirv.Digest.DigestedExpression
 
-object ScopeBuilder {
+private[cyfra] object ScopeBuilder {
   def buildScope(tree: DigestedExpression): List[DigestedExpression] = {
     def bfsAcc(curr: List[DigestedExpression], visited: Set[String], acc: List[DigestedExpression]): List[DigestedExpression] = {
       val children = curr.flatMap(_.dependencies)

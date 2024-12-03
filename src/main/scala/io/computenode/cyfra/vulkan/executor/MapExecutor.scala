@@ -17,7 +17,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 15.04.2020
   */
-class MapExecutor(dataLength: Int, bufferActions: Seq[BufferAction], computePipeline: ComputePipeline, context: VulkanContext)
+private[cyfra] class MapExecutor(dataLength: Int, bufferActions: Seq[BufferAction], computePipeline: ComputePipeline, context: VulkanContext)
     extends AbstractExecutor(dataLength, bufferActions, context) {
   private lazy val shader: Shader = computePipeline.computeShader
 

@@ -14,7 +14,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 13.04.2020
   */
-class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit = () => ()) extends VulkanObjectHandle {
+private[cyfra] class Fence(device: Device, flags: Int = 0, onDestroy: () => Unit = () => ()) extends VulkanObjectHandle {
   protected val handle: Long = pushStack { stack =>
     val fenceInfo = VkFenceCreateInfo
       .calloc(stack)

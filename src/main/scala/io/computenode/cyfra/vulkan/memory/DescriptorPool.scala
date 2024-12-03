@@ -18,7 +18,7 @@ import scala.util.Using
 object DescriptorPool {
   val MAX_SETS = 100
 }
-class DescriptorPool(device: Device) extends VulkanObjectHandle {
+private[cyfra] class DescriptorPool(device: Device) extends VulkanObjectHandle {
   protected val handle: Long = pushStack { stack =>
     val descriptorPoolSize = VkDescriptorPoolSize.calloc(1, stack)
     descriptorPoolSize

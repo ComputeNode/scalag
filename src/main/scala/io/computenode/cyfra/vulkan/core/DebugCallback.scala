@@ -20,7 +20,7 @@ object DebugCallback {
   val DEBUG_REPORT = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
 }
 
-class DebugCallback(instance: Instance) extends VulkanObjectHandle {
+private[cyfra] class DebugCallback(instance: Instance) extends VulkanObjectHandle {
   override protected val handle: Long = {
     val debugCallback = new VkDebugReportCallbackEXT() {
       def invoke(flags: Int, objectType: Int, `object`: Long, location: Long, messageCode: Int, pLayerPrefix: Long, pMessage: Long, pUserData: Long)

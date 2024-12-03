@@ -22,7 +22,7 @@ object Device {
   final val SyncExtension = VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
 }
 
-class Device(instance: Instance) extends VulkanObject {
+private[cyfra] class Device(instance: Instance) extends VulkanObject {
 
   val physicalDevice: VkPhysicalDevice = pushStack { stack =>
 

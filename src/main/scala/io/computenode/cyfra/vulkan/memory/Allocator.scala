@@ -10,7 +10,7 @@ import org.lwjgl.util.vma.{VmaAllocatorCreateInfo, VmaVulkanFunctions}
 /** @author
   *   MarconZet Created 13.04.2020
   */
-class Allocator(instance: Instance, device: Device) extends VulkanObjectHandle {
+private[cyfra] class Allocator(instance: Instance, device: Device) extends VulkanObjectHandle {
 
   protected val handle: Long = pushStack { stack =>
     val functions = VmaVulkanFunctions.calloc(stack)

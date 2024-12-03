@@ -7,12 +7,12 @@ import io.computenode.cyfra.vulkan.memory.{Allocator, DescriptorPool}
 /** @author
   *   MarconZet Created 13.04.2020
   */
-object VulkanContext {
+private[cyfra] object VulkanContext {
   final val ValidationLayer: String = "VK_LAYER_KHRONOS_validation"
   final val SyncLayer: String = "VK_LAYER_KHRONOS_synchronization2"
 }
 
-class VulkanContext(val enableValidationLayers: Boolean = false) {
+private[cyfra] class VulkanContext(val enableValidationLayers: Boolean = false) {
   private val sdkPresent = org.lwjgl.system.Configuration.VULKAN_LIBRARY_NAME.get() != null
   private val validationLayers = enableValidationLayers && sdkPresent
 

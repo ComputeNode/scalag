@@ -14,7 +14,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 13.04.2020
   */
-class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends VulkanObject {
+private[cyfra] class Queue(val familyIndex: Int, queueIndex: Int, device: Device) extends VulkanObject {
   private val queue: VkQueue = pushStack { stack =>
     val pQueue = stack.callocPointer(1)
     vkGetDeviceQueue(device.get, familyIndex, queueIndex, pQueue)

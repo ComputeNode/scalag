@@ -24,7 +24,7 @@ import java.nio.ByteBuffer
 /** @author
   *   MarconZet Created 15.04.2020
   */
-class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext) {
+private[cyfra] class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanContext) {
   private val device: Device = context.device
   private val queue: Queue = context.computeQueue
   private val allocator: Allocator = context.allocator
@@ -206,9 +206,9 @@ class SequenceExecutor(computeSequence: ComputationSequence, context: VulkanCont
 }
 
 object SequenceExecutor {
-  case class ComputationSequence(sequence: Seq[ComputationStep], dependencies: Seq[Dependency])
+  private[cyfra] case class ComputationSequence(sequence: Seq[ComputationStep], dependencies: Seq[Dependency])
 
-  sealed trait ComputationStep
+  private[cyfra] sealed trait ComputationStep
   case class Compute(pipeline: ComputePipeline, bufferActions: Map[LayoutLocation, BufferAction]) extends ComputationStep:
     def pumpLayoutLocations: Seq[Seq[BufferAction]] =
       pipeline.computeShader.layoutInfo.sets

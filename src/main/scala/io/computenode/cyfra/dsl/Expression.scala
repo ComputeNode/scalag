@@ -83,7 +83,7 @@ object Expression:
   case class ComposeVec2[T <: Scalar: Tag](a: T, b: T) extends Expression[Vec2[T]]
   case class ComposeVec3[T <: Scalar: Tag](a: T, b: T, c: T) extends Expression[Vec3[T]]
   case class ComposeVec4[T <: Scalar: Tag](a: T, b: T, c: T, d: T) extends Expression[Vec4[T]]
-  case class FunctionCall[R <: Value : Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
+  case class ExtFunctionCall[R <: Value : Tag](fn: FunctionName, args: List[Value]) extends Expression[R]
 
   case class Pass[T <: Value : Tag](value: T) extends E[T]
 

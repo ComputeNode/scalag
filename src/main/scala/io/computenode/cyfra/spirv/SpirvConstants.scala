@@ -1,6 +1,6 @@
-package io.computenode.cyfra.compiler
+package io.computenode.cyfra.spirv
 
-object SpirvConstants:
+private[cyfra] object SpirvConstants:
   val cyfraVendorId: Byte = 44 // https://github.com/KhronosGroup/SPIRV-Headers/blob/main/include/spirv/spir-v.xml#L52
 
   val localSizeX = 256

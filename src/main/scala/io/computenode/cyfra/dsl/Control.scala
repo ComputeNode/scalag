@@ -1,6 +1,6 @@
 package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.compiler.Digest.DigestedExpression
+import io.computenode.cyfra.spirv.Digest.DigestedExpression
 import io.computenode.cyfra.dsl.Algebra.FromExpr
 import io.computenode.cyfra.dsl.Value.GBoolean
 import izumi.reflect.Tag

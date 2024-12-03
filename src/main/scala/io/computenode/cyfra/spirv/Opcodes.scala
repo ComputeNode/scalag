@@ -1,10 +1,9 @@
-package io.computenode.cyfra.compiler
+package io.computenode.cyfra.spirv
 
 import java.nio.charset.StandardCharsets
 
-object Opcodes {
-
-
+private[cyfra] object Opcodes {
+  
   def intToBytes(i: Int): List[Byte] = {
     List[Byte](
       (i >>> 24).asInstanceOf[Byte],
@@ -14,13 +13,13 @@ object Opcodes {
     )
   }
 
-  trait Words {
+  private[cyfra] trait Words {
     def toWords: List[Byte]
 
     def length: Int
   }
 
-  case class Word(bytes: Array[Byte]) extends Words {
+  private[cyfra] case class Word(bytes: Array[Byte]) extends Words {
     def toWords: List[Byte] = bytes.toList
 
     def length = 1
@@ -28,7 +27,7 @@ object Opcodes {
     override def toString = s"Word(${bytes.mkString(", ")}${if(bytes.length == 4) s" [i = ${BigInt(bytes).toInt}])" else ""}"
   }
 
-  case class WordVariable(name: String) extends Words {
+  private[cyfra] case class WordVariable(name: String) extends Words {
     def toWords: List[Byte] = {
       List(-1, -1, -1, -1)
     }
@@ -37,7 +36,7 @@ object Opcodes {
   }
 
 
-  case class Instruction(code: Code, operands: List[Words]) extends Words {
+  private[cyfra] case class Instruction(code: Code, operands: List[Words]) extends Words {
     override def toWords: List[Byte] =
       code.toWords.take(2) :::
         intToBytes(length).reverse.take(2) :::
@@ -55,13 +54,13 @@ object Opcodes {
     override def toString: String = s"${code.mnemo} ${operands.mkString(", ")}"
   }
 
-  case class Code(mnemo: String, opcode: Int) extends Words {
+  private[cyfra] case class Code(mnemo: String, opcode: Int) extends Words {
     override def toWords: List[Byte] = intToBytes(opcode).reverse
 
     override def length: Int = 1
   }
 
-  case class Text(text: String) extends Words {
+  private[cyfra] case class Text(text: String) extends Words {
     override def toWords: List[Byte] = {
       val textBytes = text.getBytes(StandardCharsets.UTF_8).toList
       val complBytesLength = 4 - (textBytes.length % 4)
@@ -72,13 +71,13 @@ object Opcodes {
     override def length: Int = toWords.length / 4
   }
 
-  case class IntWord(i: Int) extends Words {
+  private[cyfra] case class IntWord(i: Int) extends Words {
     override def toWords: List[Byte] = intToBytes(i).reverse
 
     override def length: Int = 1
   }
 
-  case class ResultRef(result: Int) extends Words {
+  private[cyfra] case class ResultRef(result: Int) extends Words {
     override def toWords: List[Byte] = intToBytes(result).reverse
 
     override def length: Int = 1

@@ -98,7 +98,7 @@ object Algebra:
     def dot(b: V): S = summon[VectorDotable[S, V]].dot(a, b)
 
   trait VectorCrossable[V <: Vec[_] : FromExpr : Tag]:
-    def cross(a: V, b: V)(using sourcecode.Name): V = summon[FromExpr[V]].fromExpr(FunctionCall(Cross, List(a, b)))
+    def cross(a: V, b: V)(using sourcecode.Name): V = summon[FromExpr[V]].fromExpr(ExtFunctionCall(Cross, List(a, b)))
   extension[V <: Vec[_] : VectorCrossable : Tag](a: V)
     def cross(b: V): V = summon[VectorCrossable[V]].cross(a, b)
 

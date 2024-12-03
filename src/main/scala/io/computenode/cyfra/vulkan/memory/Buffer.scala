@@ -18,7 +18,7 @@ import scala.util.Using
 /** @author
   *   MarconZet Created 11.05.2019
   */
-class Buffer(val size: Int, val usage: Int, flags: Int, memUsage: Int, val allocator: Allocator) extends VulkanObjectHandle {
+private[cyfra] class Buffer(val size: Int, val usage: Int, flags: Int, memUsage: Int, val allocator: Allocator) extends VulkanObjectHandle {
 
   val (handle, allocation) = pushStack { stack =>
     val bufferInfo = VkBufferCreateInfo

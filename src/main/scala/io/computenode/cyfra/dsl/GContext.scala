@@ -1,15 +1,17 @@
 package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.compiler.DSLCompiler
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Expression.Dynamic
 import io.computenode.cyfra.dsl.Value.Int32
 import io.computenode.cyfra.vulkan.{VulkanContext, compute}
 import io.computenode.cyfra.vulkan.compute.*
 import io.computenode.cyfra.*
+import io.computenode.cyfra.spirv.SpirvTypes.typeStride
+import io.computenode.cyfra.spirv.compilers.DSLCompiler
 import izumi.reflect.Tag
 
 import java.io.{File, FileOutputStream}
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.Executors
@@ -27,7 +29,6 @@ trait GContext {
   def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline
   def compile[G <: GStruct[G] : Tag: GStructSchema, H <: Value: Tag: FromExpr, R <: Value: Tag: FromExpr](function: GArray2DFunction[G, H, R]): ComputePipeline
 }
-
 
 val WorkerIndexTag = "worker_index"
 val WorkerIndex: Int32 = Int32(Dynamic(WorkerIndexTag))
@@ -50,10 +51,8 @@ class MVPContext extends GContext {
   override def compile[H <: Value: Tag: FromExpr, R <: Value: Tag](function: GFunction[H, R]): ComputePipeline = {
     val tree = function.fn.apply(GArray[H](0).at(WorkerIndex))
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, Empty().schema)
-
-    val layoutInfo = LayoutInfo(Seq(LayoutSet(0, 0 to 1 map (Binding(_, InputBufferSize(DSLCompiler.typeStride(summon[Tag[H]])))))))
+    val layoutInfo = LayoutInfo(Seq(LayoutSet(0, 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]])))))))
     val shader = new Shader(shaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
-
     new ComputePipeline(shader, vkContext)
   }
 
@@ -61,39 +60,19 @@ class MVPContext extends GContext {
     val uniformStructSchema = summon[GStructSchema[G]]
     val uniformStruct = uniformStructSchema.fromTree(UniformStructRef)
     val tree = function.fn.apply(uniformStruct, (WorkerIndex mod function.width, WorkerIndex / function.width), new GArray2D(function.width, function.height, GArray[H](0)))
- 
-    val file = new File("output.txt")
-    val writer = new FileOutputStream(file, true)
-    def appendToFile(s: String): Unit = {
-      writer.write((s + "\n").getBytes)
-      writer.flush()
-    }
-    def printTree(product: Product) = {
-      val indent = 2
-      def printTreeRec(product: Product, indent: Int): Unit =
-        product.productIterator.foreach {
-          case p: Product =>
-            appendToFile(" " * indent + p.productPrefix)
-            printTreeRec(p, indent + 2)
-          case x => appendToFile(" " * indent + x)
-        }
-      printTreeRec(product, indent)
-    }
-
     val shaderCode = DSLCompiler.compile(tree, function.arrayInputs, function.arrayOutputs, uniformStructSchema)
-    println("Compiled!")
-    
-    // dump spv to file
-    val fc: FileChannel = new FileOutputStream("program.spv").getChannel
-    fc.write(shaderCode)
-    fc.close()
-    shaderCode.rewind()
-    val inOut = 0 to 1 map (Binding(_, InputBufferSize(DSLCompiler.typeStride(summon[Tag[H]]))))
+    dumpSpvToFile(shaderCode, "program.spv")
+    val inOut = 0 to 1 map (Binding(_, InputBufferSize(typeStride(summon[Tag[H]]))))
     val uniform = Option.when(uniformStructSchema.fields.nonEmpty)(Binding(2, UniformSize(uniformStructSchema.totalStride)))
     val layoutInfo = LayoutInfo(Seq(LayoutSet(0, inOut ++ uniform)))
     val shader = new Shader(shaderCode, new org.joml.Vector3i(256, 1, 1), layoutInfo, "main", vkContext.device)
-
     new ComputePipeline(shader, vkContext)
   }
+
+  def dumpSpvToFile(code: ByteBuffer, path: String): Unit =
+    val fc: FileChannel = new FileOutputStream("program.spv").getChannel
+    fc.write(code)
+    fc.close()
+    code.rewind()
 
 }
