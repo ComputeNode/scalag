@@ -1,21 +1,38 @@
 # Cyfra
 
-Library that allows to compile Scala 3 DSL to SPIR-V and to run it with Vulkan runtime on GPUs.
+Library provides a way to compile Scala 3 DSL to SPIR-V and to run it with Vulkan runtime on GPUs.
 
 Library is in an early stage - alpha release and proper documentation are coming.
 
-## Example - Ray tracer
+## Animations
 
-<img src="https://github.com/scalag/scalag/assets/4761866/0cbb2e38-1c74-4821-81ab-1b7d86e96fa9" width="550">
+Included Foton library provides a clean and fun way to animate functions and ray traced scenes.
 
-[Ray tracer code](https://gist.github.com/szymon-rd/4913ad49932c44ac16f779eb0f19bbb0)
+## Examples
 
-## Features
-Some example features of the library:
+### Ray traced animation
+![output](https://github.com/user-attachments/assets/3eac9f7f-72df-4a5d-b768-9117d651c78d)
+
+[code](https://github.com/ComputeNode/cyfra/blob/master/src/main/scala/io/computenode/cyfra/samples/foton/AnimatedRaytrace.scala)
+
+### Animated Julia set
+<img src="assets/julia.gif" width="360">
+
+[code](https://github.com/ComputeNode/cyfra/blob/master/src/main/scala/io/computenode/cyfra/samples/foton/AnimatedJulia.scala)
+
+## Animation features examples
+
+### Custom animated functions
+<img src="https://github.com/user-attachments/assets/1030d968-014a-4c2c-8f21-26b999fe57fc" width="650">
+
+### Animated ray traced scene
+<img src="https://github.com/user-attachments/assets/a4189bc3-e2a9-4e52-9363-93f83b530595" width="750">
+
+## Coding features examples
 
 ### Case classes as GPU structs
 
-<img src="https://github.com/scalag/scalag/assets/4761866/5b89499f-04b6-4b66-9a36-df9a48a99b22" width="550">
+<img src="https://github.com/user-attachments/assets/e5e2020d-fcd3-4651-b0e2-fc45567df37b" width="550">
 
 ### GSeq
 
@@ -23,3 +40,5 @@ Some example features of the library:
 
 
 <img src="https://github.com/scalag/scalag/assets/4761866/2791afd8-0b3e-4113-8e01-3f4efccab37f" width="750">
+
+
