@@ -7,9 +7,8 @@ import io.computenode.cyfra.dsl.Value.*
 import ExtFunctionCompiler.compileExtFunctionCall
 import WhenCompiler.compileWhen
 import io.computenode.cyfra.dsl.Control.WhenExpr
-import io.computenode.cyfra.dsl.{ComposeStruct, Functions, GArrayElem, GSeq, GStructSchema, GetField, PhantomExpression, UniformStructRefTag, WorkerIndexTag}
-import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.Digest.DigestedExpression
+import io.computenode.cyfra.dsl.{ComposeStruct, Functions, GArrayElem, GSeq, GStructSchema, GetField, PhantomExpression, UniformStructRefTag, Value, WorkerIndexTag}
+import io.computenode.cyfra.spirv.{Context, ScopeBuilder}
 import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
@@ -26,7 +25,7 @@ private[cyfra] object ExpressionCompiler:
     case _: Div[_] => (Op.OpSDiv, Op.OpFDiv)
     case _: Mod[_] => (Op.OpSMod, Op.OpFMod)
 
-  private def compileBinaryOpExpression(expr: DigestedExpression, bexpr: BinaryOpExpression[_], ctx: Context): (List[Instruction], Context) =
+  private def compileBinaryOpExpression(bexpr: BinaryOpExpression[_], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
     val subOpcode = tpe match {
@@ -41,20 +40,20 @@ private[cyfra] object ExpressionCompiler:
       Instruction(subOpcode, List(
         ResultRef(typeRef),
         ResultRef(ctx.nextResultId),
-        ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-        ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
+        ResultRef(ctx.exprRefs(bexpr.a.treeid)),
+        ResultRef(ctx.exprRefs(bexpr.b.treeid))
       ))
     )
     val updatedContext = ctx.copy(
-      exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+      exprRefs = ctx.exprRefs + (bexpr.treeid -> ctx.nextResultId),
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
 
-  private def compileConvertExpression(expr: DigestedExpression, cexpr: ConvertExpression[_, _], ctx: Context): (List[Instruction], Context) =
+  private def compileConvertExpression(cexpr: ConvertExpression[_, _], ctx: Context): (List[Instruction], Context) =
     val tpe = cexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
-    val tfOpcode = (cexpr.fromTag, expr.expr) match {
+    val tfOpcode = (cexpr.fromTag, cexpr) match {
       case (from, _: ToFloat32[_]) if from.tag =:= Int32Tag.tag => Op.OpConvertSToF
       case (from, _: ToFloat32[_]) if from.tag =:= UInt32Tag.tag => Op.OpConvertUToF
       case (from, _: ToInt32[_]) if from.tag =:= Float32Tag.tag => Op.OpConvertFToS
@@ -66,10 +65,10 @@ private[cyfra] object ExpressionCompiler:
       Instruction(tfOpcode, List(
         ResultRef(typeRef),
         ResultRef(ctx.nextResultId),
-        ResultRef(ctx.exprRefs(expr.dependencies(0).exprId))
+        ResultRef(ctx.exprRefs(cexpr.a.treeid))
       )))
     val updatedContext = ctx.copy(
-      exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+      exprRefs = ctx.exprRefs + (cexpr.treeid -> ctx.nextResultId),
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
@@ -83,7 +82,7 @@ private[cyfra] object ExpressionCompiler:
       case _: LessThanEqual[_] => (Op.OpSLessThanEqual, Op.OpFOrdLessThanEqual)
       case _: Equal[_] => (Op.OpIEqual, Op.OpFOrdEqual)
 
-  private def compileBitwiseExpression(expr: DigestedExpression, bexpr: BitwiseOpExpression[_], ctx: Context): (List[Instruction], Context) =
+  private def compileBitwiseExpression(bexpr: BitwiseOpExpression[_], ctx: Context): (List[Instruction], Context) =
     val tpe = bexpr.tag
     val typeRef = ctx.valueTypeMap(tpe.tag)
     val subOpcode = bexpr match {
@@ -98,49 +97,53 @@ private[cyfra] object ExpressionCompiler:
       Instruction(subOpcode, List(
         ResultRef(typeRef),
         ResultRef(ctx.nextResultId),
-      ) ::: expr.dependencies.map(d => ResultRef(ctx.exprRefs(d.exprId))))
+      ) ::: bexpr.exprDependencies.map(d => ResultRef(ctx.exprRefs(d.treeid))))
     )
     val updatedContext = ctx.copy(
-      exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+      exprRefs = ctx.exprRefs + (bexpr.treeid -> ctx.nextResultId),
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
 
-  def compileBlock(sortedTree: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
+  def compileBlock(tree: E[_], ctx: Context): (List[Words], Context) = {
 
     @tailrec
-    def compileExpressions(exprs: List[DigestedExpression], ctx: Context, acc: List[Words], usedNames: Set[String]): (List[Words], Context) = {
+    def compileExpressions(exprs: List[E[_]], ctx: Context, acc: List[Words], usedNames: Set[String]): (List[Words], Context) = {
       if (exprs.isEmpty) (acc, ctx)
       else {
         val expr = exprs.head
-        if (ctx.exprRefs.contains(expr.exprId)) {
+        if (ctx.exprRefs.contains(expr.treeid)) {
           compileExpressions(exprs.tail, ctx, acc, usedNames)
         } else {
-          val name: Option[String] = if usedNames.contains(expr.name) then None else Some(expr.name)
+
+          val name: Option[String] = expr.of match
+            case Some(v) if !usedNames.contains(v.name.value) => Some(v.name.value)
+            case _ => None
+
           val updatedUsedNames = usedNames ++ name
-          val (instructions, updatedCtx) = expr.expr match {
+          val (instructions, updatedCtx) = expr match {
             case c@Const(x) =>
               val constRef = ctx.constRefs((c.tag, x))
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> constRef)
+                exprRefs = ctx.exprRefs + (c.treeid -> constRef)
               )
               (List(), updatedContext)
 
             case d@Dynamic(WorkerIndexTag) =>
               (Nil, ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.workerIndexRef),
+                exprRefs = ctx.exprRefs + (d.treeid -> ctx.workerIndexRef),
               ))
 
             case d@Dynamic(UniformStructRefTag) =>
               (Nil, ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.uniformVarRef),
+                exprRefs = ctx.exprRefs + (d.treeid -> ctx.uniformVarRef),
               ))
 
             case c: ConvertExpression[_, _] =>
-              compileConvertExpression(expr, c, ctx)
+              compileConvertExpression(c, ctx)
 
             case b: BinaryOpExpression[_] =>
-              compileBinaryOpExpression(expr, b, ctx)
+              compileBinaryOpExpression(b, ctx)
 
             case negate: Negate[_] =>
               val op = if (negate.tag.tag <:< summon[Tag[FloatType]].tag || (negate.tag.tag <:< summon[Tag[Vec[_]]].tag && negate.tag.tag.typeArgs.head <:< summon[Tag[FloatType]].tag))
@@ -150,29 +153,29 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(op, List(
                   ResultRef(ctx.valueTypeMap(negate.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId))
+                  ResultRef(ctx.exprRefs(negate.a.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (negate.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
 
             case bo: BitwiseOpExpression[_] =>
-              compileBitwiseExpression(expr, bo, ctx)
+              compileBitwiseExpression(bo, ctx)
 
             case and: And =>
               val instructions = List(
                 Instruction(Op.OpLogicalAnd, List(
                   ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
+                  ResultRef(ctx.exprRefs(and.a.treeid)),
+                  ResultRef(ctx.exprRefs(and.b.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (and.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -182,12 +185,12 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpLogicalOr, List(
                   ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
+                  ResultRef(ctx.exprRefs(or.a.treeid)),
+                  ResultRef(ctx.exprRefs(or.b.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (or.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -197,11 +200,11 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpLogicalNot, List(
                   ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId))
+                  ResultRef(ctx.exprRefs(not.a.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -211,11 +214,11 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpVectorTimesScalar, List(
                   ResultRef(ctx.valueTypeMap(sp.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId)))
+                  ResultRef(ctx.exprRefs(sp.a.treeid)),
+                  ResultRef(ctx.exprRefs(sp.b.treeid)))
                 ))
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -225,12 +228,12 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpDot, List(
                   ResultRef(ctx.valueTypeMap(dp.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
+                  ResultRef(ctx.exprRefs(dp.a.treeid)),
+                  ResultRef(ctx.exprRefs(dp.b.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (dp.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -242,12 +245,12 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(op, List(
                   ResultRef(ctx.valueTypeMap(GBooleanTag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
+                  ResultRef(ctx.exprRefs(co.a.treeid)),
+                  ResultRef(ctx.exprRefs(co.b.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -258,12 +261,13 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpVectorExtractDynamic, List(
                   ResultRef(ctx.valueTypeMap(e.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
+                  ResultRef(ctx.exprRefs(e.a.treeid)),
+                  ResultRef(ctx.exprRefs(e.i.treeid))
                 ))
               )
+              
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -273,12 +277,12 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpCompositeConstruct, List(
                   ResultRef(ctx.valueTypeMap(composeVec2.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId))
+                  ResultRef(ctx.exprRefs(composeVec2.a.treeid)),
+                  ResultRef(ctx.exprRefs(composeVec2.b.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -288,13 +292,13 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpCompositeConstruct, List(
                   ResultRef(ctx.valueTypeMap(composeVec3.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(2).exprId))
+                  ResultRef(ctx.exprRefs(composeVec3.a.treeid)),
+                  ResultRef(ctx.exprRefs(composeVec3.b.treeid)),
+                  ResultRef(ctx.exprRefs(composeVec3.c.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
@@ -304,20 +308,20 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpCompositeConstruct, List(
                   ResultRef(ctx.valueTypeMap(composeVec4.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies(0).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(1).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(2).exprId)),
-                  ResultRef(ctx.exprRefs(expr.dependencies(3).exprId))
+                  ResultRef(ctx.exprRefs(composeVec4.a.treeid)),
+                  ResultRef(ctx.exprRefs(composeVec4.b.treeid)),
+                  ResultRef(ctx.exprRefs(composeVec4.c.treeid)),
+                  ResultRef(ctx.exprRefs(composeVec4.d.treeid))
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (instructions, updatedContext)
 
             case fc: ExtFunctionCall[_] =>
-              compileExtFunctionCall(expr, fc, ctx)
+              compileExtFunctionCall(fc, ctx)
 
             case ga@GArrayElem(index, i) =>
               val instructions = List(
@@ -326,7 +330,7 @@ private[cyfra] object ExpressionCompiler:
                   ResultRef(ctx.nextResultId),
                   ResultRef(ctx.inBufferBlocks(index).blockVarRef),
                   ResultRef(ctx.constRefs((Int32Tag, 0))),
-                  ResultRef(ctx.exprRefs(expr.dependencies.head.exprId))
+                  ResultRef(ctx.exprRefs(i.treeid))
                 )),
                 Instruction(Op.OpLoad, List(
                   IntWord(ctx.valueTypeMap(ga.tag.tag)),
@@ -335,16 +339,16 @@ private[cyfra] object ExpressionCompiler:
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> (ctx.nextResultId + 1)),
+                exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)),
                 nextResultId = ctx.nextResultId + 2
               )
               (instructions, updatedContext)
 
             case when: WhenExpr[_] =>
-              compileWhen(expr, when, ctx)
+              compileWhen(when, ctx)
 
             case fd: GSeq.FoldSeq[_, _] =>
-              GSeqCompiler.compileFold(expr, fd, ctx)
+              GSeqCompiler.compileFold(fd, ctx)
 
             case cs: ComposeStruct[_] =>
               val schema = cs.resultSchema.asInstanceOf[GStructSchema[_]]
@@ -354,11 +358,11 @@ private[cyfra] object ExpressionCompiler:
                   ResultRef(ctx.valueTypeMap(cs.tag.tag)),
                   ResultRef(ctx.nextResultId),
                 ) ::: fields.zipWithIndex.map {
-                  case (f, i) => ResultRef(ctx.exprRefs(expr.dependencies(i).exprId))
+                  case (f, i) => ResultRef(ctx.exprRefs(cs.dependencies(i).treeid))
                 })
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (cs.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (insns, updatedContext)
@@ -377,7 +381,7 @@ private[cyfra] object ExpressionCompiler:
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> (ctx.nextResultId + 1)),
+                exprRefs = ctx.exprRefs + (expr.treeid -> (ctx.nextResultId + 1)),
                 nextResultId = ctx.nextResultId + 2
               )
               (insns, updatedContext)
@@ -386,12 +390,12 @@ private[cyfra] object ExpressionCompiler:
                 Instruction(Op.OpCompositeExtract, List(
                   ResultRef(ctx.valueTypeMap(gf.tag.tag)),
                   ResultRef(ctx.nextResultId),
-                  ResultRef(ctx.exprRefs(expr.dependencies.head.exprId)),
+                  ResultRef(ctx.exprRefs(gf.struct.treeid)),
                   IntWord(gf.fieldIndex)
                 ))
               )
               val updatedContext = ctx.copy(
-                exprRefs = ctx.exprRefs + (expr.exprId -> ctx.nextResultId),
+                exprRefs = ctx.exprRefs + (expr.treeid -> ctx.nextResultId),
                 nextResultId = ctx.nextResultId + 1
               )
               (insns, updatedContext)
@@ -405,6 +409,6 @@ private[cyfra] object ExpressionCompiler:
         }
       }
     }
-
+    val sortedTree = ScopeBuilder.buildScope(tree)
     compileExpressions(sortedTree, ctx, Nil, Set.empty)
   }

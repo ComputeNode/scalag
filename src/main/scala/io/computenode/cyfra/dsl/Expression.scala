@@ -1,5 +1,6 @@
 package io.computenode.cyfra.dsl
 
+import io.computenode.cyfra.dsl.Control.Scope
 import io.computenode.cyfra.dsl.Expression
 import io.computenode.cyfra.dsl.Expression.Const
 import io.computenode.cyfra.dsl.Functions.*
@@ -8,11 +9,22 @@ import izumi.reflect.Tag
 
 import java.util.concurrent.atomic.AtomicInteger
 private[cyfra] val treeidState: AtomicInteger = new AtomicInteger(0)
-trait Expression[T <: Value : Tag] extends Product {
+trait Expression[T <: Value : Tag] extends Product:
   def tag: Tag[T] = summon[Tag[T]]
   private[cyfra] val treeid: Int = treeidState.getAndIncrement()
+  private[cyfra] var of: Option[Value] = None
   override def toString: String = s"${this.productPrefix}($treeid)"
-}
+  def dependencies: List[Value] = this.productIterator.toList.flatMap:
+    case v: Value => List(v)
+    case l: List[_] => l.collect { case v: Value => v }
+    case _ => Nil
+  def exprDependencies: List[Expression[_]] = this.dependencies.map(_.tree) ::: this.productIterator.toList.collect { case e: Expression[_] => e }
+  def introducedScopes: List[Scope[_]] = this.productIterator.toList.collect { case s: Scope[_] => s }
+
+
+trait CustomTreeId:
+  self: Expression[_] =>
+  override val treeid: Int
 
 trait PhantomExpression[T <: Value : Tag] extends Expression[T]
 
@@ -64,6 +76,7 @@ object Expression:
 
   sealed trait ConvertExpression[F <: Scalar : Tag, T <: Scalar : Tag] extends Expression[T] {
     def fromTag: Tag[F] = summon[Tag[F]]
+    def a: F
   }
   case class ToFloat32[T <: Scalar : Tag](a: T) extends ConvertExpression[T, Float32]
   case class ToInt32[T <: Scalar : Tag](a: T) extends ConvertExpression[T, Int32]

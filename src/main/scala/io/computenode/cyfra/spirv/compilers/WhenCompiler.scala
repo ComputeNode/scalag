@@ -4,7 +4,7 @@ import ExpressionCompiler.compileBlock
 import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.*
 import io.computenode.cyfra.dsl.Control.WhenExpr
-import io.computenode.cyfra.spirv.Digest.DigestedExpression
+import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.spirv.{Context, ScopeBuilder}
 import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvConstants.*
@@ -12,36 +12,36 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 
 private[cyfra] object WhenCompiler:
   
-  def compileWhen(expr: DigestedExpression, when: WhenExpr[_], ctx: Context): (List[Words], Context) = {
+  def compileWhen(when: WhenExpr[_], ctx: Context): (List[Words], Context) = {
     def compileCases(
       ctx: Context,
       resultVar: Int,
-      conditions: List[DigestedExpression],
-      thenCodes: List[DigestedExpression],
-      elseCode: DigestedExpression
+      conditions: List[E[_]],
+      thenCodes: List[E[_]],
+      elseCode: E[_]
     ): (List[Words], Context) = (conditions, thenCodes) match {
       case (Nil, Nil) =>
         val (elseInstructions, elseCtx) = compileBlock(
-          ScopeBuilder.buildScope(elseCode),
+          elseCode,
           ctx
         )
         val elseWithStore = elseInstructions :+ Instruction(Op.OpStore, List(
           ResultRef(resultVar),
-          ResultRef(elseCtx.exprRefs(elseCode.exprId))
+          ResultRef(elseCtx.exprRefs(elseCode.treeid))
         ))
         (elseWithStore, elseCtx)
       case (caseWhen :: cTail, tCode :: tTail) =>
         val (whenInstructions, whenCtx) = compileBlock(
-          ScopeBuilder.buildScope(caseWhen),
+          caseWhen,
           ctx
         )
         val (thenInstructions, thenCtx) = compileBlock(
-          ScopeBuilder.buildScope(tCode),
+          tCode,
           whenCtx
         )
         val thenWithStore = thenInstructions :+ Instruction(Op.OpStore, List(
           ResultRef(resultVar),
-          ResultRef(thenCtx.exprRefs(tCode.exprId))
+          ResultRef(thenCtx.exprRefs(tCode.treeid))
         ))
         val postCtx = whenCtx.joinNested(thenCtx)
         val endIfLabel = postCtx.nextResultId
@@ -62,7 +62,7 @@ private[cyfra] object WhenCompiler:
               SelectionControlMask.MaskNone
             )),
             Instruction(Op.OpBranchConditional, List(
-              ResultRef(postCtx.exprRefs(caseWhen.exprId)),
+              ResultRef(postCtx.exprRefs(caseWhen.treeid)),
               ResultRef(thenLabel),
               ResultRef(elseLabel)
             )),
@@ -83,14 +83,14 @@ private[cyfra] object WhenCompiler:
     val resultTypeTag = ctx.valueTypeMap(when.tag.tag)
     val contextForCases = ctx.copy(nextResultId = ctx.nextResultId + 2)
   
-    val blockDeps = expr.blockDeps
-    val thenCode = blockDeps.head
-    val elseCode = blockDeps.last
-    val (conds, thenCodes) = blockDeps.tail.init.splitAt(when.otherConds.length)
+    val blockDeps = when.introducedScopes
+    val thenCode = blockDeps.head.expr
+    val elseCode = blockDeps.last.expr
+    val (conds, thenCodes) = blockDeps.map(_.expr).tail.init.splitAt(when.otherConds.length)
     val (caseInstructions, caseCtx) = compileCases(
       contextForCases,
       resultVar,
-      expr.dependencies.head :: conds,
+      when.exprDependencies.head :: conds,
       thenCode :: thenCodes,
       elseCode
     )
@@ -106,5 +106,5 @@ private[cyfra] object WhenCompiler:
         ResultRef(resultVar)
       ))
     )
-    (instructions, caseCtx.copy(exprRefs = caseCtx.exprRefs + (expr.exprId -> resultLoaded)))
+    (instructions, caseCtx.copy(exprRefs = caseCtx.exprRefs + (when.treeid -> resultLoaded)))
   }

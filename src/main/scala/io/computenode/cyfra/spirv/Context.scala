@@ -16,15 +16,13 @@ private[cyfra] case class Context(
   workerIndexRef: Int = -1,
   uniformVarRef: Int = -1,
   constRefs: Map[(Tag[_], Any), Int] = Map(),
-  exprRefs: Map[String, Int] = Map(),
+  exprRefs: Map[Int, Int] = Map(),
   inBufferBlocks: List[ArrayBufferBlock] = List(),
   outBufferBlocks: List[ArrayBufferBlock] = List(),
   nextResultId: Int = HEADER_REFS_TOP,
   nextBinding: Int = 0,
   exprNames: Map[Int, String] = Map()
 ):
-  def nested: Context = this.copy()
-
   def joinNested(ctx: Context): Context =
     this.copy(nextResultId = ctx.nextResultId, exprNames = ctx.exprNames ++ this.exprNames)
 

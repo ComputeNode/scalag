@@ -1,11 +1,10 @@
 package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.spirv.Opcodes.*
-import io.computenode.cyfra.dsl.Expression.Const
-import io.computenode.cyfra.dsl.GStructSchema
+import io.computenode.cyfra.dsl.Expression.{Const, E}
+import io.computenode.cyfra.dsl.{GStructSchema, Value}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.Digest.DigestedExpression
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
@@ -13,7 +12,7 @@ import izumi.reflect.Tag
 
 private[cyfra]  object SpirvProgramCompiler:
 
-  def compileMain(sortedTree: List[DigestedExpression], resultType: Tag[_], ctx: Context): (List[Words], Context) = {
+  def compileMain(tree: Value, resultType: Tag[_], ctx: Context): (List[Words], Context) = {
 
     val init = List(
       Instruction(Op.OpFunction, List(
@@ -41,7 +40,7 @@ private[cyfra]  object SpirvProgramCompiler:
       ))
     )
 
-    val (body, codeCtx) = compileBlock(sortedTree, ctx.copy(
+    val (body, codeCtx) = compileBlock(tree.tree, ctx.copy(
       nextResultId = ctx.nextResultId + 3,
       workerIndexRef = ctx.nextResultId + 2
     ))
@@ -57,7 +56,7 @@ private[cyfra]  object SpirvProgramCompiler:
 
       Instruction(Op.OpStore, List(
         ResultRef(codeCtx.nextResultId),
-        ResultRef(codeCtx.exprRefs(sortedTree.last.exprId))
+        ResultRef(codeCtx.exprRefs(tree.tree.treeid))
       )),
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List())
@@ -270,9 +269,9 @@ private[cyfra]  object SpirvProgramCompiler:
         uniformPointerMap = ctx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef)
       ))
 
-  def defineConstants(exprs: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
+  def defineConstants(exprs: List[E[_]], ctx: Context): (List[Words], Context) = {
     val consts = (exprs.collect {
-      case DigestedExpression(_, c@Const(x), _, _, _) =>
+      case c @ Const(x) =>
         (c.tag, x)
     } ::: List((Int32Tag, 0), (UInt32Tag, 0))).distinct.filterNot(_._1 == GBooleanTag)
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {

@@ -1,13 +1,11 @@
 package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.spirv.Digest.{CustomDependencies, CustomExprId, DigestedExpression}
 import io.computenode.cyfra.dsl.Algebra.{*, given}
 import io.computenode.cyfra.dsl.Control.when
 import io.computenode.cyfra.dsl.Expression.{ConstInt32, E}
 import io.computenode.cyfra.dsl.GSeq.*
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.dsl.{Expression, GSeq, PhantomExpression}
-import io.computenode.cyfra.spirv.Digest
 import izumi.reflect.Tag
 
 import java.util.Base64
@@ -18,8 +16,8 @@ class GSeq[T <: Value : Tag : FromExpr](
   val elemOps: List[GSeq.ElemOp[_]],
   val limit: Option[Int],
   val name: sourcecode.Name,
-  currentElemExprTreeId: Int = treeidState.getAndIncrement(),
-  aggregateElemExprTreeId: Int = treeidState.getAndIncrement()
+  val currentElemExprTreeId: Int = treeidState.getAndIncrement(),
+  val aggregateElemExprTreeId: Int = treeidState.getAndIncrement()
 ):
 
   def copyWithDynamicTrees[R <: Value : Tag : FromExpr](
@@ -41,12 +39,6 @@ class GSeq[T <: Value : Tag : FromExpr](
   private def currentElem: T = summon[FromExpr[T]].fromExpr(currentElemExpr)
   private def aggregateElem[R <: Value : Tag: FromExpr]: R = summon[FromExpr[R]].fromExpr(AggregateElem[R](aggregateElemExprTreeId))
 
-  // todo get rid of base64
-  val currentElemDigest = currentElemExprTreeId.toString
-  val aggregateElemDigest = aggregateElemExprTreeId.toString
-  
-
-  
   def map[R <: Value : Tag : FromExpr](fn: T => R): GSeq[R] =
     this.copyWithDynamicTrees[R](elemOps = elemOps :+ GSeq.MapOp[T,R](
       fn(currentElem).tree
@@ -103,14 +95,15 @@ object GSeq:
       }).otherwise(xs.last)
     }.limit(xs.length)
   
-  case class CurrentElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomExprId:
-    override def exprId: String = tid.toString
+  case class CurrentElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomTreeId:
+    override val treeid: Int = tid
   
-  case class AggregateElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomExprId:
-    override def exprId: String = tid.toString
+  case class AggregateElem[T <: Value : Tag](tid: Int) extends PhantomExpression[T] with CustomTreeId:
+    override val treeid: Int = tid
     
   sealed trait ElemOp[T <: Value : Tag]:
     def tag: Tag[T] = summon[Tag[T]]
+    def fn: Expression[_]
 
   case class MapOp[T <: Value: Tag, R <: Value: Tag](fn: Expression[_]) extends ElemOp[R]
   case class FilterOp[T <: Value: Tag](fn: Expression[GBoolean]) extends ElemOp[T]
@@ -119,23 +112,15 @@ object GSeq:
   sealed trait GSeqSource[T <: Value: Tag]
   case class GSeqStream[T <: Value: Tag](init: T, next: Expression[_]) extends GSeqSource[T]
   
-  case class FoldSeq[R <: Value : Tag, T <: Value : Tag](zero: R, fn: Expression[_], seq: GSeq[T]) extends Expression[R] with CustomDependencies:
-    val zeroExpr = Digest.digest(zero.tree)
-    val fnExpr = Digest.digest(fn)
-    val streamInitExpr = Digest.digest(seq.source.init.tree)
-    val streamNextExpr = Digest.digest(seq.source.next)
-    val seqExprs = seq.elemOps.map {
-      case MapOp(fn) => Digest.digest(fn)
-      case FilterOp(fn) => Digest.digest(fn)
-      case TakeUntilOp(fn) => Digest.digest(fn)
-    }
+  case class FoldSeq[R <: Value : Tag, T <: Value : Tag](zero: R, fn: Expression[_], seq: GSeq[T]) extends Expression[R]:
+    val zeroExpr = zero.tree
+    val fnExpr = fn
+    val streamInitExpr = seq.source.init.tree
+    val streamNextExpr = seq.source.next 
+    val seqExprs = seq.elemOps.map(_.fn)
     
-    val limitExpr = Digest.digest(
-      ConstInt32(seq.limit.getOrElse(throw new IllegalArgumentException("Reduce on infinite stream is not supported")))
-    )
-    
-    val dependencies: List[DigestedExpression] = List(zeroExpr, streamInitExpr, limitExpr)
-    val blockDeps: List[DigestedExpression] = fnExpr :: streamNextExpr :: seqExprs
+    val limitExpr = ConstInt32(seq.limit.getOrElse(throw new IllegalArgumentException("Reduce on infinite stream is not supported")))
+
 
 
 

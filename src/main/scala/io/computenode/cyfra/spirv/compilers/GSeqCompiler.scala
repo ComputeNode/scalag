@@ -1,9 +1,9 @@
 package io.computenode.cyfra.spirv.compilers
 
+import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.GSeq.*
 import io.computenode.cyfra.spirv.Opcodes.*
 import io.computenode.cyfra.dsl.Value.*
-import io.computenode.cyfra.spirv.Digest.DigestedExpression
 import io.computenode.cyfra.spirv.{Context, ScopeBuilder}
 import izumi.reflect.Tag
 import io.computenode.cyfra.spirv.SpirvConstants.*
@@ -11,7 +11,7 @@ import io.computenode.cyfra.spirv.SpirvTypes.*
 
 private[cyfra] object GSeqCompiler:
   
-  def compileFold(expr: DigestedExpression, fold: FoldSeq[_, _], ctx: Context): (List[Words], Context) =
+  def compileFold(fold: FoldSeq[_, _], ctx: Context): (List[Words], Context) =
     val loopBack = ctx.nextResultId
     val mergeBlock = ctx.nextResultId + 1
     val continueTarget = ctx.nextResultId + 2
@@ -35,7 +35,7 @@ private[cyfra] object GSeqCompiler:
 
     val ops = fold.seq.elemOps
     val genInitExpr = fold.streamInitExpr
-    val genInitType = ctx.valueTypeMap(genInitExpr.expr.tag.tag)
+    val genInitType = ctx.valueTypeMap(genInitExpr.tag.tag)
     val genInitPointerType = ctx.funPointerTypeMap(genInitType)
     val genNextExpr = fold.streamNextExpr
 
@@ -43,21 +43,21 @@ private[cyfra] object GSeqCompiler:
     val int32PointerType = ctx.funPointerTypeMap(int32Type)
 
     val foldZeroExpr = fold.zeroExpr
-    val foldZeroType = ctx.valueTypeMap(foldZeroExpr.expr.tag.tag)
+    val foldZeroType = ctx.valueTypeMap(foldZeroExpr.tag.tag)
     val foldZeroPointerType = ctx.funPointerTypeMap(foldZeroType)
     val foldFnExpr = fold.fnExpr
 
-    def generateSeqOps(seqExprs: List[(ElemOp[_], DigestedExpression)], context: Context, elemRef: Int): (List[Words], Context) =
+    def generateSeqOps(seqExprs: List[(ElemOp[_], E[_])], context: Context, elemRef: Int): (List[Words], Context) =
       val withElemRefCtx = context.copy(
-        exprRefs = context.exprRefs + (fold.seq.currentElemDigest -> elemRef)
+        exprRefs = context.exprRefs + (fold.seq.currentElemExprTreeId -> elemRef)
       )
       seqExprs match {
         case Nil => // No more transformations, so reduce ops now
           val resultRef = context.nextResultId
           val forReduceCtx = withElemRefCtx.copy(
-            exprRefs = withElemRefCtx.exprRefs + (fold.seq.aggregateElemDigest -> resultRef)
+            exprRefs = withElemRefCtx.exprRefs + (fold.seq.aggregateElemExprTreeId -> resultRef)
           ).copy(nextResultId = context.nextResultId + 1)
-          val (reduceOps, reduceCtx) = ExpressionCompiler.compileBlock(ScopeBuilder.buildScope(foldFnExpr), forReduceCtx)
+          val (reduceOps, reduceCtx) = ExpressionCompiler.compileBlock(foldFnExpr, forReduceCtx)
           val instructions = List(
             Instruction(Op.OpLoad, List(
               ResultRef(foldZeroType),
@@ -67,7 +67,7 @@ private[cyfra] object GSeqCompiler:
           ) ::: reduceOps ::: List(
             Instruction(Op.OpStore, List(
               ResultRef(resultVar),
-              ResultRef(reduceCtx.exprRefs(foldFnExpr.exprId))
+              ResultRef(reduceCtx.exprRefs(foldFnExpr.treeid))
             ))
           )
           (instructions, ctx.joinNested(reduceCtx))
@@ -75,15 +75,13 @@ private[cyfra] object GSeqCompiler:
 
           op match {
             case MapOp(_) =>
-              val mapBlock = ScopeBuilder.buildScope(dExpr)
-              val (mapOps, mapContext) = ExpressionCompiler.compileBlock(mapBlock, withElemRefCtx)
-              val newElemRef = mapContext.exprRefs(dExpr.exprId)
+              val (mapOps, mapContext) = ExpressionCompiler.compileBlock(dExpr, withElemRefCtx)
+              val newElemRef = mapContext.exprRefs(dExpr.treeid)
               val (tailOps, tailContext) = generateSeqOps(tail, context.joinNested(mapContext), newElemRef)
               (mapOps ++ tailOps, tailContext)
             case FilterOp(_) =>
-              val filterBlock = ScopeBuilder.buildScope(dExpr)
-              val (filterOps, filterContext) = ExpressionCompiler.compileBlock(filterBlock, withElemRefCtx)
-              val condResultRef = filterContext.exprRefs(dExpr.exprId)
+              val (filterOps, filterContext) = ExpressionCompiler.compileBlock(dExpr, withElemRefCtx)
+              val condResultRef = filterContext.exprRefs(dExpr.treeid)
               val mergeBlock = filterContext.nextResultId
               val trueLabel = filterContext.nextResultId + 1
               val (tailOps, tailContext) = generateSeqOps(
@@ -108,9 +106,8 @@ private[cyfra] object GSeqCompiler:
               )
               (instructions, tailContext)
             case TakeUntilOp(_) =>
-              val takeUntilBlock = ScopeBuilder.buildScope(dExpr)
-              val (takeUntilOps, takeUntilContext) = ExpressionCompiler.compileBlock(takeUntilBlock, withElemRefCtx)
-              val condResultRef = takeUntilContext.exprRefs(dExpr.exprId)
+              val (takeUntilOps, takeUntilContext) = ExpressionCompiler.compileBlock(dExpr, withElemRefCtx)
+              val condResultRef = takeUntilContext.exprRefs(dExpr.treeid)
               val mergeBlock = takeUntilContext.nextResultId
               val trueLabel = takeUntilContext.nextResultId + 1
               val (tailOps, tailContext) = generateSeqOps(
@@ -150,9 +147,9 @@ private[cyfra] object GSeqCompiler:
     val (seqOps, seqOpsCtx) = generateSeqOps(seqExprs, ctxAfterSetup, accLoaded)
 
     val withElemRefInitCtx = seqOpsCtx.copy(
-      exprRefs = ctx.exprRefs + (fold.seq.currentElemDigest -> accLoaded),
+      exprRefs = ctx.exprRefs + (fold.seq.currentElemExprTreeId -> accLoaded),
     )
-    val (generatorOps, generatorCtx) = ExpressionCompiler.compileBlock(ScopeBuilder.buildScope(genNextExpr), withElemRefInitCtx)
+    val (generatorOps, generatorCtx) = ExpressionCompiler.compileBlock(genNextExpr, withElemRefInitCtx)
     val instructions = List(
       Instruction(Op.OpVariable, List( // bool shouldTake
         ResultRef(boolPointerType),
@@ -184,11 +181,11 @@ private[cyfra] object GSeqCompiler:
       )),
       Instruction(Op.OpStore, List( // acc = genInitExpr
         ResultRef(accVar),
-        ResultRef(ctx.exprRefs(genInitExpr.exprId))
+        ResultRef(ctx.exprRefs(genInitExpr.treeid))
       )),
       Instruction(Op.OpStore, List( // result = foldZeroExpr
         ResultRef(resultVar),
-        ResultRef(ctx.exprRefs(foldZeroExpr.exprId))
+        ResultRef(ctx.exprRefs(foldZeroExpr.treeid))
       )),
       Instruction(Op.OpBranch, List(ResultRef(loopBack))),
       Instruction(Op.OpLabel, List(ResultRef(loopBack))),
@@ -209,7 +206,7 @@ private[cyfra] object GSeqCompiler:
         ResultRef(boolType),
         ResultRef(isLessThanLimitInCheck),
         ResultRef(iInCheck),
-        ResultRef(ctx.exprRefs(fold.limitExpr.exprId))
+        ResultRef(ctx.exprRefs(fold.limitExpr.treeid))
       )),
       Instruction(Op.OpLogicalAnd, List(
         ResultRef(boolType),
@@ -232,7 +229,7 @@ private[cyfra] object GSeqCompiler:
       List(
         Instruction(Op.OpStore, List(
           ResultRef(accVar),
-          ResultRef(generatorCtx.exprRefs(genNextExpr.exprId))
+          ResultRef(generatorCtx.exprRefs(genNextExpr.treeid))
         )),
         Instruction(Op.OpLoad, List(
           ResultRef(int32Type),
@@ -264,5 +261,5 @@ private[cyfra] object GSeqCompiler:
 
 
     (instructions, generatorCtx.copy(
-      exprRefs = generatorCtx.exprRefs + (expr.exprId -> finalResult)
+      exprRefs = generatorCtx.exprRefs + (fold.treeid -> finalResult)
     ))
