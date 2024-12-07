@@ -1,11 +1,10 @@
 package io.computenode.cyfra.spirv.compilers
 
 import io.computenode.cyfra.spirv.Opcodes.*
-import io.computenode.cyfra.dsl.Expression.Const
-import io.computenode.cyfra.dsl.GStructSchema
+import io.computenode.cyfra.dsl.Expression.{Const, E}
+import io.computenode.cyfra.dsl.{GStructSchema, Value}
 import io.computenode.cyfra.dsl.Value.*
 import io.computenode.cyfra.spirv.Context
-import io.computenode.cyfra.spirv.Digest.DigestedExpression
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
@@ -13,7 +12,13 @@ import izumi.reflect.Tag
 
 private[cyfra]  object SpirvProgramCompiler:
 
-  def compileMain(sortedTree: List[DigestedExpression], resultType: Tag[_], ctx: Context): (List[Words], Context) = {
+  private def bubbleUpVars(exprs: List[Words]): (List[Words], List[Words]) =
+    exprs.partition {
+      case Instruction(Op.OpVariable, _) => true
+      case _ => false
+    }
+
+  def compileMain(tree: Value, resultType: Tag[_], ctx: Context): (List[Words], Context) = {
 
     val init = List(
       Instruction(Op.OpFunction, List(
@@ -41,10 +46,12 @@ private[cyfra]  object SpirvProgramCompiler:
       ))
     )
 
-    val (body, codeCtx) = compileBlock(sortedTree, ctx.copy(
+    val (body, codeCtx) = compileBlock(tree.tree, ctx.copy(
       nextResultId = ctx.nextResultId + 3,
       workerIndexRef = ctx.nextResultId + 2
     ))
+
+    val (vars, nonVarsBody) = bubbleUpVars(body)
 
     val end = List(
       Instruction(Op.OpAccessChain, List(
@@ -57,12 +64,12 @@ private[cyfra]  object SpirvProgramCompiler:
 
       Instruction(Op.OpStore, List(
         ResultRef(codeCtx.nextResultId),
-        ResultRef(codeCtx.exprRefs(sortedTree.last.exprId))
+        ResultRef(codeCtx.exprRefs(tree.tree.treeid))
       )),
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List())
     )
-    (init ::: initWorkerIndex ::: body ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
+    (init ::: vars ::: initWorkerIndex ::: nonVarsBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
   }
 
   def getNameDecorations(ctx: Context): List[Instruction] =
@@ -82,7 +89,7 @@ private[cyfra]  object SpirvProgramCompiler:
     binding: Int
   )
 
-  def headers(): List[Words] = {
+  val headers: List[Words] = {
     Word(Array(0x03, 0x02, 0x23, 0x07)) :: // SPIR-V
       Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 0.1.0
       Word(Array(cyfraVendorId, 0x00, 0x01, 0x00)) :: // Generator: cyfra; 1
@@ -98,14 +105,16 @@ private[cyfra]  object SpirvProgramCompiler:
         ResultRef(MAIN_FUNC_REF), ExecutionMode.LocalSize, IntWord(256), IntWord(1), IntWord(1)
       )) :: // OpExecutionMode %4 LocalSize 128 1 1
       Instruction(Op.OpSource, List(SourceLanguage.GLSL, IntWord(450))) :: // OpSource GLSL 450
-      Instruction(Op.OpDecorate, List(
-        ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
-      )) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
-      Instruction(Op.OpDecorate, List(
-        ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize
-      )) ::
       Nil
   }
+
+  val workgroupDecorations: List[Words]  =
+    Instruction(Op.OpDecorate, List(
+      ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
+    )) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
+      Instruction(Op.OpDecorate, List(
+        ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize
+    )) :: Nil
 
   def defineVoids(context: Context): (List[Words], Context) = {
     val voidDef = List[Words](
@@ -270,9 +279,9 @@ private[cyfra]  object SpirvProgramCompiler:
         uniformPointerMap = ctx.uniformPointerMap + (uniformStructTypeRef -> uniformPointerUniformRef)
       ))
 
-  def defineConstants(exprs: List[DigestedExpression], ctx: Context): (List[Words], Context) = {
+  def defineConstants(exprs: List[E[_]], ctx: Context): (List[Words], Context) = {
     val consts = (exprs.collect {
-      case DigestedExpression(_, c@Const(x), _, _, _) =>
+      case c @ Const(x) =>
         (c.tag, x)
     } ::: List((Int32Tag, 0), (UInt32Tag, 0))).distinct.filterNot(_._1 == GBooleanTag)
     val (insns, newC) = consts.foldLeft((List[Words](), ctx)) {

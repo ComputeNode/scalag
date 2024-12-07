@@ -16,7 +16,9 @@ abstract class GStruct[T <: GStruct[T] : Tag : GStructSchema] extends Value with
   self: T =>
   private[cyfra] var _schema: GStructSchema[T] = summon[GStructSchema[T]] // a nasty hack
   def schema: GStructSchema[T] = _schema
-  lazy val tree: E[T] = schema.tree(self)
+  lazy val tree: E[T] =
+    schema.tree(self)
+  override protected def init(): Unit = ()
   private[dsl] var _name = sourcecode.Name("Unknown")
   override def name: sourcecode.Name = _name
 
@@ -38,6 +40,7 @@ case class GStructSchema[T <: GStruct[T]: Tag](
     val valuesTuple = Tuple.fromArray(values.toArray)
     val newStruct = fromTuple(valuesTuple, name)
     newStruct._schema = schema
+    newStruct.tree.of = Some(newStruct)
     newStruct
 
   def fromTree(e: E[T])(using sourcecode.Name): T =

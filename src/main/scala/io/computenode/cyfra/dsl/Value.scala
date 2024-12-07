@@ -5,10 +5,13 @@ import io.computenode.cyfra.dsl.Algebra.*
 import io.computenode.cyfra.dsl.Expression.E
 import izumi.reflect.Tag
 
-trait Value {
+trait Value:
   def tree: E[_]
   def name: sourcecode.Name
-}
+  private[cyfra] def treeid: Int = tree.treeid
+  protected def init() = 
+    tree.of = Some(this)
+  init()
 
 object Value {
   sealed trait Scalar extends Value

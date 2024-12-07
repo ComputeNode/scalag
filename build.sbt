@@ -50,7 +50,8 @@ lazy val root = (project in file("."))
       "org.slf4j" % "slf4j-simple" % "1.7.30" % Test,
       "org.scalameta" % "munit_3" % "1.0.0" % Test,
       "org.junit.jupiter" % "junit-jupiter" % "5.6.2" % Test,
-      "org.junit.jupiter" % "junit-jupiter-engine" % "5.7.2" % Test
+      "org.junit.jupiter" % "junit-jupiter-engine" % "5.7.2" % Test,
+      "com.lihaoyi" %% "sourcecode" % "0.4.3-M5"
     )
   )
 

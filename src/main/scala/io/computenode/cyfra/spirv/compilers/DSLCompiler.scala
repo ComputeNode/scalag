@@ -10,12 +10,11 @@ import izumi.reflect.Tag
 import izumi.reflect.macrortti.{LTag, LTagK, LightTypeTag}
 import org.lwjgl.BufferUtils
 import SpirvProgramCompiler.{ArrayBufferBlock, compileMain, createAndInitUniformBlock, createInvocationId, defineConstants, defineVarNames, defineVoids, getNameDecorations, headers, initAndDecorateUniforms}
-import io.computenode.cyfra.spirv.Digest.DigestedExpression
 import io.computenode.cyfra.spirv.SpirvConstants.*
 import io.computenode.cyfra.spirv.SpirvTypes.*
 import io.computenode.cyfra.spirv.compilers.ExpressionCompiler.compileBlock
 import io.computenode.cyfra.spirv.compilers.GStructCompiler.defineStructTypes
-import io.computenode.cyfra.spirv.{Context, Digest, ScopeBuilder}
+import io.computenode.cyfra.spirv.{Context}
 
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -26,45 +25,40 @@ import scala.util.Random
 
 private[cyfra] object DSLCompiler:
 
-  private def getAllBlocksExprs(root: DigestedExpression): List[DigestedExpression] = {
+  private def getAllExprsFlattened(root: E[_]): List[E[_]] = 
     var blockI = 0
-    val allBlocksCache = mutable.Map[Int, List[DigestedExpression]]()
+    val allScopesCache = mutable.Map[Int, List[E[_]]]()
     val visited = mutable.Set[Int]()
-    def getAllBlocksExprsAcc(root: DigestedExpression): List[DigestedExpression] = {
-      if (visited.contains(root.expr.treeid)) {
-        return Nil
-      }
-      if (allBlocksCache.contains(root.expr.treeid)) {
-        return allBlocksCache(root.expr.treeid)
-      }
-      val result = List(root).flatMap {
-        case d@DigestedExpression(_, _, deps, blockDeps, _) =>
-          d :: deps.flatMap(b => getAllBlocksExprsAcc(b)) ::: blockDeps.flatMap(b => getAllBlocksExprsAcc(b))
-      }
-      visited += root.expr.treeid
-      blockI += 1
-      if (blockI % 100 == 0) {
-        allBlocksCache.update(root.expr.treeid, result)
-      }
-      result
-    }
-    val result = getAllBlocksExprsAcc(root)
-    allBlocksCache(root.expr.treeid) = result
-    blockI += 1
+    @tailrec
+    def getAllScopesExprsAcc(toVisit: List[E[_]], acc: List[E[_]] = Nil): List[E[_]] = toVisit match
+      case Nil => acc
+      case e :: tail if visited.contains(e.treeid) => getAllScopesExprsAcc(tail, acc)
+      case e :: tail =>
+        if (allScopesCache.contains(root.treeid)) {
+          return allScopesCache(root.treeid)
+        }
+        // Random is skipped! FromExpr???
+        val eScopes = e.introducedScopes
+        val newToVisit = toVisit ::: e.exprDependencies ::: eScopes.map(_.expr)
+        val result = e.exprDependencies ::: acc
+        visited += e.treeid
+        blockI += 1
+        if (blockI % 100 == 0) {
+          allScopesCache.update(e.treeid, result)
+        }
+        getAllScopesExprsAcc(newToVisit, result)
+    val result = getAllScopesExprsAcc(root :: Nil)
+    allScopesCache(root.treeid) = result
     result
-  }
-  
-  def compile(returnVal: Value, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer =
-    val tree = returnVal.tree
-    val digestTree = Digest.digest(tree)
-    val sorted = ScopeBuilder.buildScope(digestTree)
-    val allBlockExprs = getAllBlocksExprs(digestTree)
-    val insnWithHeader = SpirvProgramCompiler.headers()
-    val typesInCode = allBlockExprs.map(_.expr.tag)
+
+  def compile(tree: Value, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer =
+    val treeExpr = tree.tree
+    val allExprs = getAllExprsFlattened(treeExpr)
+    val typesInCode = allExprs.map(_.tag).distinct
     val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
     val (typeDefs, typedContext) = defineScalarTypes(scalarTypes, Context.initialContext)
-    val structsInCode = (allBlockExprs.map(_.expr).collect {
+    val structsInCode = (allExprs.collect {
       case cs: ComposeStruct[_] => cs.resultSchema
       case gf: GetField[_, _] => gf.resultSchema
     } :+ uniformSchema).distinct
@@ -72,16 +66,17 @@ private[cyfra] object DSLCompiler:
     val (decorations, uniformDefs, uniformContext) = initAndDecorateUniforms(inTypes, outTypes, structCtx)
     val (uniformStructDecorations, uniformStructInsns, uniformStructContext) = createAndInitUniformBlock(uniformSchema, uniformContext)
     val (inputDefs, inputContext) = createInvocationId(uniformStructContext)
-    val (constDefs, constCtx) = defineConstants(allBlockExprs, inputContext)
+    val (constDefs, constCtx) = defineConstants(allExprs, inputContext)
     val (varDefs, varCtx) = defineVarNames(constCtx)
-    val resultType = returnVal.tree.tag
-    val (main, finalCtx) = compileMain(sorted, resultType, varCtx)
+    val resultType = tree.tree.tag
+    val (main, finalCtx) = compileMain(tree, resultType, varCtx)
     val nameDecorations = getNameDecorations(finalCtx)
 
     val code: List[Words] =
-      insnWithHeader :::
-        decorations :::
+      SpirvProgramCompiler.headers :::
         nameDecorations :::
+        SpirvProgramCompiler.workgroupDecorations :::
+        decorations :::
         uniformStructDecorations :::
         typeDefs :::
         structDefs :::
