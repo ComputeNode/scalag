@@ -50,12 +50,10 @@ private[cyfra] object DSLCompiler:
     val result = getAllScopesExprsAcc(root :: Nil)
     allScopesCache(root.treeid) = result
     result
-  
-  
+
   def compile(tree: Value, inTypes: List[Tag[_]], outTypes: List[Tag[_]], uniformSchema: GStructSchema[_]): ByteBuffer =
     val treeExpr = tree.tree
     val allExprs = getAllExprsFlattened(treeExpr)
-    val insnWithHeader = SpirvProgramCompiler.headers()
     val typesInCode = allExprs.map(_.tag).distinct
     val allTypes = (typesInCode ::: inTypes ::: outTypes).distinct
     def scalarTypes = allTypes.filter(_.tag <:< summon[Tag[Scalar]].tag)
@@ -75,9 +73,10 @@ private[cyfra] object DSLCompiler:
     val nameDecorations = getNameDecorations(finalCtx)
 
     val code: List[Words] =
-      insnWithHeader :::
-        decorations :::
+      SpirvProgramCompiler.headers :::
         nameDecorations :::
+        SpirvProgramCompiler.workgroupDecorations :::
+        decorations :::
         uniformStructDecorations :::
         typeDefs :::
         structDefs :::

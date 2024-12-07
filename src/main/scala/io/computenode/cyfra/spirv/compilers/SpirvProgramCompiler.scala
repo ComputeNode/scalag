@@ -12,6 +12,12 @@ import izumi.reflect.Tag
 
 private[cyfra]  object SpirvProgramCompiler:
 
+  private def bubbleUpVars(exprs: List[Words]): (List[Words], List[Words]) =
+    exprs.partition {
+      case Instruction(Op.OpVariable, _) => true
+      case _ => false
+    }
+
   def compileMain(tree: Value, resultType: Tag[_], ctx: Context): (List[Words], Context) = {
 
     val init = List(
@@ -45,6 +51,8 @@ private[cyfra]  object SpirvProgramCompiler:
       workerIndexRef = ctx.nextResultId + 2
     ))
 
+    val (vars, nonVarsBody) = bubbleUpVars(body)
+
     val end = List(
       Instruction(Op.OpAccessChain, List(
         ResultRef(codeCtx.uniformPointerMap(codeCtx.valueTypeMap(resultType.tag))),
@@ -61,7 +69,7 @@ private[cyfra]  object SpirvProgramCompiler:
       Instruction(Op.OpReturn, List()),
       Instruction(Op.OpFunctionEnd, List())
     )
-    (init ::: initWorkerIndex ::: body ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
+    (init ::: vars ::: initWorkerIndex ::: nonVarsBody ::: end, codeCtx.copy(nextResultId = codeCtx.nextResultId + 1))
   }
 
   def getNameDecorations(ctx: Context): List[Instruction] =
@@ -81,7 +89,7 @@ private[cyfra]  object SpirvProgramCompiler:
     binding: Int
   )
 
-  def headers(): List[Words] = {
+  val headers: List[Words] = {
     Word(Array(0x03, 0x02, 0x23, 0x07)) :: // SPIR-V
       Word(Array(0x00, 0x00, 0x01, 0x00)) :: // Version: 0.1.0
       Word(Array(cyfraVendorId, 0x00, 0x01, 0x00)) :: // Generator: cyfra; 1
@@ -97,14 +105,16 @@ private[cyfra]  object SpirvProgramCompiler:
         ResultRef(MAIN_FUNC_REF), ExecutionMode.LocalSize, IntWord(256), IntWord(1), IntWord(1)
       )) :: // OpExecutionMode %4 LocalSize 128 1 1
       Instruction(Op.OpSource, List(SourceLanguage.GLSL, IntWord(450))) :: // OpSource GLSL 450
-      Instruction(Op.OpDecorate, List(
-        ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
-      )) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
-      Instruction(Op.OpDecorate, List(
-        ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize
-      )) ::
       Nil
   }
+
+  val workgroupDecorations: List[Words]  =
+    Instruction(Op.OpDecorate, List(
+      ResultRef(GL_GLOBAL_INVOCATION_ID_REF), Decoration.BuiltIn, BuiltIn.GlobalInvocationId
+    )) :: // OpDecorate %GL_GLOBAL_INVOCATION_ID_REF BuiltIn GlobalInvocationId
+      Instruction(Op.OpDecorate, List(
+        ResultRef(GL_WORKGROUP_SIZE_REF), Decoration.BuiltIn, BuiltIn.WorkgroupSize
+    )) :: Nil
 
   def defineVoids(context: Context): (List[Words], Context) = {
     val voidDef = List[Words](

@@ -73,8 +73,7 @@ given [T <: GStruct[T] : GStructSchema]: GStructConstructor[T] with
 case class ComposeStruct[T <: GStruct[T] : Tag](
   fields: List[Value],
   resultSchema: GStructSchema[T]
-) extends Expression[T]:
-  override def dependencies: List[Value] = fields
+) extends Expression[T]
 
 case class GetField[S <: GStruct[S] : GStructSchema, T <: Value : Tag](
   struct: E[S],

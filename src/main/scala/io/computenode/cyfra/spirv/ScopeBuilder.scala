@@ -4,40 +4,44 @@ import io.computenode.cyfra.dsl.Expression.E
 import io.computenode.cyfra.dsl.Value
 
 import scala.collection.mutable
+import scala.quoted.Expr
 
 
 private[cyfra] object ScopeBuilder:
 
   def buildScope(tree: E[_]): List[E[_]] =
-
-    val inDegrees = mutable.Map[Int, Int]()
+    val allVisited = mutable.Map[Int, E[_]]()
+    val inDegrees = mutable.Map[Int, Int]().withDefaultValue(0)
     val q = mutable.Queue[E[_]]()
     q.enqueue(tree)
+    allVisited(tree.treeid) = tree
+
     while q.nonEmpty do
       val curr = q.dequeue()
-      curr match
-        case expr: E[_] =>
-          val children = expr.exprDependencies
-          children.foreach: child =>
-            val childId = child.treeid
-            inDegrees(childId) = inDegrees.getOrElse(childId, 0) + 1
-            q.enqueue(child)
-        case v: Value =>
-          q.enqueue(v.tree)
+      val children = curr.exprDependencies
+      children.foreach: child =>
+        val childId = child.treeid
+        inDegrees(childId) += 1
+        if !allVisited.contains(childId) then
+          allVisited(childId) = child
+          q.enqueue(child)
 
     val l = mutable.ListBuffer[E[_]]()
-    val roots = mutable.Set[E[_]](tree)
+    val roots = mutable.Queue[E[_]]()
+    allVisited.values.foreach: node =>
+      if inDegrees(node.treeid) == 0 then
+        roots.enqueue(node)
 
     while roots.nonEmpty do
-      val curr: E[_] = roots.head
-      roots.remove(curr)
+      val curr = roots.dequeue()
       l += curr
       curr.exprDependencies.foreach: child =>
         val childId = child.treeid
         inDegrees(childId) -= 1
         if inDegrees(childId) == 0 then
-          roots += child
+          roots.enqueue(child)
 
-    assert(inDegrees.valuesIterator.forall(_ == 0), "Cycle detected in the graph")
+    if inDegrees.valuesIterator.exists(_ != 0) then
+      throw new IllegalStateException("Cycle detected in the expression graph: ")
     l.toList.reverse
 

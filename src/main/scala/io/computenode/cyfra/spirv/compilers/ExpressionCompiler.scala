@@ -104,7 +104,7 @@ private[cyfra] object ExpressionCompiler:
       nextResultId = ctx.nextResultId + 1
     )
     (instructions, updatedContext)
-
+  
   def compileBlock(tree: E[_], ctx: Context): (List[Words], Context) = {
 
     @tailrec
@@ -358,7 +358,7 @@ private[cyfra] object ExpressionCompiler:
                   ResultRef(ctx.valueTypeMap(cs.tag.tag)),
                   ResultRef(ctx.nextResultId),
                 ) ::: fields.zipWithIndex.map {
-                  case (f, i) => ResultRef(ctx.exprRefs(cs.dependencies(i).treeid))
+                  case (f, i) => ResultRef(ctx.exprRefs(cs.exprDependencies(i).treeid))
                 })
               )
               val updatedContext = ctx.copy(

@@ -1,7 +1,7 @@
 package io.computenode.cyfra.dsl
 
-import io.computenode.cyfra.dsl.Algebra.{*, given}
-import io.computenode.cyfra.dsl.Control.when
+ import io.computenode.cyfra.dsl.Algebra.{*, given}
+import io.computenode.cyfra.dsl.Control.{Scope, when}
 import io.computenode.cyfra.dsl.Expression.{ConstInt32, E}
 import io.computenode.cyfra.dsl.GSeq.*
 import io.computenode.cyfra.dsl.Value.*
@@ -120,6 +120,9 @@ object GSeq:
     val seqExprs = seq.elemOps.map(_.fn)
     
     val limitExpr = ConstInt32(seq.limit.getOrElse(throw new IllegalArgumentException("Reduce on infinite stream is not supported")))
+
+    override val exprDependencies: List[E[_]] = List(zeroExpr, streamInitExpr, limitExpr)
+    override val introducedScopes: List[Scope[_]] = Scope(fnExpr)(using fnExpr.tag) :: Scope(streamNextExpr)(using streamNextExpr.tag) :: seqExprs.map(e => Scope(e)(using e.tag))
 
 
 
